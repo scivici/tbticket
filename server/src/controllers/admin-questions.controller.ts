@@ -9,21 +9,7 @@ export function listQuestions(req: Request, res: Response): void {
     'SELECT * FROM question_templates WHERE category_id = ? ORDER BY display_order'
   ).all(categoryId);
 
-  const parsed = questions.map((q: any) => ({
-    id: q.id,
-    categoryId: q.category_id,
-    questionText: q.question_text,
-    questionType: q.question_type,
-    options: q.options ? JSON.parse(q.options) : null,
-    isRequired: !!q.is_required,
-    displayOrder: q.display_order,
-    conditionalOn: q.conditional_on,
-    conditionalValue: q.conditional_value,
-    placeholder: q.placeholder,
-    validationRules: q.validation_rules ? JSON.parse(q.validation_rules) : null,
-  }));
-
-  res.json(parsed);
+  res.json(questions);
 }
 
 export function createQuestion(req: Request, res: Response): void {
@@ -111,7 +97,7 @@ export function deleteQuestion(req: Request, res: Response): void {
     return;
   }
 
-  const answerRef = db.prepare('SELECT id FROM ticket_answers WHERE question_id = ? LIMIT 1').get(id) as any;
+  const answerRef = db.prepare('SELECT id FROM ticket_answers WHERE question_template_id = ? LIMIT 1').get(id) as any;
   if (answerRef) {
     res.status(409).json({ error: 'Cannot delete question: ticket answers reference it' });
     return;
@@ -123,16 +109,16 @@ export function deleteQuestion(req: Request, res: Response): void {
 
 export function reorderQuestions(req: Request, res: Response): void {
   const db = getDb();
-  const { questions } = req.body; // [{ id, displayOrder }]
+  const items = req.body.items || req.body.questions;
 
-  if (!Array.isArray(questions)) {
-    res.status(400).json({ error: 'questions array is required' });
+  if (!Array.isArray(items)) {
+    res.status(400).json({ error: 'items array is required' });
     return;
   }
 
   db.transaction(() => {
     const stmt = db.prepare('UPDATE question_templates SET display_order = ? WHERE id = ?');
-    for (const q of questions) {
+    for (const q of items) {
       stmt.run(q.displayOrder, q.id);
     }
   })();

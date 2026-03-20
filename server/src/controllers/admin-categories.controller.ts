@@ -60,16 +60,16 @@ export function deleteCategory(req: Request, res: Response): void {
 
 export function reorderCategories(req: Request, res: Response): void {
   const db = getDb();
-  const { categories } = req.body; // [{ id, displayOrder }]
+  const items = req.body.items || req.body.categories;
 
-  if (!Array.isArray(categories)) {
-    res.status(400).json({ error: 'categories array is required' });
+  if (!Array.isArray(items)) {
+    res.status(400).json({ error: 'items array is required' });
     return;
   }
 
   db.transaction(() => {
     const stmt = db.prepare('UPDATE product_categories SET display_order = ? WHERE id = ?');
-    for (const cat of categories) {
+    for (const cat of items) {
       stmt.run(cat.displayOrder, cat.id);
     }
   })();
