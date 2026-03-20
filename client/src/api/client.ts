@@ -76,6 +76,8 @@ export const engineers = {
     request<any>('/engineers', { method: 'POST', body: JSON.stringify(data) }),
   update: (id: number, data: any) =>
     request<any>(`/engineers/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  delete: (id: number) =>
+    request<any>(`/engineers/${id}`, { method: 'DELETE' }),
   updateSkills: (id: number, skills: any[]) =>
     request<any>(`/engineers/${id}/skills`, { method: 'PUT', body: JSON.stringify({ skills }) }),
   updateExpertise: (id: number, expertise: any[]) =>

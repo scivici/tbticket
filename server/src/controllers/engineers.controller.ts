@@ -118,6 +118,25 @@ export function updateExpertise(req: Request, res: Response): void {
   res.json({ message: 'Expertise updated' });
 }
 
+export function deleteEngineer(req: Request, res: Response): void {
+  const db = getDb();
+  const { id } = req.params;
+
+  const hasTickets = db.prepare('SELECT COUNT(*) as c FROM tickets WHERE assigned_engineer_id = ?').get(id) as any;
+  if (hasTickets.c > 0) {
+    res.status(409).json({ error: 'Cannot delete engineer with assigned tickets. Reassign tickets first.' });
+    return;
+  }
+
+  db.transaction(() => {
+    db.prepare('DELETE FROM engineer_skills WHERE engineer_id = ?').run(id);
+    db.prepare('DELETE FROM engineer_product_expertise WHERE engineer_id = ?').run(id);
+    db.prepare('DELETE FROM engineers WHERE id = ?').run(id);
+  })();
+
+  res.json({ message: 'Engineer deleted' });
+}
+
 export function getSkillsList(_req: Request, res: Response): void {
   const db = getDb();
   const skills = db.prepare('SELECT * FROM skills ORDER BY name').all();

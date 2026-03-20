@@ -17,16 +17,16 @@ router.delete('/products/:id', adminProducts.deleteProduct);
 
 // Categories
 router.post('/categories', adminCategories.createCategory);
+router.put('/categories/reorder', adminCategories.reorderCategories);
 router.patch('/categories/:id', adminCategories.updateCategory);
 router.delete('/categories/:id', adminCategories.deleteCategory);
-router.put('/categories/reorder', adminCategories.reorderCategories);
 
 // Questions
 router.get('/questions/category/:categoryId', adminQuestions.listQuestions);
 router.post('/questions', adminQuestions.createQuestion);
+router.put('/questions/reorder', adminQuestions.reorderQuestions);
 router.patch('/questions/:id', adminQuestions.updateQuestion);
 router.delete('/questions/:id', adminQuestions.deleteQuestion);
-router.put('/questions/reorder', adminQuestions.reorderQuestions);
 
 // Skills
 router.get('/skills', adminSkills.listSkills);
