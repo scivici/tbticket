@@ -43,11 +43,11 @@ RUN mkdir -p /app/server/data /app/server/uploads
 
 # Environment
 ENV NODE_ENV=production
-ENV PORT=3001
+ENV PORT=4001
 ENV DB_PATH=/app/server/data/tickets.db
 ENV UPLOAD_DIR=/app/server/uploads
 
-EXPOSE 3001
+EXPOSE 4001
 
 # Install tsx for running TypeScript directly
 RUN npm install -g tsx
