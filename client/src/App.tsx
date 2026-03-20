@@ -12,6 +12,10 @@ import Dashboard from './pages/admin/Dashboard';
 import TicketList from './pages/admin/TicketList';
 import TicketDetail from './pages/admin/TicketDetail';
 import EngineerManager from './pages/admin/EngineerManager';
+import ProductManager from './pages/admin/ProductManager';
+import CategoryManager from './pages/admin/CategoryManager';
+import QuestionManager from './pages/admin/QuestionManager';
+import SkillManager from './pages/admin/SkillManager';
 
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const { isAdmin, loading } = useAuth();
@@ -35,6 +39,10 @@ export default function App() {
         <Route path="/admin/tickets" element={<AdminRoute><TicketList /></AdminRoute>} />
         <Route path="/admin/tickets/:id" element={<AdminRoute><TicketDetail /></AdminRoute>} />
         <Route path="/admin/engineers" element={<AdminRoute><EngineerManager /></AdminRoute>} />
+        <Route path="/admin/products" element={<AdminRoute><ProductManager /></AdminRoute>} />
+        <Route path="/admin/categories" element={<AdminRoute><CategoryManager /></AdminRoute>} />
+        <Route path="/admin/questions" element={<AdminRoute><QuestionManager /></AdminRoute>} />
+        <Route path="/admin/skills" element={<AdminRoute><SkillManager /></AdminRoute>} />
       </Route>
     </Routes>
   );

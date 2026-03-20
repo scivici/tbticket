@@ -87,3 +87,49 @@ export const engineers = {
 export const admin = {
   dashboard: () => request<any>('/admin/dashboard'),
 };
+
+// Admin Manage
+const manage = '/admin/manage';
+
+export const adminProducts = {
+  create: (data: any) =>
+    request<any>(`${manage}/products`, { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: number, data: any) =>
+    request<any>(`${manage}/products/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  delete: (id: number) =>
+    request<any>(`${manage}/products/${id}`, { method: 'DELETE' }),
+};
+
+export const adminCategories = {
+  create: (data: any) =>
+    request<any>(`${manage}/categories`, { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: number, data: any) =>
+    request<any>(`${manage}/categories/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  delete: (id: number) =>
+    request<any>(`${manage}/categories/${id}`, { method: 'DELETE' }),
+  reorder: (items: { id: number; displayOrder: number }[]) =>
+    request<any>(`${manage}/categories/reorder`, { method: 'PUT', body: JSON.stringify({ items }) }),
+};
+
+export const adminQuestions = {
+  list: (categoryId: number) =>
+    request<any[]>(`${manage}/questions/category/${categoryId}`),
+  create: (data: any) =>
+    request<any>(`${manage}/questions`, { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: number, data: any) =>
+    request<any>(`${manage}/questions/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  delete: (id: number) =>
+    request<any>(`${manage}/questions/${id}`, { method: 'DELETE' }),
+  reorder: (items: { id: number; displayOrder: number }[]) =>
+    request<any>(`${manage}/questions/reorder`, { method: 'PUT', body: JSON.stringify({ items }) }),
+};
+
+export const adminSkills = {
+  list: () => request<any[]>(`${manage}/skills`),
+  create: (data: any) =>
+    request<any>(`${manage}/skills`, { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: number, data: any) =>
+    request<any>(`${manage}/skills/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  delete: (id: number) =>
+    request<any>(`${manage}/skills/${id}`, { method: 'DELETE' }),
+};

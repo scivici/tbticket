@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { admin } from '../../api/client';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { Ticket, Users, CheckCircle, Clock } from 'lucide-react';
+import { Ticket, Users, CheckCircle, Clock, Package, FolderOpen, HelpCircle, Wrench } from 'lucide-react';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#6b7280'];
 
@@ -27,12 +27,24 @@ export default function Dashboard() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Admin Dashboard</h1>
-        <div className="flex gap-3">
-          <Link to="/admin/tickets" className="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700">
-            View All Tickets
+        <div className="flex gap-2 flex-wrap">
+          <Link to="/admin/tickets" className="px-3 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700">
+            Tickets
           </Link>
-          <Link to="/admin/engineers" className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50">
-            Manage Engineers
+          <Link to="/admin/engineers" className="px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50">
+            Engineers
+          </Link>
+          <Link to="/admin/products" className="px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50">
+            Products
+          </Link>
+          <Link to="/admin/categories" className="px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50">
+            Categories
+          </Link>
+          <Link to="/admin/questions" className="px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50">
+            Questions
+          </Link>
+          <Link to="/admin/skills" className="px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50">
+            Skills
           </Link>
         </div>
       </div>

@@ -11,6 +11,7 @@ import productsRoutes from './routes/products.routes';
 import ticketsRoutes from './routes/tickets.routes';
 import engineersRoutes from './routes/engineers.routes';
 import adminRoutes from './routes/admin.routes';
+import adminManageRoutes from './routes/admin-manage.routes';
 
 const app = express();
 
@@ -26,6 +27,7 @@ app.use('/api/products', productsRoutes);
 app.use('/api/tickets', ticketsRoutes);
 app.use('/api/engineers', engineersRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/admin/manage', adminManageRoutes);
 
 // Health check
 app.get('/api/health', (_req, res) => {
