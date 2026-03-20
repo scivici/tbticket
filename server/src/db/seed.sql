@@ -1,6 +1,6 @@
 -- ============ Admin User (password: admin123) ============
 INSERT OR IGNORE INTO customers (email, name, password_hash, role)
-VALUES ('admin@company.com', 'System Admin', '$2a$10$8KzaN2KBSxWc0CWfGHFqHOGGMPCV9R4v3MpV.lL5nJXDmFMz8sHHi', 'admin');
+VALUES ('admin@company.com', 'System Admin', '$2a$10$UIqE7rpJ9B.WUvHyzdtC2elkZFfwX3nZOWc2/eFmmnJ0Z2Zw3jnj2', 'admin');
 
 -- ============ Products ============
 INSERT OR IGNORE INTO products (id, name, model, description, image_url) VALUES
