@@ -1,0 +1,10 @@
+node_modules/
+dist/
+server/data/
+server/uploads/*.
+*.db
+.env
+.env.local
+.env.production
+.claude/
+*.log
