@@ -19,7 +19,7 @@ export default function Navbar() {
           <div className="flex items-center space-x-8">
             <Link to="/" className="flex items-center space-x-2 text-primary-600 font-bold text-lg">
               <TicketIcon className="w-6 h-6" />
-              <span>Smart Tickets</span>
+              <span>TB Support</span>
             </Link>
             <div className="hidden sm:flex space-x-4">
               <Link to="/submit" className="text-gray-600 hover:text-primary-600 px-3 py-2 text-sm font-medium">

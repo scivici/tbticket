@@ -1,149 +1,231 @@
 -- ============ Admin User (password: admin123) ============
 INSERT OR IGNORE INTO customers (email, name, password_hash, role)
-VALUES ('admin@company.com', 'System Admin', '$2a$10$UIqE7rpJ9B.WUvHyzdtC2elkZFfwX3nZOWc2/eFmmnJ0Z2Zw3jnj2', 'admin');
+VALUES ('admin@telcobridges.com', 'TB Admin', '$2a$10$UIqE7rpJ9B.WUvHyzdtC2elkZFfwX3nZOWc2/eFmmnJ0Z2Zw3jnj2', 'admin');
 
 -- ============ Products ============
 INSERT OR IGNORE INTO products (id, name, model, description, image_url) VALUES
-(1, 'SmartHome Hub', 'SH-2000', 'Central smart home controller with voice assistant, automation engine, and multi-protocol support (Zigbee, Z-Wave, WiFi, Thread).', '/images/smarthome-hub.png'),
-(2, 'IndustrialSense IoT Gateway', 'IS-500', 'Industrial IoT gateway for factory floor monitoring with edge computing, predictive maintenance, and real-time sensor data aggregation.', '/images/industrial-gateway.png');
+(1, 'ProSBC', 'SBC-SW', 'Carrier-grade Session Border Controller software. SIP trunking, peering, STIR/SHAKEN, DDoS protection, Microsoft Teams Direct Routing. 500 to 60,000 concurrent sessions.', '/images/prosbc.png'),
+(2, 'FreeSBC', 'SBC-FREE', 'Free carrier-grade SBC software for NNI peering and access. Community support. Ideal for education, startups, and testing.', '/images/freesbc.png'),
+(3, 'TMG800', 'TMG800', 'Entry-level 1U VoIP/SS7 media gateway. 1-16 T1/E1, 32-512 VoIP channels. Software upgradeable capacity.', '/images/tmg800.png'),
+(4, 'TMG3200', 'TMG3200', 'Mid-density 1U carrier-grade VoIP media gateway. Up to 64 T1/E1, 3 DS3, or 1 OC3/STM-1.', '/images/tmg3200.png'),
+(5, 'TMG7800', 'TMG7800', 'High-density scalable cluster-based VoIP media gateway. Up to 1,024 T1/E1 per cluster, 131,072 channels max.', '/images/tmg7800.png'),
+(6, 'TSG800', 'TSG800', 'Cost-effective 1U SS7/SIGTRAN signaling gateway. 1-16 T1/E1 with software upgradeable capacity.', '/images/tsg800.png'),
+(7, 'TSG3200', 'TSG3200', 'High-density signaling gateway. 16-64 T1/E1, 1-3 DS3, or 1 OC3/STM-1. SS7-to-SIGTRAN translation.', '/images/tsg3200.png');
 
 -- ============ Product Categories ============
--- SmartHome Hub categories
-INSERT OR IGNORE INTO product_categories (id, product_id, name, description, icon, display_order) VALUES
-(1, 1, 'Connectivity Issues', 'WiFi, Zigbee, Z-Wave, or Thread connection problems', 'wifi', 1),
-(2, 1, 'Voice Assistant', 'Voice recognition, command processing, or response issues', 'microphone', 2),
-(3, 1, 'Automation Rules', 'Scene, routine, or automation rule failures', 'cpu', 3),
-(4, 1, 'Device Pairing', 'Problems pairing new smart devices', 'link', 4),
-(5, 1, 'Firmware & Updates', 'Update failures, firmware corruption, or rollback issues', 'download', 5);
 
--- IndustrialSense categories
+-- ProSBC categories
 INSERT OR IGNORE INTO product_categories (id, product_id, name, description, icon, display_order) VALUES
-(6, 2, 'Sensor Data', 'Missing, incorrect, or delayed sensor readings', 'activity', 1),
-(7, 2, 'Edge Computing', 'Edge processing failures, model deployment, or resource issues', 'server', 2),
-(8, 2, 'Network & Protocols', 'Modbus, OPC-UA, MQTT, or Ethernet/IP connectivity', 'network', 3),
-(9, 2, 'Alerts & Monitoring', 'False alarms, missed alerts, or dashboard issues', 'bell', 4),
-(10, 2, 'Predictive Maintenance', 'ML model accuracy, prediction failures, or calibration', 'trending-up', 5);
+(1, 1, 'SIP Trunking & Peering', 'SIP trunk configuration, peering issues, call routing problems', 'network', 1),
+(2, 1, 'STIR/SHAKEN', 'Caller ID authentication, certificate management, attestation issues', 'shield', 2),
+(3, 1, 'Security & DDoS', 'DDoS/DoS protection, blacklisting, fraud detection, TLS/sRTP', 'shield', 3),
+(4, 1, 'Call Quality', 'Audio quality issues, codec problems, transcoding, MOS scores', 'activity', 4),
+(5, 1, 'Microsoft Teams', 'Teams Direct Routing setup, connectivity, and call flow issues', 'link', 5),
+(6, 1, 'High Availability', 'Failover configuration, ProSBC+ HA, geo-redundancy issues', 'server', 6),
+(7, 1, 'Installation & Licensing', 'Deployment, activation, upgrades, cloud setup (AWS/Azure/KVM)', 'download', 7),
+(8, 1, 'API & Integration', 'RESTful API, CDR, RADIUS, SNMP, OSS/BSS connector issues', 'cpu', 8);
+
+-- FreeSBC categories
+INSERT OR IGNORE INTO product_categories (id, product_id, name, description, icon, display_order) VALUES
+(9, 2, 'Installation & Setup', 'FreeSBC installation, initial configuration, deployment', 'download', 1),
+(10, 2, 'SIP Configuration', 'SIP trunk setup, routing rules, endpoint registration', 'network', 2),
+(11, 2, 'Upgrade to ProSBC', 'Migration from FreeSBC to ProSBC, licensing questions', 'trending-up', 3),
+(12, 2, 'General Issues', 'Performance, stability, and other FreeSBC issues', 'activity', 4);
+
+-- TMG800 categories
+INSERT OR IGNORE INTO product_categories (id, product_id, name, description, icon, display_order) VALUES
+(13, 3, 'Hardware & Installation', 'Rack mounting, power, physical interface issues', 'server', 1),
+(14, 3, 'T1/E1 Configuration', 'T1/E1 interface setup, signaling, and connectivity', 'network', 2),
+(15, 3, 'Call Quality & Codecs', 'Audio quality, echo, jitter, codec negotiation', 'activity', 3),
+(16, 3, 'SS7 Signaling', 'SS7 link setup, ISDN PRI configuration, signaling issues', 'cpu', 4),
+(17, 3, 'Firmware & Upgrades', 'Firmware updates, capacity upgrades, software issues', 'download', 5);
+
+-- TMG3200 categories
+INSERT OR IGNORE INTO product_categories (id, product_id, name, description, icon, display_order) VALUES
+(18, 4, 'Hardware & Installation', 'Rack mounting, power, physical interface issues', 'server', 1),
+(19, 4, 'Interface Configuration', 'T1/E1, DS3, OC3/STM-1 interface setup and connectivity', 'network', 2),
+(20, 4, 'Call Quality & Codecs', 'Audio quality, echo, jitter, codec negotiation', 'activity', 3),
+(21, 4, 'SS7 & ISDN', 'SS7 signaling, ISDN PRI, SIGTRAN configuration', 'cpu', 4),
+(22, 4, 'Firmware & Upgrades', 'Firmware updates, capacity expansion', 'download', 5);
+
+-- TMG7800 categories
+INSERT OR IGNORE INTO product_categories (id, product_id, name, description, icon, display_order) VALUES
+(23, 5, 'Hardware & Cluster Setup', 'Cluster configuration, rack mounting, hardware issues', 'server', 1),
+(24, 5, 'Interface Configuration', 'T1/E1, DS3, OC3/STM-1 interface setup across clusters', 'network', 2),
+(25, 5, 'Scalability & Performance', 'Cluster scaling, capacity issues, performance tuning', 'trending-up', 3),
+(26, 5, 'SS7 & Signaling', 'SS7 link management, SIGTRAN, signaling across clusters', 'cpu', 4),
+(27, 5, 'Redundancy & Failover', 'HA configuration, failover between cluster nodes', 'shield', 5);
+
+-- TSG800 categories
+INSERT OR IGNORE INTO product_categories (id, product_id, name, description, icon, display_order) VALUES
+(28, 6, 'SS7 Link Configuration', 'SS7 link setup, alignment, point code configuration', 'network', 1),
+(29, 6, 'SIGTRAN Setup', 'M2UA/M3UA configuration, SS7-to-SIGTRAN translation', 'cpu', 2),
+(30, 6, 'Hardware & Firmware', 'Hardware issues, firmware updates, interface problems', 'server', 3),
+(31, 6, 'Redundancy', '1+1 redundancy setup and failover issues', 'shield', 4);
+
+-- TSG3200 categories
+INSERT OR IGNORE INTO product_categories (id, product_id, name, description, icon, display_order) VALUES
+(32, 7, 'SS7 Link Configuration', 'SS7 link setup, alignment, point code configuration', 'network', 1),
+(33, 7, 'SIGTRAN Setup', 'M2UA/M3UA configuration, SS7-to-SIGTRAN translation', 'cpu', 2),
+(34, 7, 'Interface Configuration', 'T1/E1, DS3, OC3/STM-1 interface configuration', 'network', 3),
+(35, 7, 'Hardware & Firmware', 'Hardware issues, firmware updates, RMA requests', 'server', 4);
 
 -- ============ Question Templates ============
--- Category 1: Connectivity Issues
-INSERT OR IGNORE INTO question_templates (id, category_id, question_text, question_type, options, is_required, display_order, placeholder) VALUES
-(1, 1, 'Which protocol is affected?', 'select', '["WiFi", "Zigbee", "Z-Wave", "Thread", "Multiple", "Not sure"]', 1, 1, NULL),
-(2, 1, 'How many devices are affected?', 'radio', '["Single device", "Multiple devices", "All devices"]', 1, 2, NULL),
-(3, 1, 'When did the issue start?', 'select', '["Today", "This week", "After a recent update", "After adding a new device", "Intermittent/recurring"]', 1, 3, NULL),
-(4, 1, 'Describe the connection behavior', 'textarea', NULL, 1, 4, 'e.g., Devices disconnect randomly, fail to respond, or show offline status...'),
-(5, 1, 'Have you tried restarting the hub?', 'radio', '["Yes - issue persists", "Yes - temporarily fixed", "No"]', 1, 5, NULL),
-(6, 1, 'Hub firmware version (Settings > About)', 'text', NULL, 0, 6, 'e.g., v3.2.1');
 
--- Category 2: Voice Assistant
-INSERT OR IGNORE INTO question_templates (id, category_id, question_text, question_type, options, is_required, display_order) VALUES
-(7, 2, 'What type of voice issue?', 'select', '["Not responding to wake word", "Misunderstanding commands", "Wrong device controlled", "Slow response", "Error messages", "Other"]', 1, 1),
-(8, 2, 'Which language is configured?', 'select', '["English (US)", "English (UK)", "German", "French", "Spanish", "Other"]', 1, 2),
-(9, 2, 'Does the issue occur with specific commands?', 'radio', '["Yes - specific commands only", "No - all commands", "Random/intermittent"]', 1, 3),
-(10, 2, 'If specific commands, which ones?', 'textarea', NULL, 0, 4);
--- Conditional: only show if answer to Q9 is "Yes - specific commands only"
-UPDATE question_templates SET conditional_on = 9, conditional_value = 'Yes - specific commands only' WHERE id = 10;
-
+-- Category 1: ProSBC - SIP Trunking & Peering
 INSERT OR IGNORE INTO question_templates (id, category_id, question_text, question_type, options, is_required, display_order, placeholder) VALUES
-(11, 2, 'Environment noise level', 'radio', '["Quiet", "Moderate (TV/music)", "Noisy (kitchen/workshop)"]', 0, 5, NULL);
+(1, 1, 'What type of SIP issue are you experiencing?', 'select', '["Trunk registration failure", "Calls not completing", "One-way audio", "Wrong call routing", "SIP 4xx/5xx errors", "Codec mismatch", "NAT traversal issue", "Other"]', 1, 1, NULL),
+(2, 1, 'How many concurrent sessions is your ProSBC configured for?', 'select', '["500-1000", "1000-5000", "5000-10000", "10000-30000", "30000-60000"]', 1, 2, NULL),
+(3, 1, 'Deployment environment', 'select', '["Bare-metal COTS", "KVM", "AWS", "Azure", "Other cloud"]', 1, 3, NULL),
+(4, 1, 'ProSBC version', 'text', NULL, 1, 4, 'e.g., v4.2.1'),
+(5, 1, 'Number of affected trunk groups', 'radio', '["Single trunk", "Multiple trunks", "All trunks"]', 1, 5, NULL),
+(6, 1, 'SIP error codes observed (if any)', 'text', NULL, 0, 6, 'e.g., 403 Forbidden, 503 Service Unavailable'),
+(7, 1, 'Please describe the issue in detail', 'textarea', NULL, 1, 7, 'Include SIP trace excerpts if available...'),
+(8, 1, 'When did the issue start?', 'select', '["Today", "This week", "After a configuration change", "After an upgrade", "Intermittent/recurring"]', 1, 8, NULL);
 
--- Category 3: Automation Rules
+-- Category 2: ProSBC - STIR/SHAKEN
 INSERT OR IGNORE INTO question_templates (id, category_id, question_text, question_type, options, is_required, display_order, placeholder) VALUES
-(12, 3, 'Type of automation affected', 'select', '["Time-based schedule", "Trigger-based rule", "Scene/routine", "Geofencing", "Sunrise/Sunset", "Multiple types"]', 1, 1, NULL),
-(13, 3, 'What happens when the automation should trigger?', 'select', '["Nothing happens", "Wrong action executed", "Delayed execution", "Partial execution", "Error notification"]', 1, 2, NULL),
-(14, 3, 'How many automations are affected?', 'radio', '["One specific automation", "Multiple automations", "All automations"]', 1, 3, NULL),
-(15, 3, 'Please describe the automation rule and expected behavior', 'textarea', NULL, 1, 4, 'e.g., At 7am, turn on kitchen lights and start coffee maker. Currently only lights turn on...');
+(9, 2, 'STIR/SHAKEN issue type', 'select', '["Certificate installation", "Attestation level incorrect", "Verification failures", "STI-AS connection issue", "STI-VS connection issue", "Performance degradation", "Other"]', 1, 1, NULL),
+(10, 2, 'Certificate authority used', 'text', NULL, 1, 2, 'e.g., TransNexus, Neustar, Comcast'),
+(11, 2, 'Attestation level expected', 'radio', '["Full (A)", "Partial (B)", "Gateway (C)"]', 1, 3, NULL),
+(12, 2, 'Number of affected calls (approximate)', 'select', '["All calls", "Specific routes only", "Intermittent", "Less than 10%", "More than 50%"]', 1, 4, NULL),
+(13, 2, 'Error messages or SIP header details', 'textarea', NULL, 0, 5, 'Paste relevant Identity header or error messages...');
 
--- Category 4: Device Pairing
+-- Category 3: ProSBC - Security & DDoS
 INSERT OR IGNORE INTO question_templates (id, category_id, question_text, question_type, options, is_required, display_order, placeholder) VALUES
-(16, 4, 'Device brand and model you are trying to pair', 'text', NULL, 1, 1, 'e.g., Philips Hue Bulb A19'),
-(17, 4, 'Device protocol', 'select', '["Zigbee", "Z-Wave", "WiFi", "Thread", "Bluetooth", "Not sure"]', 1, 2, NULL),
-(18, 4, 'What happens during pairing?', 'select', '["Device not found", "Pairing starts but fails", "Pairs but goes offline", "Pairs but no control", "Error message shown"]', 1, 3, NULL),
-(19, 4, 'Error message if any', 'text', NULL, 0, 4, 'Copy the exact error message here'),
-(20, 4, 'Is this a new device or was it previously paired?', 'radio', '["Brand new device", "Previously paired to this hub", "Previously paired to another hub"]', 1, 5, NULL);
+(14, 3, 'Security issue type', 'select', '["DDoS attack in progress", "DoS attack suspected", "SIP scanner/brute force", "Toll fraud detected", "TLS/sRTP configuration issue", "Blacklist management", "Firewall rule issue", "Other"]', 1, 1, NULL),
+(15, 3, 'Is this issue currently impacting service?', 'radio', '["Yes - service down", "Yes - degraded service", "No - preventive/configuration"]', 1, 2, NULL),
+(16, 3, 'Approximate attack volume (if DDoS/DoS)', 'text', NULL, 0, 3, 'e.g., 10,000 packets/sec, 500 SIP INVITE/sec'),
+(17, 3, 'Source IP addresses (if known)', 'textarea', NULL, 0, 4, 'List known malicious IPs...'),
+(18, 3, 'Current DDoS protection settings enabled?', 'multiselect', '["Rate limiting", "Dynamic blacklisting", "SIP message validation", "Registration throttling", "Geo-IP blocking", "None/default"]', 1, 5, NULL);
 
--- Category 5: Firmware & Updates
+-- Category 4: ProSBC - Call Quality
 INSERT OR IGNORE INTO question_templates (id, category_id, question_text, question_type, options, is_required, display_order, placeholder) VALUES
-(21, 5, 'Current firmware version', 'text', NULL, 1, 1, 'Settings > About > Firmware Version'),
-(22, 5, 'What update issue occurred?', 'select', '["Update fails to download", "Update fails to install", "Hub stuck in update mode", "Hub not booting after update", "Features broken after update", "Rollback failed"]', 1, 2, NULL),
-(23, 5, 'Hub status LEDs', 'select', '["Normal (solid green)", "Blinking green", "Solid red", "Blinking red", "Orange/amber", "No lights", "Other"]', 1, 3, NULL),
-(24, 5, 'Describe what happened', 'textarea', NULL, 1, 4, 'Step by step what occurred...');
+(19, 4, 'Call quality issue type', 'select', '["One-way audio", "No audio", "Echo", "Choppy/broken audio", "High latency/delay", "DTMF not working", "Fax failure (T.38)", "Low MOS score", "Other"]', 1, 1, NULL),
+(20, 4, 'Codecs in use', 'multiselect', '["G.711 (PCMU/PCMA)", "G.729", "G.722", "OPUS", "AMR", "T.38", "Other"]', 1, 2, NULL),
+(21, 4, 'Is transcoding enabled?', 'radio', '["Yes", "No", "Not sure"]', 1, 3, NULL),
+(22, 4, 'Percentage of calls affected', 'select', '["All calls", "More than 50%", "10-50%", "Less than 10%", "Specific route only"]', 1, 4, NULL),
+(23, 4, 'Network details', 'textarea', NULL, 0, 5, 'Describe network topology, WAN links, QoS settings if known...');
 
--- Category 6: Sensor Data (Industrial)
+-- Category 5: ProSBC - Microsoft Teams
 INSERT OR IGNORE INTO question_templates (id, category_id, question_text, question_type, options, is_required, display_order, placeholder) VALUES
-(25, 6, 'Sensor type affected', 'multiselect', '["Temperature", "Pressure", "Vibration", "Flow", "Level", "Humidity", "Power/Current", "Custom"]', 1, 1, NULL),
-(26, 6, 'Number of sensors affected', 'number', NULL, 1, 2, 'Enter the number of affected sensors'),
-(27, 6, 'Data issue type', 'select', '["No data received", "Incorrect/out-of-range values", "Delayed data (>30s)", "Intermittent gaps", "Duplicate readings", "Timestamp errors"]', 1, 3, NULL),
-(28, 6, 'When did the issue start?', 'select', '["Today", "This week", "After configuration change", "After firmware update", "Gradual degradation"]', 1, 4, NULL),
-(29, 6, 'Affected production line or zone', 'text', NULL, 1, 5, 'e.g., Line 3, Zone B'),
-(30, 6, 'Impact on production', 'radio', '["Production stopped", "Production degraded", "No immediate impact but data needed", "Safety concern"]', 1, 6, NULL);
+(24, 5, 'Teams integration issue', 'select', '["Direct Routing setup", "TLS certificate issue", "Calls not reaching Teams", "Calls not reaching PSTN", "Teams user registration", "E911 routing", "Media bypass issue", "Other"]', 1, 1, NULL),
+(25, 5, 'Microsoft 365 tenant domain', 'text', NULL, 1, 2, 'e.g., company.onmicrosoft.com'),
+(26, 5, 'SBC FQDN configured for Teams', 'text', NULL, 1, 3, 'e.g., sbc.company.com'),
+(27, 5, 'TLS certificate provider', 'text', NULL, 0, 4, 'e.g., DigiCert, Let''s Encrypt, Baltimore CyberTrust'),
+(28, 5, 'Describe the issue', 'textarea', NULL, 1, 5, 'Include Teams admin center errors if available...');
 
--- Category 7: Edge Computing
+-- Category 6: ProSBC - High Availability
 INSERT OR IGNORE INTO question_templates (id, category_id, question_text, question_type, options, is_required, display_order, placeholder) VALUES
-(31, 7, 'Edge computing issue type', 'select', '["Model deployment failure", "Processing timeout", "Memory/CPU exhaustion", "Data pipeline error", "Results incorrect", "Service crash"]', 1, 1, NULL),
-(32, 7, 'Which ML model or pipeline is affected?', 'text', NULL, 1, 2, 'Model name or pipeline ID'),
-(33, 7, 'Gateway resource usage (if known)', 'textarea', NULL, 0, 3, 'CPU%, Memory%, Disk% - check via gateway dashboard'),
-(34, 7, 'Error logs', 'textarea', NULL, 0, 4, 'Paste relevant error logs here');
+(29, 6, 'HA issue type', 'select', '["Failover not triggering", "Split-brain scenario", "Synchronization failure", "Active/standby state stuck", "Geo-redundancy issue", "License HA activation", "Other"]', 1, 1, NULL),
+(30, 6, 'ProSBC edition', 'radio', '["ProSBC (manual HA)", "ProSBC+ (1+1 HA included)"]', 1, 2, NULL),
+(31, 6, 'Number of nodes in cluster', 'number', NULL, 1, 3, 'e.g., 2'),
+(32, 6, 'Heartbeat mechanism', 'select', '["Dedicated interface", "Shared network", "Cloud health check", "Not configured"]', 1, 4, NULL),
+(33, 6, 'Describe the failover behavior observed', 'textarea', NULL, 1, 5, 'What happened vs what was expected...');
 
--- Category 8: Network & Protocols (Industrial)
+-- Category 7: ProSBC - Installation & Licensing
 INSERT OR IGNORE INTO question_templates (id, category_id, question_text, question_type, options, is_required, display_order, placeholder) VALUES
-(35, 8, 'Protocol affected', 'select', '["Modbus RTU", "Modbus TCP", "OPC-UA", "MQTT", "Ethernet/IP", "PROFINET", "BACnet", "Custom"]', 1, 1, NULL),
-(36, 8, 'Connection status', 'select', '["Never connected", "Was working, now disconnected", "Intermittent connection", "Connected but no data", "Authentication errors"]', 1, 2, NULL),
-(37, 8, 'Network topology change recently?', 'radio', '["Yes", "No", "Not sure"]', 1, 3, NULL),
-(38, 8, 'Endpoint details', 'textarea', NULL, 1, 4, 'IP address, port, node ID, or device address of the affected endpoint');
+(34, 7, 'Issue type', 'select', '["Fresh installation", "Upgrade/migration", "License activation", "License renewal", "Cloud deployment issue", "Performance after install", "Other"]', 1, 1, NULL),
+(35, 7, 'Target platform', 'select', '["Bare-metal server", "KVM virtual machine", "AWS EC2", "Azure VM", "Other cloud/VM"]', 1, 2, NULL),
+(36, 7, 'Current version (if upgrading)', 'text', NULL, 0, 3, 'e.g., v3.8.0'),
+(37, 7, 'Target version', 'text', NULL, 0, 4, 'e.g., v4.2.1'),
+(38, 7, 'License key or order number', 'text', NULL, 0, 5, 'For license-related issues'),
+(39, 7, 'Describe the issue', 'textarea', NULL, 1, 6, 'Include error messages or screenshots...');
 
--- Category 9: Alerts & Monitoring
+-- Category 8: ProSBC - API & Integration
 INSERT OR IGNORE INTO question_templates (id, category_id, question_text, question_type, options, is_required, display_order, placeholder) VALUES
-(39, 9, 'Alert issue type', 'select', '["False positive alerts", "Missed alerts (should have fired)", "Alert delay", "Notification delivery failure", "Dashboard not loading", "Incorrect alert thresholds"]', 1, 1, NULL),
-(40, 9, 'Alert severity level', 'select', '["Critical", "Warning", "Info", "All levels"]', 1, 2, NULL),
-(41, 9, 'Notification channels configured', 'multiselect', '["Email", "SMS", "Webhook", "SCADA integration", "Mobile push", "On-screen"]', 1, 3, NULL),
-(42, 9, 'Describe the expected vs actual behavior', 'textarea', NULL, 1, 4, 'What should happen vs what actually happens');
+(40, 8, 'Integration type', 'select', '["REST API", "CDR/billing", "RADIUS", "SNMP monitoring", "Webhook/notifications", "OSS/BSS connector", "Other"]', 1, 1, NULL),
+(41, 8, 'API endpoint or method affected', 'text', NULL, 0, 2, 'e.g., POST /api/v1/trunks, GET /api/v1/stats'),
+(42, 8, 'HTTP status code or error', 'text', NULL, 0, 3, 'e.g., 401 Unauthorized, timeout'),
+(43, 8, 'Describe the expected vs actual behavior', 'textarea', NULL, 1, 4, 'Include request/response samples if possible...');
 
--- Category 10: Predictive Maintenance
+-- Category 9: FreeSBC - Installation & Setup
 INSERT OR IGNORE INTO question_templates (id, category_id, question_text, question_type, options, is_required, display_order, placeholder) VALUES
-(43, 10, 'Prediction issue type', 'select', '["False positive prediction", "Missed failure prediction", "Incorrect remaining useful life", "Model not updating", "Calibration request", "Accuracy degradation"]', 1, 1, NULL),
-(44, 10, 'Equipment type', 'text', NULL, 1, 2, 'e.g., CNC Machine, Conveyor Belt, Pump'),
-(45, 10, 'Equipment ID or asset tag', 'text', NULL, 1, 3, 'Enter the asset identifier'),
-(46, 10, 'Current model accuracy (if known)', 'text', NULL, 0, 4, 'e.g., 85% or check Model Dashboard'),
-(47, 10, 'How long has the model been deployed?', 'select', '["Less than 1 month", "1-3 months", "3-6 months", "6-12 months", "Over 1 year"]', 1, 5, NULL);
+(44, 9, 'Installation issue type', 'select', '["Download/access issue", "Installation fails", "Boot/startup failure", "Network interface not detected", "Web GUI not accessible", "Other"]', 1, 1, NULL),
+(45, 9, 'Installation platform', 'select', '["Bare-metal", "KVM", "VirtualBox", "VMware", "Docker", "Other"]', 1, 2, NULL),
+(46, 9, 'Operating system', 'text', NULL, 1, 3, 'e.g., Ubuntu 22.04, CentOS 7'),
+(47, 9, 'Describe the issue', 'textarea', NULL, 1, 4, 'Include error logs if available...');
+
+-- Category 10: FreeSBC - SIP Configuration
+INSERT OR IGNORE INTO question_templates (id, category_id, question_text, question_type, options, is_required, display_order, placeholder) VALUES
+(48, 10, 'SIP issue type', 'select', '["Trunk not registering", "Calls failing", "One-way audio", "NAT issue", "Routing rules not working", "Other"]', 1, 1, NULL),
+(49, 10, 'Number of configured trunks', 'number', NULL, 1, 2, NULL),
+(50, 10, 'FreeSBC version', 'text', NULL, 1, 3, 'e.g., v2.1.0'),
+(51, 10, 'Describe the issue with SIP trace if possible', 'textarea', NULL, 1, 4, 'Paste relevant SIP messages...');
+
+-- Category 13: TMG800 - Hardware & Installation
+INSERT OR IGNORE INTO question_templates (id, category_id, question_text, question_type, options, is_required, display_order, placeholder) VALUES
+(52, 13, 'Hardware issue type', 'select', '["Unit not powering on", "Interface card failure", "LED error indicators", "Fan/thermal alarm", "Rack mounting issue", "Cabling/connector issue", "Other"]', 1, 1, NULL),
+(53, 13, 'TMG800 serial number', 'text', NULL, 1, 2, 'Found on rear label'),
+(54, 13, 'Number of T1/E1 ports installed', 'select', '["1", "2", "4", "8", "16"]', 1, 3, NULL),
+(55, 13, 'Current firmware version', 'text', NULL, 0, 4, 'Check via web interface or CLI'),
+(56, 13, 'Describe the issue', 'textarea', NULL, 1, 5, 'Include LED status and any error messages...');
+
+-- Category 14: TMG800 - T1/E1 Configuration
+INSERT OR IGNORE INTO question_templates (id, category_id, question_text, question_type, options, is_required, display_order, placeholder) VALUES
+(57, 14, 'Interface issue type', 'select', '["T1/E1 link down", "Alarm condition (red/yellow/blue)", "CRC errors", "Slip/frame errors", "Clock synchronization issue", "Loopback test failure", "Other"]', 1, 1, NULL),
+(58, 14, 'Interface type', 'radio', '["T1", "E1"]', 1, 2, NULL),
+(59, 14, 'Number of affected ports', 'number', NULL, 1, 3, NULL),
+(60, 14, 'Framing type', 'select', '["ESF", "SF/D4", "CRC4", "No CRC4", "Not sure"]', 1, 4, NULL),
+(61, 14, 'Line coding', 'select', '["B8ZS", "AMI", "HDB3", "Not sure"]', 1, 5, NULL),
+(62, 14, 'Connected equipment on the other end', 'text', NULL, 0, 6, 'e.g., Cisco router, Telco DMARC, PBX model');
+
+-- Category 15: TMG800 - Call Quality
+INSERT OR IGNORE INTO question_templates (id, category_id, question_text, question_type, options, is_required, display_order, placeholder) VALUES
+(63, 15, 'Audio issue type', 'select', '["Echo", "One-way audio", "No audio", "Choppy audio", "Background noise", "DTMF issues", "Fax/modem failure", "Other"]', 1, 1, NULL),
+(64, 15, 'Call direction affected', 'radio', '["TDM to VoIP", "VoIP to TDM", "Both directions"]', 1, 2, NULL),
+(65, 15, 'Codecs configured', 'multiselect', '["G.711 ulaw", "G.711 alaw", "G.729", "G.722", "T.38", "Other"]', 1, 3, NULL),
+(66, 15, 'Percentage of calls affected', 'select', '["All calls", "More than 50%", "Less than 50%", "Specific route only", "Random/intermittent"]', 1, 4, NULL);
+
+-- Category 28: TSG800 - SS7 Link Configuration
+INSERT OR IGNORE INTO question_templates (id, category_id, question_text, question_type, options, is_required, display_order, placeholder) VALUES
+(67, 28, 'SS7 issue type', 'select', '["Link not aligning", "Link flapping", "Point code conflict", "Route set issue", "MTP level failure", "ISUP message issue", "Other"]', 1, 1, NULL),
+(68, 28, 'SS7 variant', 'select', '["ANSI", "ITU", "China", "Japan"]', 1, 2, NULL),
+(69, 28, 'Local point code', 'text', NULL, 1, 3, 'e.g., 1-1-1 or 16384'),
+(70, 28, 'Remote point code', 'text', NULL, 1, 4, NULL),
+(71, 28, 'Number of signaling links configured', 'number', NULL, 1, 5, NULL),
+(72, 28, 'Describe the issue', 'textarea', NULL, 1, 6, 'Include link status and any MTP3 alarms...');
 
 -- ============ Skills ============
 INSERT OR IGNORE INTO skills (id, name, description) VALUES
-(1, 'Embedded Systems', 'Firmware development, hardware debugging, JTAG, low-level protocols'),
-(2, 'Networking & Protocols', 'TCP/IP, Modbus, OPC-UA, MQTT, Zigbee, Z-Wave, Thread'),
-(3, 'Machine Learning', 'Model training, deployment, MLOps, predictive analytics'),
-(4, 'Cloud & Integration', 'API development, cloud services, webhooks, data pipelines'),
-(5, 'Voice & NLP', 'Speech recognition, natural language processing, wake word detection');
+(1, 'SIP & VoIP', 'SIP protocol, VoIP troubleshooting, SIP trunking, codec management, call flow analysis'),
+(2, 'SS7 & TDM', 'SS7 signaling (MTP/ISUP/SCCP), ISDN PRI, T1/E1/DS3/OC3 interfaces, TDM networks'),
+(3, 'Network Security', 'DDoS mitigation, TLS/sRTP, firewall rules, fraud detection, STIR/SHAKEN'),
+(4, 'Cloud & DevOps', 'AWS/Azure deployment, KVM virtualization, REST API, CI/CD, containerization'),
+(5, 'Hardware & Firmware', 'Tmedia/Tsig hardware diagnostics, firmware upgrades, RMA, rack and stack');
 
 -- ============ Engineers ============
 INSERT OR IGNORE INTO engineers (id, name, email, location, is_active, current_workload, max_workload) VALUES
-(1, 'Alice Chen', 'alice@company.com', 'San Francisco', 1, 2, 5),
-(2, 'Bob Mueller', 'bob@company.com', 'Berlin', 1, 1, 5),
-(3, 'Carlos Rivera', 'carlos@company.com', 'Madrid', 1, 3, 5),
-(4, 'Diana Kowalski', 'diana@company.com', 'Warsaw', 1, 0, 5),
-(5, 'Ethan Park', 'ethan@company.com', 'Seoul', 1, 2, 4);
+(1, 'Marc Bhierre', 'marc@telcobridges.com', 'Montreal', 1, 2, 6),
+(2, 'Ahmed Hassan', 'ahmed@telcobridges.com', 'Montreal', 1, 1, 6),
+(3, 'Sophie Tremblay', 'sophie@telcobridges.com', 'Montreal', 1, 3, 6),
+(4, 'David Kim', 'david@telcobridges.com', 'Montreal', 1, 0, 5),
+(5, 'Priya Nair', 'priya@telcobridges.com', 'Montreal', 1, 2, 5);
 
 -- ============ Engineer Skills ============
 INSERT OR IGNORE INTO engineer_skills (engineer_id, skill_id, proficiency) VALUES
--- Alice: Strong in ML and Cloud
-(1, 3, 5), (1, 4, 4), (1, 2, 3),
--- Bob: Embedded systems expert, good networking
-(2, 1, 5), (2, 2, 4), (2, 4, 2),
--- Carlos: Networking specialist, good at voice
-(3, 2, 5), (3, 5, 4), (3, 1, 3),
--- Diana: Well-rounded, strong cloud and ML
-(4, 4, 5), (4, 3, 4), (4, 2, 3), (4, 1, 2),
--- Ethan: Voice/NLP expert, embedded systems
-(5, 5, 5), (5, 1, 4), (5, 3, 3);
+-- Marc: SIP/VoIP expert, strong security
+(1, 1, 5), (1, 3, 4), (1, 4, 3),
+-- Ahmed: SS7/TDM expert, hardware
+(2, 2, 5), (2, 5, 5), (2, 1, 3),
+-- Sophie: SIP + Cloud/DevOps
+(3, 1, 4), (3, 4, 5), (3, 3, 3),
+-- David: All-rounder, security focused
+(4, 3, 5), (4, 1, 4), (4, 2, 3), (4, 4, 3),
+-- Priya: SS7 + SIP, hardware
+(5, 2, 4), (5, 1, 4), (5, 5, 4);
 
 -- ============ Engineer Product Expertise ============
 INSERT OR IGNORE INTO engineer_product_expertise (engineer_id, product_id, category_id, expertise_level) VALUES
--- Alice: Industrial IoT expert (sensor data, edge computing, predictive)
-(1, 2, 6, 5), (1, 2, 7, 5), (1, 2, 10, 5), (1, 1, 3, 3),
--- Bob: SmartHome firmware & connectivity expert
-(2, 1, 1, 5), (2, 1, 5, 5), (2, 1, 4, 4), (2, 2, 8, 3),
--- Carlos: Connectivity across both products, voice specialist
-(3, 1, 1, 4), (3, 1, 2, 5), (3, 2, 8, 5), (3, 2, 9, 4),
--- Diana: Broad knowledge, cloud/integration focus
-(4, 1, 3, 4), (4, 2, 7, 4), (4, 2, 9, 5), (4, 1, 4, 3),
--- Ethan: Voice expert, SmartHome specialist
-(5, 1, 2, 5), (5, 1, 5, 4), (5, 2, 10, 3), (5, 1, 1, 3);
+-- Marc: ProSBC SIP/Security/Teams expert
+(1, 1, 1, 5), (1, 1, 3, 5), (1, 1, 5, 5), (1, 1, 4, 4), (1, 2, 10, 4),
+-- Ahmed: Tmedia/Tsig hardware expert
+(2, 3, 13, 5), (2, 3, 14, 5), (2, 3, 16, 5), (2, 4, 18, 5), (2, 4, 21, 5),
+(2, 5, 23, 5), (2, 6, 28, 5), (2, 7, 32, 5),
+-- Sophie: ProSBC cloud, API, installation
+(3, 1, 7, 5), (3, 1, 8, 5), (3, 1, 6, 4), (3, 2, 9, 5), (3, 2, 11, 4),
+-- David: ProSBC security, STIR/SHAKEN, HA
+(4, 1, 2, 5), (4, 1, 3, 5), (4, 1, 6, 4), (4, 1, 1, 4),
+-- Priya: Tmedia call quality, SS7, signaling gateways
+(5, 3, 15, 5), (5, 3, 16, 4), (5, 4, 20, 5), (5, 4, 21, 5),
+(5, 5, 26, 5), (5, 6, 28, 4), (5, 6, 29, 4);

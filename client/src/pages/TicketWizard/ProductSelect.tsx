@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { products as productsApi } from '../../api/client';
 import { WizardData } from './WizardContainer';
 
-const productEmojis: Record<number, string> = { 1: '🏠', 2: '🏭' };
+const productEmojis: Record<number, string> = { 1: '📡', 2: '📡', 3: '🔌', 4: '🔌', 5: '🔌', 6: '🔗', 7: '🔗' };
 
 interface Props {
   data: WizardData;

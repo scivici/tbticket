@@ -58,7 +58,7 @@ export default function LoginPage() {
           Don't have an account? <Link to="/register" className="text-primary-600 hover:underline">Register</Link>
         </p>
         <p className="mt-2 text-center text-sm text-gray-400">
-          Admin login: admin@company.com / admin123
+          Admin login: admin@telcobridges.com / admin123
         </p>
       </div>
     </div>
