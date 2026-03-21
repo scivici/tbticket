@@ -5,7 +5,6 @@ VALUES ('admin@telcobridges.com', 'TB Admin', '$2a$10$UIqE7rpJ9B.WUvHyzdtC2elkZF
 -- ============ Products ============
 INSERT OR IGNORE INTO products (id, name, model, description, image_url) VALUES
 (1, 'ProSBC', 'SBC-SW', 'Carrier-grade Session Border Controller software. SIP trunking, peering, STIR/SHAKEN, DDoS protection, Microsoft Teams Direct Routing. 500 to 60,000 concurrent sessions.', '/images/prosbc.png'),
-(2, 'FreeSBC', 'SBC-FREE', 'Free carrier-grade SBC software for NNI peering and access. Community support. Ideal for education, startups, and testing.', '/images/freesbc.png'),
 (3, 'TMG800', 'TMG800', 'Entry-level 1U VoIP/SS7 media gateway. 1-16 T1/E1, 32-512 VoIP channels. Software upgradeable capacity.', '/images/tmg800.png'),
 (4, 'TMG3200', 'TMG3200', 'Mid-density 1U carrier-grade VoIP media gateway. Up to 64 T1/E1, 3 DS3, or 1 OC3/STM-1.', '/images/tmg3200.png'),
 (5, 'TMG7800', 'TMG7800', 'High-density scalable cluster-based VoIP media gateway. Up to 1,024 T1/E1 per cluster, 131,072 channels max.', '/images/tmg7800.png'),
@@ -24,13 +23,6 @@ INSERT OR IGNORE INTO product_categories (id, product_id, name, description, ico
 (6, 1, 'High Availability', 'Failover configuration, ProSBC+ HA, geo-redundancy issues', 'server', 6),
 (7, 1, 'Installation & Licensing', 'Deployment, activation, upgrades, cloud setup (AWS/Azure/KVM)', 'download', 7),
 (8, 1, 'API & Integration', 'RESTful API, CDR, RADIUS, SNMP, OSS/BSS connector issues', 'cpu', 8);
-
--- FreeSBC categories
-INSERT OR IGNORE INTO product_categories (id, product_id, name, description, icon, display_order) VALUES
-(9, 2, 'Installation & Setup', 'FreeSBC installation, initial configuration, deployment', 'download', 1),
-(10, 2, 'SIP Configuration', 'SIP trunk setup, routing rules, endpoint registration', 'network', 2),
-(11, 2, 'Upgrade to ProSBC', 'Migration from FreeSBC to ProSBC, licensing questions', 'trending-up', 3),
-(12, 2, 'General Issues', 'Performance, stability, and other FreeSBC issues', 'activity', 4);
 
 -- TMG800 categories
 INSERT OR IGNORE INTO product_categories (id, product_id, name, description, icon, display_order) VALUES
@@ -139,20 +131,6 @@ INSERT OR IGNORE INTO question_templates (id, category_id, question_text, questi
 (42, 8, 'HTTP status code or error', 'text', NULL, 0, 3, 'e.g., 401 Unauthorized, timeout'),
 (43, 8, 'Describe the expected vs actual behavior', 'textarea', NULL, 1, 4, 'Include request/response samples if possible...');
 
--- Category 9: FreeSBC - Installation & Setup
-INSERT OR IGNORE INTO question_templates (id, category_id, question_text, question_type, options, is_required, display_order, placeholder) VALUES
-(44, 9, 'Installation issue type', 'select', '["Download/access issue", "Installation fails", "Boot/startup failure", "Network interface not detected", "Web GUI not accessible", "Other"]', 1, 1, NULL),
-(45, 9, 'Installation platform', 'select', '["Bare-metal", "KVM", "VirtualBox", "VMware", "Docker", "Other"]', 1, 2, NULL),
-(46, 9, 'Operating system', 'text', NULL, 1, 3, 'e.g., Ubuntu 22.04, CentOS 7'),
-(47, 9, 'Describe the issue', 'textarea', NULL, 1, 4, 'Include error logs if available...');
-
--- Category 10: FreeSBC - SIP Configuration
-INSERT OR IGNORE INTO question_templates (id, category_id, question_text, question_type, options, is_required, display_order, placeholder) VALUES
-(48, 10, 'SIP issue type', 'select', '["Trunk not registering", "Calls failing", "One-way audio", "NAT issue", "Routing rules not working", "Other"]', 1, 1, NULL),
-(49, 10, 'Number of configured trunks', 'number', NULL, 1, 2, NULL),
-(50, 10, 'FreeSBC version', 'text', NULL, 1, 3, 'e.g., v2.1.0'),
-(51, 10, 'Describe the issue with SIP trace if possible', 'textarea', NULL, 1, 4, 'Paste relevant SIP messages...');
-
 -- Category 13: TMG800 - Hardware & Installation
 INSERT OR IGNORE INTO question_templates (id, category_id, question_text, question_type, options, is_required, display_order, placeholder) VALUES
 (52, 13, 'Hardware issue type', 'select', '["Unit not powering on", "Interface card failure", "LED error indicators", "Fan/thermal alarm", "Rack mounting issue", "Cabling/connector issue", "Other"]', 1, 1, NULL),
@@ -218,12 +196,12 @@ INSERT OR IGNORE INTO engineer_skills (engineer_id, skill_id, proficiency) VALUE
 -- ============ Engineer Product Expertise ============
 INSERT OR IGNORE INTO engineer_product_expertise (engineer_id, product_id, category_id, expertise_level) VALUES
 -- Marc: ProSBC SIP/Security/Teams expert
-(1, 1, 1, 5), (1, 1, 3, 5), (1, 1, 5, 5), (1, 1, 4, 4), (1, 2, 10, 4),
+(1, 1, 1, 5), (1, 1, 3, 5), (1, 1, 5, 5), (1, 1, 4, 4),
 -- Ahmed: Tmedia/Tsig hardware expert
 (2, 3, 13, 5), (2, 3, 14, 5), (2, 3, 16, 5), (2, 4, 18, 5), (2, 4, 21, 5),
 (2, 5, 23, 5), (2, 6, 28, 5), (2, 7, 32, 5),
 -- Sophie: ProSBC cloud, API, installation
-(3, 1, 7, 5), (3, 1, 8, 5), (3, 1, 6, 4), (3, 2, 9, 5), (3, 2, 11, 4),
+(3, 1, 7, 5), (3, 1, 8, 5), (3, 1, 6, 4),
 -- David: ProSBC security, STIR/SHAKEN, HA
 (4, 1, 2, 5), (4, 1, 3, 5), (4, 1, 6, 4), (4, 1, 1, 4),
 -- Priya: Tmedia call quality, SS7, signaling gateways

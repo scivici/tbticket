@@ -64,7 +64,7 @@ export default function HomePage() {
         <div className="grid md:grid-cols-3 gap-5 max-w-5xl mx-auto">
           <div className="tb-card p-5">
             <div className="text-2xl mb-2">📡</div>
-            <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-1">ProSBC / FreeSBC</h3>
+            <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-1">ProSBC</h3>
             <p className="text-gray-500 dark:text-gray-400 text-xs">Carrier-grade Session Border Controllers for SIP trunking, peering, and security.</p>
           </div>
           <div className="tb-card p-5">
