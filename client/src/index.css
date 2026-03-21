@@ -4,6 +4,54 @@
 
 @layer base {
   body {
-    @apply text-gray-900 antialiased;
+    @apply bg-tb-bg text-white antialiased;
+  }
+
+  /* Custom scrollbar for dark theme */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #1a1a1a;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #555;
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #777;
+  }
+}
+
+@layer components {
+  /* Input fields for dark theme */
+  .tb-input {
+    @apply w-full px-3 py-2 bg-tb-card border border-gray-600 rounded-lg text-white placeholder-gray-400
+           focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none;
+  }
+
+  .tb-select {
+    @apply px-3 py-2 bg-tb-card border border-gray-600 rounded-lg text-white
+           focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none;
+  }
+
+  .tb-btn-primary {
+    @apply px-4 py-2 bg-primary-500 text-white rounded-lg text-sm font-medium
+           hover:bg-primary-400 transition-colors disabled:opacity-50;
+  }
+
+  .tb-btn-secondary {
+    @apply px-4 py-2 bg-gray-600 text-white rounded-lg text-sm font-medium
+           hover:bg-gray-500 transition-colors;
+  }
+
+  .tb-btn-success {
+    @apply px-4 py-2 bg-accent-green-cta text-white rounded-lg text-sm font-medium
+           hover:bg-green-500 transition-colors disabled:opacity-50;
+  }
+
+  .tb-card {
+    @apply bg-tb-card rounded-xl border border-gray-700;
   }
 }

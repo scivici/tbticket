@@ -1,0 +1,521 @@
+{
+  "sections": [
+    {
+      "id": 1,
+      "title": "Dashboard Main Cards",
+      "cards": [
+        {
+          "id": 4,
+          "nestedCards": [
+            {
+              "id": 5,
+              "nestedCards": [
+                {
+                  "id": 6,
+                  "nestedCards": [
+                    {
+                      "id": 7,
+                      "nestedCards": [],
+                      "texts": [],
+                      "colorSchemes": {
+                        "light": {
+                          "backgroundColor": "rgb(213, 213, 213)",
+                          "textColor": "#000000"
+                        },
+                        "dark": {
+                          "backgroundColor": "rgb(255, 255, 255)",
+                          "textColor": "#ffffff"
+                        }
+                      }
+                    }
+                  ],
+                  "texts": [
+                    {
+                      "id": 11,
+                      "content": "Heading",
+                      "colorSchemes": {
+                        "light": {
+                          "color": "rgb(51, 51, 51)"
+                        },
+                        "dark": {
+                          "color": "rgb(30, 41, 59)"
+                        }
+                      }
+                    }
+                  ],
+                  "colorSchemes": {
+                    "light": {
+                      "backgroundColor": "rgb(182, 182, 182)",
+                      "textColor": "#000000"
+                    },
+                    "dark": {
+                      "backgroundColor": "rgb(255, 255, 255)",
+                      "textColor": "#ffffff"
+                    }
+                  }
+                }
+              ],
+              "texts": [
+                {
+                  "id": 8,
+                  "content": "SubH",
+                  "colorSchemes": {
+                    "light": {
+                      "color": "rgb(182, 182, 182)"
+                    },
+                    "dark": {
+                      "color": "rgb(100, 116, 139)"
+                    }
+                  }
+                },
+                {
+                  "id": 9,
+                  "content": "Link",
+                  "colorSchemes": {
+                    "light": {
+                      "color": "rgb(14, 165, 233)"
+                    },
+                    "dark": {
+                      "color": "rgb(14, 165, 233)"
+                    }
+                  }
+                },
+                {
+                  "id": 10,
+                  "content": "Green",
+                  "colorSchemes": {
+                    "light": {
+                      "color": "rgb(60, 164, 68)"
+                    },
+                    "dark": {
+                      "color": "rgb(5, 150, 105)"
+                    }
+                  }
+                }
+              ],
+              "colorSchemes": {
+                "light": {
+                  "backgroundColor": "rgb(53, 53, 53)",
+                  "textColor": "#000000"
+                },
+                "dark": {
+                  "backgroundColor": "rgb(255, 255, 255)",
+                  "textColor": "#ffffff"
+                }
+              }
+            }
+          ],
+          "texts": [
+            {
+              "id": 19,
+              "content": "Title",
+              "colorSchemes": {
+                "light": {
+                  "color": "rgb(255, 255, 255)"
+                },
+                "dark": {
+                  "color": "rgb(0, 0, 0)"
+                }
+              }
+            }
+          ],
+          "colorSchemes": {
+            "light": {
+              "backgroundColor": "rgb(26, 26, 26)",
+              "textColor": "#000000"
+            },
+            "dark": {
+              "backgroundColor": "rgb(255, 255, 255)",
+              "textColor": "#ffffff"
+            }
+          }
+        }
+      ],
+      "buttonStacks": [
+        {
+          "id": 12,
+          "bars": [
+            {
+              "id": 20,
+              "text": "Unlock 24/7 Support",
+              "colorSchemes": {
+                "light": {
+                  "color": "#205A74",
+                  "textColor": "#ffffff"
+                },
+                "dark": {
+                  "color": "#f0f9ff",
+                  "textColor": "#0c4a6e"
+                }
+              },
+              "color": "#205A74",
+              "textColor": "#ffffff"
+            },
+            {
+              "id": 21,
+              "text": "Development mode",
+              "visible": true,
+              "colorSchemes": {
+                "light": {
+                  "color": "#D39340",
+                  "textColor": "#ffffff"
+                },
+                "dark": {
+                  "color": "#fef3c7",
+                  "textColor": "#333333"
+                }
+              },
+              "color": "#3F9746",
+              "textColor": "#ffffff"
+            },
+            {
+              "id": 22,
+              "text": "Dashboard new look",
+              "visible": true,
+              "colorSchemes": {
+                "light": {
+                  "color": "#374151",
+                  "textColor": "#ffffff"
+                },
+                "dark": {
+                  "color": "#f8fafc",
+                  "textColor": "#334155"
+                }
+              }
+            },
+            {
+              "id": 23,
+              "text": "Unlock card",
+              "colorSchemes": {
+                "light": {
+                  "color": "#9c814e",
+                  "textColor": "#ffffff"
+                },
+                "dark": {
+                  "color": "#fef3c7",
+                  "textColor": "#361711"
+                }
+              },
+              "visible": true
+            },
+            {
+              "id": 24,
+              "text": "Sessions reached",
+              "colorSchemes": {
+                "light": {
+                  "color": "#35733A",
+                  "textColor": "#ffffff"
+                },
+                "dark": {
+                  "color": "#dcfce7",
+                  "textColor": "#000000"
+                }
+              },
+              "color": "#35733A",
+              "textColor": "#ffffff",
+              "visible": true
+            },
+            {
+              "id": 25,
+              "text": "Unlocked",
+              "visible": true,
+              "colorSchemes": {
+                "light": {
+                  "color": "#35733A",
+                  "textColor": "#ffffff"
+                },
+                "dark": {
+                  "color": "#dcfce7",
+                  "textColor": "#1e293b"
+                }
+              }
+            }
+          ],
+          "colorSchemes": {
+            "light": {
+              "backgroundColor": "#1a1a1a",
+              "titleColor": "#ffffff"
+            },
+            "dark": {
+              "backgroundColor": "#ffffff",
+              "titleColor": "#333333"
+            }
+          },
+          "title": "Notification Cards"
+        },
+        {
+          "id": 15,
+          "bars": [
+            {
+              "id": 26,
+              "text": "CTA",
+              "colorSchemes": {
+                "light": {
+                  "color": "#3b82f6",
+                  "textColor": "#ffffff"
+                },
+                "dark": {
+                  "color": "#00568c",
+                  "textColor": "#ffffff"
+                }
+              },
+              "color": "#00568c",
+              "textColor": "#ffffff"
+            },
+            {
+              "id": 27,
+              "text": "Secondary button",
+              "colorSchemes": {
+                "light": {
+                  "color": "#999999",
+                  "textColor": "#ffffff"
+                },
+                "dark": {
+                  "color": "#5f6062",
+                  "textColor": "#ffffff"
+                }
+              },
+              "visible": true,
+              "color": "#999999",
+              "textColor": "#ffffff"
+            },
+            {
+              "id": 28,
+              "text": "Create/Save",
+              "colorSchemes": {
+                "light": {
+                  "color": "#059669",
+                  "textColor": "#ffffff"
+                },
+                "dark": {
+                  "color": "#059669",
+                  "textColor": "#ffffff"
+                }
+              },
+              "color": "#EEC7C7",
+              "textColor": "#832D2D"
+            }
+          ],
+          "colorSchemes": {
+            "light": {
+              "backgroundColor": "#1a1a1a",
+              "titleColor": "#ffffff"
+            },
+            "dark": {
+              "backgroundColor": "#ffffff",
+              "titleColor": "#333333"
+            }
+          },
+          "title": "Button Stack"
+        },
+        {
+          "id": 31,
+          "title": "Status bubbles",
+          "colorSchemes": {
+            "light": {
+              "backgroundColor": "#1a1a1a",
+              "titleColor": "#ffffff"
+            },
+            "dark": {
+              "backgroundColor": "#ffffff",
+              "titleColor": "#333333"
+            }
+          },
+          "bars": [
+            {
+              "id": 32,
+              "text": "Expired",
+              "colorSchemes": {
+                "light": {
+                  "color": "#eec7c7",
+                  "textColor": "#832d2d"
+                },
+                "dark": {
+                  "color": "#eec7c7",
+                  "textColor": "#832d2d"
+                }
+              }
+            },
+            {
+              "id": 33,
+              "text": "Active",
+              "colorSchemes": {
+                "light": {
+                  "color": "#dcfce7",
+                  "textColor": "#166534"
+                },
+                "dark": {
+                  "color": "#dcfce7",
+                  "textColor": "#166534"
+                }
+              }
+            },
+            {
+              "id": 34,
+              "text": "Attention required",
+              "colorSchemes": {
+                "light": {
+                  "color": "#fef3c7",
+                  "textColor": "#92400e"
+                },
+                "dark": {
+                  "color": "#fef3c7",
+                  "textColor": "#92400e"
+                }
+              }
+            },
+            {
+              "id": 35,
+              "text": "Stripe",
+              "colorSchemes": {
+                "light": {
+                  "color": "#e2e8f0",
+                  "textColor": "#000000"
+                },
+                "dark": {
+                  "color": "#eff6ff",
+                  "textColor": "#2f5a80"
+                }
+              }
+            },
+            {
+              "id": 36,
+              "text": "Lacking permission",
+              "colorSchemes": {
+                "light": {
+                  "color": "#8a3333",
+                  "textColor": "#ffffff"
+                },
+                "dark": {
+                  "color": "#eec7c7",
+                  "textColor": "#832d2d"
+                }
+              }
+            },
+            {
+              "id": 37,
+              "text": "Roles",
+              "visible": true,
+              "colorSchemes": {
+                "light": {
+                  "color": "#3C4C7D",
+                  "textColor": "#ffffff"
+                },
+                "dark": {
+                  "color": "#dbeafe",
+                  "textColor": "#1e40af"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "id": 38,
+          "title": "Other",
+          "colorSchemes": {
+            "light": {
+              "backgroundColor": "#1a1a1a",
+              "titleColor": "#ffffff"
+            },
+            "dark": {
+              "backgroundColor": "#ffffff",
+              "titleColor": "#333333"
+            }
+          },
+          "bars": [
+            {
+              "id": 39,
+              "text": "Hover effect",
+              "colorSchemes": {
+                "light": {
+                  "color": "#3b82f6",
+                  "textColor": "#ffffff"
+                },
+                "dark": {
+                  "color": "#4792C0",
+                  "textColor": "#ffffff"
+                }
+              }
+            },
+            {
+              "id": 40,
+              "text": "Icons",
+              "visible": true,
+              "colorSchemes": {
+                "light": {
+                  "color": "#0ea5e9",
+                  "textColor": "#000000"
+                },
+                "dark": {
+                  "color": "#00568c",
+                  "textColor": "#ffffff"
+                }
+              },
+              "color": "#0ea5e9",
+              "textColor": "#000000"
+            }
+          ]
+        }
+      ],
+      "activeMode": "light",
+      "colorSchemes": {
+        "light": {
+          "sectionBg": "#353535",
+          "titleColor": "#ffffff"
+        },
+        "dark": {
+          "sectionBg": "#f2f2f2",
+          "titleColor": "#333333"
+        }
+      },
+      "tables": [
+        {
+          "id": 21,
+          "title": "Table",
+          "colorSchemes": {
+            "light": {
+              "titleColor": "#ffffff",
+              "headerBg": "#B6B6B6",
+              "headerTextColor": "#333333",
+              "cellBg": "#353535",
+              "cellTextColor": "#FFFFFF",
+              "backgroundColor": "#1a1a1a"
+            },
+            "dark": {
+              "titleColor": "#333333",
+              "headerBg": "#E2E8F0",
+              "headerTextColor": "#0F172A",
+              "cellBg": "#FFFFFF",
+              "cellTextColor": "#334155"
+            }
+          },
+          "headers": [
+            {
+              "id": 21,
+              "text": "Header 1"
+            },
+            {
+              "id": 21,
+              "text": "Header 2"
+            }
+          ],
+          "rows": [
+            {
+              "id": 21,
+              "cells": [
+                {
+                  "id": 21,
+                  "text": "Cell 1"
+                },
+                {
+                  "id": 21,
+                  "text": "Cell 2"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

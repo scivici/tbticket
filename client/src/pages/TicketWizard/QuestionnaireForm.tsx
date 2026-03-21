@@ -19,9 +19,7 @@ export default function QuestionnaireForm({ data, onUpdate, onNext, onPrev }: Pr
 
   useEffect(() => {
     if (data.category) {
-      productsApi.questions(data.category.id)
-        .then(q => { setQuestions(q); setLoading(false); })
-        .catch(console.error);
+      productsApi.questions(data.category.id).then(q => { setQuestions(q); setLoading(false); }).catch(console.error);
     }
   }, [data.category]);
 
@@ -57,122 +55,99 @@ export default function QuestionnaireForm({ data, onUpdate, onNext, onPrev }: Pr
 
   return (
     <div className="space-y-6">
-      <h2 className="text-lg font-semibold">Tell us about the issue</h2>
+      <h2 className="text-lg font-semibold text-white">Tell us about the issue</h2>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Subject *</label>
+        <label className="block text-sm font-medium text-gray-300 mb-1">Subject *</label>
         <input type="text" value={subject} onChange={e => setSubject(e.target.value)}
           placeholder="Brief summary of the issue"
-          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 ${errors.subject ? 'border-red-300' : 'border-gray-300'}`} />
-        {errors.subject && <p className="text-red-500 text-xs mt-1">{errors.subject}</p>}
+          className={`tb-input ${errors.subject ? 'border-red-500' : ''}`} />
+        {errors.subject && <p className="text-red-400 text-xs mt-1">{errors.subject}</p>}
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Description *</label>
+        <label className="block text-sm font-medium text-gray-300 mb-1">Description *</label>
         <textarea value={description} onChange={e => setDescription(e.target.value)}
           rows={3} placeholder="Describe the issue in detail..."
-          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 ${errors.description ? 'border-red-300' : 'border-gray-300'}`} />
-        {errors.description && <p className="text-red-500 text-xs mt-1">{errors.description}</p>}
+          className={`tb-input ${errors.description ? 'border-red-500' : ''}`} />
+        {errors.description && <p className="text-red-400 text-xs mt-1">{errors.description}</p>}
       </div>
 
-      <hr className="border-gray-200" />
+      <hr className="border-gray-700" />
 
       {questions.filter(isVisible).map(q => (
         <div key={q.id}>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-300 mb-1">
             {q.questionText} {q.isRequired && '*'}
           </label>
           {renderQuestion(q, answers[q.id] || '', (val: string) => setAnswer(q.id, val))}
-          {errors[`q_${q.id}`] && <p className="text-red-500 text-xs mt-1">{errors[`q_${q.id}`]}</p>}
+          {errors[`q_${q.id}`] && <p className="text-red-400 text-xs mt-1">{errors[`q_${q.id}`]}</p>}
         </div>
       ))}
 
       <div className="flex justify-between pt-4">
-        <button onClick={onPrev} className="px-6 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">
-          Back
-        </button>
-        <button onClick={handleNext}
-          className="px-6 py-2 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700">
-          Next
-        </button>
+        <button onClick={onPrev} className="tb-btn-secondary">Back</button>
+        <button onClick={handleNext} className="tb-btn-primary px-6">Next</button>
       </div>
     </div>
   );
 }
 
 function renderQuestion(q: any, value: string, onChange: (val: string) => void) {
-  const inputClass = "w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500";
-
   switch (q.questionType) {
     case 'text':
-      return <input type="text" value={value} onChange={e => onChange(e.target.value)}
-        placeholder={q.placeholder || ''} className={inputClass} />;
-
+      return <input type="text" value={value} onChange={e => onChange(e.target.value)} placeholder={q.placeholder || ''} className="tb-input" />;
     case 'textarea':
-      return <textarea value={value} onChange={e => onChange(e.target.value)}
-        rows={3} placeholder={q.placeholder || ''} className={inputClass} />;
-
+      return <textarea value={value} onChange={e => onChange(e.target.value)} rows={3} placeholder={q.placeholder || ''} className="tb-input" />;
     case 'number':
-      return <input type="number" value={value} onChange={e => onChange(e.target.value)}
-        placeholder={q.placeholder || ''} className={inputClass} />;
-
+      return <input type="number" value={value} onChange={e => onChange(e.target.value)} placeholder={q.placeholder || ''} className="tb-input" />;
     case 'date':
-      return <input type="date" value={value} onChange={e => onChange(e.target.value)} className={inputClass} />;
-
+      return <input type="date" value={value} onChange={e => onChange(e.target.value)} className="tb-input" />;
     case 'select':
       return (
-        <select value={value} onChange={e => onChange(e.target.value)} className={inputClass}>
+        <select value={value} onChange={e => onChange(e.target.value)} className="tb-select w-full">
           <option value="">Select an option...</option>
-          {(q.options || []).map((opt: string) => (
-            <option key={opt} value={opt}>{opt}</option>
-          ))}
+          {(q.options || []).map((opt: string) => <option key={opt} value={opt}>{opt}</option>)}
         </select>
       );
-
     case 'radio':
       return (
         <div className="space-y-2">
           {(q.options || []).map((opt: string) => (
-            <label key={opt} className="flex items-center gap-2 cursor-pointer">
+            <label key={opt} className="flex items-center gap-2 cursor-pointer text-gray-300">
               <input type="radio" name={`q_${q.id}`} value={opt} checked={value === opt}
-                onChange={() => onChange(opt)} className="text-primary-600 focus:ring-primary-500" />
+                onChange={() => onChange(opt)} className="text-primary-500 focus:ring-primary-500 bg-tb-card border-gray-600" />
               <span className="text-sm">{opt}</span>
             </label>
           ))}
         </div>
       );
-
     case 'multiselect':
       const selected = value ? value.split(',').filter(Boolean) : [];
       return (
         <div className="space-y-2">
           {(q.options || []).map((opt: string) => (
-            <label key={opt} className="flex items-center gap-2 cursor-pointer">
+            <label key={opt} className="flex items-center gap-2 cursor-pointer text-gray-300">
               <input type="checkbox" checked={selected.includes(opt)}
                 onChange={e => {
-                  const newSelected = e.target.checked
-                    ? [...selected, opt]
-                    : selected.filter(s => s !== opt);
+                  const newSelected = e.target.checked ? [...selected, opt] : selected.filter(s => s !== opt);
                   onChange(newSelected.join(','));
                 }}
-                className="text-primary-600 focus:ring-primary-500 rounded" />
+                className="rounded text-primary-500 focus:ring-primary-500 bg-tb-card border-gray-600" />
               <span className="text-sm">{opt}</span>
             </label>
           ))}
         </div>
       );
-
     case 'checkbox':
       return (
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input type="checkbox" checked={value === 'true'}
-            onChange={e => onChange(e.target.checked ? 'true' : 'false')}
-            className="text-primary-600 focus:ring-primary-500 rounded" />
+        <label className="flex items-center gap-2 cursor-pointer text-gray-300">
+          <input type="checkbox" checked={value === 'true'} onChange={e => onChange(e.target.checked ? 'true' : 'false')}
+            className="rounded text-primary-500 focus:ring-primary-500 bg-tb-card border-gray-600" />
           <span className="text-sm">{q.questionText}</span>
         </label>
       );
-
     default:
-      return <input type="text" value={value} onChange={e => onChange(e.target.value)} className={inputClass} />;
+      return <input type="text" value={value} onChange={e => onChange(e.target.value)} className="tb-input" />;
   }
 }

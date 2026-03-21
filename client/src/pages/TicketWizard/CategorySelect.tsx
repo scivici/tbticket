@@ -1,19 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { products as productsApi } from '../../api/client';
 import { WizardData } from './WizardContainer';
-import { Wifi, Mic, Cpu, Link, Download, Activity, Server, Network, Bell, TrendingUp } from 'lucide-react';
+import { Wifi, Mic, Cpu, Link, Download, Activity, Server, Network, Bell, TrendingUp, Shield } from 'lucide-react';
 
 const iconMap: Record<string, React.ReactNode> = {
-  wifi: <Wifi className="w-5 h-5" />,
-  microphone: <Mic className="w-5 h-5" />,
-  cpu: <Cpu className="w-5 h-5" />,
-  link: <Link className="w-5 h-5" />,
-  download: <Download className="w-5 h-5" />,
-  activity: <Activity className="w-5 h-5" />,
-  server: <Server className="w-5 h-5" />,
-  network: <Network className="w-5 h-5" />,
-  bell: <Bell className="w-5 h-5" />,
-  'trending-up': <TrendingUp className="w-5 h-5" />,
+  wifi: <Wifi className="w-5 h-5" />, microphone: <Mic className="w-5 h-5" />,
+  cpu: <Cpu className="w-5 h-5" />, link: <Link className="w-5 h-5" />,
+  download: <Download className="w-5 h-5" />, activity: <Activity className="w-5 h-5" />,
+  server: <Server className="w-5 h-5" />, network: <Network className="w-5 h-5" />,
+  bell: <Bell className="w-5 h-5" />, 'trending-up': <TrendingUp className="w-5 h-5" />,
+  shield: <Shield className="w-5 h-5" />,
 };
 
 interface Props {
@@ -29,10 +25,7 @@ export default function CategorySelect({ data, onUpdate, onNext, onPrev }: Props
 
   useEffect(() => {
     if (data.product) {
-      productsApi.categories(data.product.id)
-        .then(setCategories)
-        .catch(console.error)
-        .finally(() => setLoading(false));
+      productsApi.categories(data.product.id).then(setCategories).catch(console.error).finally(() => setLoading(false));
     }
   }, [data.product]);
 
@@ -44,37 +37,28 @@ export default function CategorySelect({ data, onUpdate, onNext, onPrev }: Props
 
   return (
     <div>
-      <h2 className="text-lg font-semibold mb-4">What type of issue are you experiencing?</h2>
+      <h2 className="text-lg font-semibold text-white mb-4">What type of issue are you experiencing?</h2>
       <div className="grid sm:grid-cols-2 gap-3">
         {categories.map(cat => (
-          <button
-            key={cat.id}
-            onClick={() => selectCategory(cat)}
+          <button key={cat.id} onClick={() => selectCategory(cat)}
             className={`p-4 rounded-xl border-2 text-left transition-all hover:shadow-md flex items-start gap-3 ${
               data.category?.id === cat.id
-                ? 'border-primary-500 bg-primary-50'
-                : 'border-gray-200 hover:border-primary-300'
-            }`}
-          >
-            <div className={`p-2 rounded-lg ${data.category?.id === cat.id ? 'bg-primary-100 text-primary-600' : 'bg-gray-100 text-gray-500'}`}>
+                ? 'border-primary-500 bg-primary-500/10'
+                : 'border-gray-600 hover:border-primary-400 bg-tb-bg'
+            }`}>
+            <div className={`p-2 rounded-lg ${data.category?.id === cat.id ? 'bg-primary-500/20 text-accent-blue' : 'bg-gray-700 text-gray-400'}`}>
               {iconMap[cat.icon] || <Cpu className="w-5 h-5" />}
             </div>
             <div>
-              <h3 className="font-medium">{cat.name}</h3>
-              <p className="text-sm text-gray-500 mt-0.5">{cat.description}</p>
+              <h3 className="font-medium text-white">{cat.name}</h3>
+              <p className="text-sm text-gray-400 mt-0.5">{cat.description}</p>
             </div>
           </button>
         ))}
       </div>
-
       <div className="flex justify-between mt-6">
-        <button onClick={onPrev} className="px-6 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">
-          Back
-        </button>
-        <button onClick={onNext} disabled={!data.category}
-          className="px-6 py-2 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed">
-          Next
-        </button>
+        <button onClick={onPrev} className="tb-btn-secondary">Back</button>
+        <button onClick={onNext} disabled={!data.category} className="tb-btn-primary px-6 disabled:cursor-not-allowed">Next</button>
       </div>
     </div>
   );

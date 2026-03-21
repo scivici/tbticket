@@ -3,7 +3,6 @@ import { Check } from 'lucide-react';
 
 interface Step {
   label: string;
-  description?: string;
 }
 
 interface StepperProps {
@@ -22,14 +21,14 @@ export default function Stepper({ steps, currentStep }: StepperProps) {
           return (
             <li key={index} className="flex items-center">
               {index > 0 && (
-                <div className={`w-8 sm:w-16 h-0.5 mx-1 sm:mx-2 ${isCompleted ? 'bg-primary-600' : 'bg-gray-200'}`} />
+                <div className={`w-8 sm:w-16 h-0.5 mx-1 sm:mx-2 ${isCompleted ? 'bg-primary-500' : 'bg-gray-600'}`} />
               )}
               <div className="flex flex-col items-center">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium
-                  ${isCompleted ? 'bg-primary-600 text-white' : isCurrent ? 'bg-primary-100 text-primary-700 ring-2 ring-primary-600' : 'bg-gray-100 text-gray-400'}`}>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors
+                  ${isCompleted ? 'bg-primary-500 text-white' : isCurrent ? 'bg-primary-500/20 text-accent-blue ring-2 ring-primary-500' : 'bg-gray-700 text-gray-400'}`}>
                   {isCompleted ? <Check className="w-4 h-4" /> : index + 1}
                 </div>
-                <span className={`mt-1 text-xs hidden sm:block ${isCurrent ? 'text-primary-700 font-medium' : 'text-gray-400'}`}>
+                <span className={`mt-1 text-xs hidden sm:block ${isCurrent ? 'text-accent-blue font-medium' : 'text-gray-500'}`}>
                   {step.label}
                 </span>
               </div>
