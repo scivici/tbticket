@@ -21,6 +21,8 @@ import QuestionManager from './pages/admin/QuestionManager';
 import SkillManager from './pages/admin/SkillManager';
 import UserManager from './pages/admin/UserManager';
 import SetupPage from './pages/admin/SetupPage';
+import CustomerList from './pages/admin/CustomerList';
+import CannedResponseManager from './pages/admin/CannedResponseManager';
 
 function AdminGuard() {
   const { isAdmin, loading } = useAuth();
@@ -49,10 +51,12 @@ export default function App() {
         <Route path="/admin/tickets" element={<TicketList />} />
         <Route path="/admin/tickets/:id" element={<TicketDetail />} />
         <Route path="/admin/engineers" element={<EngineerManager />} />
+        <Route path="/admin/customers" element={<CustomerList />} />
         <Route path="/admin/products" element={<ProductManager />} />
         <Route path="/admin/categories" element={<CategoryManager />} />
         <Route path="/admin/questions" element={<QuestionManager />} />
         <Route path="/admin/skills" element={<SkillManager />} />
+        <Route path="/admin/canned-responses" element={<CannedResponseManager />} />
         <Route path="/admin/users" element={<UserManager />} />
         <Route path="/admin/setup" element={<SetupPage />} />
       </Route>

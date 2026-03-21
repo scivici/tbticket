@@ -1,11 +1,40 @@
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { tickets as ticketsApi, engineers as engineersApi } from '../../api/client';
+import { useParams, useNavigate } from 'react-router-dom';
+import { tickets as ticketsApi, engineers as engineersApi, cannedResponses as cannedApi } from '../../api/client';
 import { StatusBadge, PriorityBadge } from '../../components/StatusBadge';
-import { Brain, FileText, RefreshCw, MessageSquare, Send, Lock, Clock, ShieldAlert } from 'lucide-react';
+import {
+  Brain, FileText, RefreshCw, MessageSquare, Send, Lock, Clock, ShieldAlert,
+  Trash2, Tag, X, Plus, PlusCircle, ArrowRightCircle, UserCheck, AlertTriangle,
+  MessageSquarePlus, Image as ImageIcon
+} from 'lucide-react';
+
+function timeAgo(dateStr: string) {
+  const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+  if (seconds < 60) return 'just now';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
+const activityIcons: Record<string, typeof PlusCircle> = {
+  created: PlusCircle,
+  status_changed: ArrowRightCircle,
+  assigned: UserCheck,
+  response: MessageSquare,
+  internal_note: Lock,
+  tag_added: Tag,
+  tag_removed: Tag,
+  priority_changed: AlertTriangle,
+};
+
+const isImageFile = (filename: string) => /\.(png|jpg|jpeg|gif|webp)$/i.test(filename);
 
 export default function TicketDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [ticket, setTicket] = useState<any>(null);
   const [engineers, setEngineers] = useState<any[]>([]);
   const [responses, setResponses] = useState<any[]>([]);
@@ -15,15 +44,42 @@ export default function TicketDetail() {
   const [isInternal, setIsInternal] = useState(false);
   const [sendingResponse, setSendingResponse] = useState(false);
 
+  // Tags
+  const [tags, setTags] = useState<string[]>([]);
+  const [newTag, setNewTag] = useState('');
+
+  // Activities
+  const [activities, setActivities] = useState<any[]>([]);
+
+  // Canned responses
+  const [cannedList, setCannedList] = useState<any[]>([]);
+  const [showCanned, setShowCanned] = useState(false);
+
   const load = () => {
     setLoading(true);
-    Promise.all([ticketsApi.get(parseInt(id!)), engineersApi.list(), ticketsApi.getResponses(parseInt(id!))])
-      .then(([t, e, r]) => { setTicket(t); setEngineers(e); setResponses(r); })
+    Promise.all([
+      ticketsApi.get(parseInt(id!)),
+      engineersApi.list(),
+      ticketsApi.getResponses(parseInt(id!)),
+      ticketsApi.getTags(parseInt(id!)).catch(() => []),
+      ticketsApi.getActivities(parseInt(id!)).catch(() => []),
+    ])
+      .then(([t, e, r, tg, act]) => {
+        setTicket(t); setEngineers(e); setResponses(r); setTags(tg); setActivities(act);
+      })
       .catch(console.error).finally(() => setLoading(false));
   };
 
   const loadResponses = () => {
     ticketsApi.getResponses(parseInt(id!)).then(setResponses).catch(console.error);
+  };
+
+  const loadTags = () => {
+    ticketsApi.getTags(parseInt(id!)).then(setTags).catch(console.error);
+  };
+
+  const loadActivities = () => {
+    ticketsApi.getActivities(parseInt(id!)).then(setActivities).catch(console.error);
   };
 
   const handleSendResponse = async () => {
@@ -34,6 +90,7 @@ export default function TicketDetail() {
       setResponseMessage('');
       setIsInternal(false);
       loadResponses();
+      loadActivities();
     } catch (err) {
       console.error(err);
     } finally {
@@ -43,9 +100,22 @@ export default function TicketDetail() {
 
   useEffect(() => { load(); }, [id]);
 
+  // Lazy-load canned responses on first open
+  useEffect(() => {
+    if (showCanned && cannedList.length === 0) {
+      cannedApi.list().then(setCannedList).catch(console.error);
+    }
+  }, [showCanned]);
+
   const handleStatusChange = async (status: string) => {
     setActionLoading('status');
     await ticketsApi.updateStatus(parseInt(id!), status).catch(console.error);
+    load(); setActionLoading('');
+  };
+
+  const handlePriorityChange = async (priority: string) => {
+    setActionLoading('priority');
+    await ticketsApi.updatePriority(parseInt(id!), priority).catch(console.error);
     load(); setActionLoading('');
   };
 
@@ -59,6 +129,37 @@ export default function TicketDetail() {
     setActionLoading('analyze');
     await ticketsApi.analyze(parseInt(id!)).catch(console.error);
     setTimeout(load, 2000); setActionLoading('');
+  };
+
+  const handleDelete = async () => {
+    if (!window.confirm(`Delete ticket ${ticket.ticketNumber}? This cannot be undone.`)) return;
+    setActionLoading('delete');
+    try {
+      await ticketsApi.delete(parseInt(id!));
+      navigate('/admin/tickets');
+    } catch (err) {
+      console.error(err);
+      setActionLoading('');
+    }
+  };
+
+  const handleAddTag = async () => {
+    const t = newTag.trim();
+    if (!t) return;
+    try {
+      await ticketsApi.addTag(parseInt(id!), t);
+      setNewTag('');
+      loadTags();
+      loadActivities();
+    } catch (err) { console.error(err); }
+  };
+
+  const handleRemoveTag = async (tag: string) => {
+    try {
+      await ticketsApi.removeTag(parseInt(id!), tag);
+      loadTags();
+      loadActivities();
+    } catch (err) { console.error(err); }
   };
 
   if (loading) return <div className="text-center py-12 text-gray-500">Loading ticket...</div>;
@@ -100,16 +201,36 @@ export default function TicketDetail() {
             </div>
           )}
 
+          {/* Attachments with Image Previews */}
           {ticket.attachments?.length > 0 && (
             <div className="tb-card p-6">
               <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Attachments</h3>
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {ticket.attachments.map((att: any) => (
-                  <a key={att.id} href={`/uploads/${att.filename}`} target="_blank" rel="noreferrer"
-                    className="flex items-center gap-2 text-accent-blue hover:underline text-sm">
-                    <FileText className="w-4 h-4" />
-                    {att.original_name} ({(att.size / 1024).toFixed(1)} KB)
-                  </a>
+                  <div key={att.id}>
+                    {isImageFile(att.original_name || att.filename) ? (
+                      <div className="space-y-2">
+                        <a href={`/uploads/${att.filename}`} target="_blank" rel="noreferrer"
+                          className="block max-w-xs">
+                          <img
+                            src={`/uploads/${att.filename}`}
+                            alt={att.original_name}
+                            className="rounded-lg border border-gray-200 dark:border-gray-700 max-h-48 object-cover hover:opacity-80 transition-opacity cursor-pointer"
+                          />
+                        </a>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                          <ImageIcon className="w-3 h-3" />
+                          {att.original_name} ({(att.size / 1024).toFixed(1)} KB)
+                        </p>
+                      </div>
+                    ) : (
+                      <a href={`/uploads/${att.filename}`} target="_blank" rel="noreferrer"
+                        className="flex items-center gap-2 text-accent-blue hover:underline text-sm">
+                        <FileText className="w-4 h-4" />
+                        {att.original_name} ({(att.size / 1024).toFixed(1)} KB)
+                      </a>
+                    )}
+                  </div>
                 ))}
               </div>
             </div>
@@ -192,6 +313,38 @@ export default function TicketDetail() {
 
             {/* Response Form */}
             <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+              {/* Canned Responses Picker */}
+              <div className="relative mb-3">
+                <button
+                  onClick={() => setShowCanned(!showCanned)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:border-accent-blue hover:text-accent-blue transition-colors"
+                >
+                  <MessageSquarePlus className="w-4 h-4" />
+                  Canned Responses
+                </button>
+                {showCanned && (
+                  <div className="absolute z-10 mt-1 w-80 max-h-64 overflow-y-auto bg-white dark:bg-tb-card border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
+                    {cannedList.length === 0 ? (
+                      <p className="px-4 py-3 text-sm text-gray-500">No canned responses available.</p>
+                    ) : (
+                      cannedList.map((c: any) => (
+                        <button
+                          key={c.id}
+                          onClick={() => { setResponseMessage(c.content); setShowCanned(false); }}
+                          className="w-full text-left px-4 py-3 hover:bg-gray-100 dark:hover:bg-white/5 border-b border-gray-100 dark:border-gray-700 last:border-0 transition-colors"
+                        >
+                          <p className="text-sm font-medium text-gray-900 dark:text-white">{c.title}</p>
+                          {c.category && (
+                            <span className="text-xs text-purple-400">{c.category}</span>
+                          )}
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2">{c.content}</p>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+
               <textarea
                 value={responseMessage}
                 onChange={e => setResponseMessage(e.target.value)}
@@ -221,8 +374,37 @@ export default function TicketDetail() {
               </div>
             </div>
           </div>
+
+          {/* Activity Log */}
+          {activities.length > 0 && (
+            <div className="tb-card p-6">
+              <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Activity Log</h3>
+              <div className="space-y-3">
+                {activities.map((act: any, i: number) => {
+                  const IconComp = activityIcons[act.action] || PlusCircle;
+                  return (
+                    <div key={i} className="flex items-start gap-3">
+                      <div className="mt-0.5 p-1.5 rounded-full bg-gray-100 dark:bg-white/10 flex-shrink-0">
+                        <IconComp className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-gray-700 dark:text-gray-200">
+                          <span className="font-medium text-gray-900 dark:text-white">{act.actorName || 'System'}</span>
+                          {' '}{act.description || act.action?.replace('_', ' ')}
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                          {timeAgo(act.createdAt || act.created_at)}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
+        {/* Sidebar */}
         <div className="space-y-4">
           <div className="tb-card p-6">
             <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Details</h3>
@@ -232,6 +414,42 @@ export default function TicketDetail() {
               <div><p className="text-gray-500">Customer</p><p className="font-medium text-gray-700 dark:text-gray-200">{ticket.customer.name}</p><p className="text-gray-500">{ticket.customer.email}</p></div>
               <div><p className="text-gray-500">Assigned Engineer</p><p className="font-medium text-gray-700 dark:text-gray-200">{ticket.assignedEngineer?.name || 'Unassigned'}</p></div>
               <div><p className="text-gray-500">Created</p><p className="font-medium text-gray-700 dark:text-gray-200">{new Date(ticket.createdAt).toLocaleString()}</p></div>
+            </div>
+          </div>
+
+          {/* Tags Card */}
+          <div className="tb-card p-6">
+            <div className="flex items-center gap-2 mb-3">
+              <Tag className="w-4 h-4 text-accent-blue" />
+              <h3 className="font-semibold text-gray-900 dark:text-white">Tags</h3>
+            </div>
+            <div className="flex flex-wrap gap-1.5 mb-3">
+              {tags.length === 0 ? (
+                <p className="text-sm text-gray-500 dark:text-gray-400">No tags</p>
+              ) : (
+                tags.map((tag: string) => (
+                  <span key={tag} className="inline-flex items-center gap-1 px-2 py-0.5 bg-accent-blue/10 text-accent-blue rounded-full text-xs font-medium">
+                    {tag}
+                    <button onClick={() => handleRemoveTag(tag)} className="hover:text-red-400 transition-colors">
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))
+              )}
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newTag}
+                onChange={e => setNewTag(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleAddTag()}
+                placeholder="Add tag..."
+                className="tb-input flex-1 text-sm"
+              />
+              <button onClick={handleAddTag} disabled={!newTag.trim()}
+                className="p-2 text-accent-blue hover:bg-accent-blue/10 rounded-lg disabled:opacity-50 transition-colors">
+                <Plus className="w-4 h-4" />
+              </button>
             </div>
           </div>
 
@@ -247,6 +465,14 @@ export default function TicketDetail() {
                 </select>
               </div>
               <div>
+                <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Change Priority</label>
+                <select value={ticket.priority} onChange={e => handlePriorityChange(e.target.value)} disabled={!!actionLoading} className="tb-select w-full">
+                  {['low', 'medium', 'high', 'critical'].map(p => (
+                    <option key={p} value={p}>{p}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
                 <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Assign Engineer</label>
                 <select value={ticket.assignedEngineerId || ''} onChange={e => handleAssign(parseInt(e.target.value))} disabled={!!actionLoading} className="tb-select w-full">
                   <option value="">Select engineer...</option>
@@ -257,6 +483,11 @@ export default function TicketDetail() {
                 className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-purple-500/20 text-purple-300 rounded-lg text-sm font-medium hover:bg-purple-500/30 disabled:opacity-50 transition-colors">
                 <RefreshCw className={`w-4 h-4 ${actionLoading === 'analyze' ? 'animate-spin' : ''}`} />
                 Re-analyze with AI
+              </button>
+              <button onClick={handleDelete} disabled={!!actionLoading}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-500/20 text-red-500 rounded-lg text-sm font-medium hover:bg-red-500/30 disabled:opacity-50 transition-colors">
+                <Trash2 className="w-4 h-4" />
+                Delete Ticket
               </button>
             </div>
           </div>

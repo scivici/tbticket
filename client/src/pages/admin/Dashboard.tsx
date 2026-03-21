@@ -1,22 +1,38 @@
 import React, { useEffect, useState } from 'react';
-import { admin } from '../../api/client';
+import { Link } from 'react-router-dom';
+import { admin, tickets as ticketsApi } from '../../api/client';
+import { StatusBadge } from '../../components/StatusBadge';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import { Ticket, Users, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
 
 const COLORS = ['#0ea5e9', '#059669', '#D39340', '#832d2d', '#8b5cf6', '#ec4899', '#6b7280'];
 
+function timeAgo(dateStr: string) {
+  const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+  if (seconds < 60) return 'just now';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
 export default function Dashboard() {
   const [stats, setStats] = useState<any>(null);
   const [breached, setBreached] = useState<any[]>([]);
+  const [recentTickets, setRecentTickets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([
       admin.dashboard(),
       admin.slaBreached().catch(() => []),
-    ]).then(([s, b]) => {
+      ticketsApi.list({ limit: '5' }).catch(() => ({ tickets: [] })),
+    ]).then(([s, b, rt]) => {
       setStats(s);
       setBreached(b);
+      setRecentTickets(rt.tickets || []);
     }).catch(console.error).finally(() => setLoading(false));
   }, []);
 
@@ -38,6 +54,40 @@ export default function Dashboard() {
         <StatCard icon={<CheckCircle className="w-5 h-5" />} label="Resolved" value={stats.resolvedTickets} color="green" />
         <StatCard icon={<Users className="w-5 h-5" />} label="Avg Resolution (hrs)" value={stats.avgResolutionTime || '\u2014'} color="purple" />
       </div>
+
+      {/* Recent Tickets */}
+      {recentTickets.length > 0 && (
+        <div className="tb-card p-6 mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-gray-900 dark:text-white">Recent Tickets</h3>
+            <Link to="/admin/tickets" className="text-sm text-accent-blue hover:underline">View all</Link>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead>
+                <tr>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Ticket</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Subject</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Time</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                {recentTickets.map((t: any) => (
+                  <tr key={t.id} className="hover:bg-black/5 dark:hover:bg-white/5">
+                    <td className="px-4 py-2">
+                      <Link to={`/admin/tickets/${t.id}`} className="text-sm font-mono text-accent-blue hover:underline">{t.ticketNumber}</Link>
+                    </td>
+                    <td className="px-4 py-2 text-sm text-gray-700 dark:text-gray-200 max-w-xs truncate">{t.subject}</td>
+                    <td className="px-4 py-2"><StatusBadge status={t.status} /></td>
+                    <td className="px-4 py-2 text-xs text-gray-500 dark:text-gray-400">{timeAgo(t.createdAt)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       <div className="grid lg:grid-cols-2 gap-6 mb-8">
         <div className="tb-card p-6">

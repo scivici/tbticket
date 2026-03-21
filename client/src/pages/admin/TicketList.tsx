@@ -1,21 +1,90 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { tickets as ticketsApi } from '../../api/client';
+import { tickets as ticketsApi, engineers as engineersApi } from '../../api/client';
 import { StatusBadge, PriorityBadge } from '../../components/StatusBadge';
-import { RefreshCw, Download } from 'lucide-react';
+import { RefreshCw, Download, Trash2, CheckSquare } from 'lucide-react';
 
 export default function TicketList() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState<Record<string, string>>({});
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [engineers, setEngineers] = useState<any[]>([]);
+  const [bulkStatus, setBulkStatus] = useState('');
+  const [bulkEngineer, setBulkEngineer] = useState('');
+  const [actionLoading, setActionLoading] = useState(false);
 
   const load = () => {
     setLoading(true);
+    setSelected(new Set());
     const params = Object.fromEntries(Object.entries(filters).filter(([_, v]) => v));
-    ticketsApi.list(params).then(setData).catch(console.error).finally(() => setLoading(false));
+    Promise.all([
+      ticketsApi.list(params),
+      engineersApi.list(),
+    ]).then(([d, e]) => { setData(d); setEngineers(e); })
+      .catch(console.error).finally(() => setLoading(false));
   };
 
   useEffect(() => { load(); }, [filters]);
+
+  const toggleSelect = (id: number) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (!data?.tickets) return;
+    const allIds = data.tickets.map((t: any) => t.id);
+    if (selected.size === allIds.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(allIds));
+    }
+  };
+
+  const handleBulkStatus = async () => {
+    if (!bulkStatus || selected.size === 0) return;
+    setActionLoading(true);
+    try {
+      await ticketsApi.bulkStatus(Array.from(selected), bulkStatus);
+      setBulkStatus('');
+      load();
+    } catch (err) { console.error(err); }
+    setActionLoading(false);
+  };
+
+  const handleBulkAssign = async () => {
+    if (!bulkEngineer || selected.size === 0) return;
+    setActionLoading(true);
+    try {
+      await ticketsApi.bulkAssign(Array.from(selected), parseInt(bulkEngineer));
+      setBulkEngineer('');
+      load();
+    } catch (err) { console.error(err); }
+    setActionLoading(false);
+  };
+
+  const handleBulkDelete = async () => {
+    if (selected.size === 0) return;
+    if (!window.confirm(`Delete ${selected.size} selected ticket(s)? This cannot be undone.`)) return;
+    setActionLoading(true);
+    try {
+      await ticketsApi.bulkDelete(Array.from(selected));
+      load();
+    } catch (err) { console.error(err); }
+    setActionLoading(false);
+  };
+
+  const handleDelete = async (id: number, ticketNumber: string) => {
+    if (!window.confirm(`Delete ticket ${ticketNumber}? This cannot be undone.`)) return;
+    try {
+      await ticketsApi.delete(id);
+      load();
+    } catch (err) { console.error(err); }
+  };
 
   const exportCSV = () => {
     if (!data?.tickets?.length) return;
@@ -63,6 +132,43 @@ export default function TicketList() {
         </select>
       </div>
 
+      {/* Bulk Action Bar */}
+      {selected.size > 0 && (
+        <div className="flex items-center gap-3 mb-4 p-3 bg-accent-blue/10 border border-accent-blue/30 rounded-lg">
+          <div className="flex items-center gap-2 text-sm font-medium text-accent-blue">
+            <CheckSquare className="w-4 h-4" />
+            {selected.size} selected
+          </div>
+          <div className="flex items-center gap-2 ml-4">
+            <select value={bulkStatus} onChange={e => setBulkStatus(e.target.value)} className="tb-select text-sm">
+              <option value="">Change Status...</option>
+              {['new', 'analyzing', 'assigned', 'in_progress', 'pending_info', 'resolved', 'closed'].map(s => (
+                <option key={s} value={s}>{s.replace('_', ' ')}</option>
+              ))}
+            </select>
+            <button onClick={handleBulkStatus} disabled={!bulkStatus || actionLoading}
+              className="px-3 py-1.5 text-sm font-medium bg-accent-blue text-white rounded-lg hover:bg-accent-blue/80 disabled:opacity-50 transition-colors">
+              Apply
+            </button>
+          </div>
+          <div className="flex items-center gap-2">
+            <select value={bulkEngineer} onChange={e => setBulkEngineer(e.target.value)} className="tb-select text-sm">
+              <option value="">Assign to...</option>
+              {engineers.map((e: any) => <option key={e.id} value={e.id}>{e.name}</option>)}
+            </select>
+            <button onClick={handleBulkAssign} disabled={!bulkEngineer || actionLoading}
+              className="px-3 py-1.5 text-sm font-medium bg-accent-blue text-white rounded-lg hover:bg-accent-blue/80 disabled:opacity-50 transition-colors">
+              Assign
+            </button>
+          </div>
+          <button onClick={handleBulkDelete} disabled={actionLoading}
+            className="ml-auto flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-red-500/20 text-red-500 rounded-lg hover:bg-red-500/30 disabled:opacity-50 transition-colors">
+            <Trash2 className="w-4 h-4" />
+            Delete Selected
+          </button>
+        </div>
+      )}
+
       {loading ? (
         <div className="text-center py-12 text-gray-500">Loading...</div>
       ) : (
@@ -70,6 +176,13 @@ export default function TicketList() {
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead className="bg-black/5 dark:bg-white/5">
               <tr>
+                <th className="px-4 py-3 text-left">
+                  <input type="checkbox"
+                    checked={data?.tickets?.length > 0 && selected.size === data.tickets.length}
+                    onChange={toggleSelectAll}
+                    className="rounded border-gray-300 dark:border-gray-600 text-accent-blue focus:ring-accent-blue"
+                  />
+                </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Ticket</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Subject</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Product</th>
@@ -78,11 +191,19 @@ export default function TicketList() {
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Engineer</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">AI</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Created</th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
               {data?.tickets?.map((t: any) => (
-                <tr key={t.id} className="hover:bg-black/5 dark:hover:bg-white/5">
+                <tr key={t.id} className={`hover:bg-black/5 dark:hover:bg-white/5 ${selected.has(t.id) ? 'bg-accent-blue/5' : ''}`}>
+                  <td className="px-4 py-3">
+                    <input type="checkbox"
+                      checked={selected.has(t.id)}
+                      onChange={() => toggleSelect(t.id)}
+                      className="rounded border-gray-300 dark:border-gray-600 text-accent-blue focus:ring-accent-blue"
+                    />
+                  </td>
                   <td className="px-4 py-3">
                     <Link to={`/admin/tickets/${t.id}`} className="text-sm font-mono text-accent-blue hover:underline">{t.ticketNumber}</Link>
                   </td>
@@ -99,6 +220,12 @@ export default function TicketList() {
                     ) : '\u2014'}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-500">{new Date(t.createdAt).toLocaleDateString()}</td>
+                  <td className="px-4 py-3 text-right">
+                    <button onClick={() => handleDelete(t.id, t.ticketNumber)} title="Delete ticket"
+                      className="p-1.5 text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
