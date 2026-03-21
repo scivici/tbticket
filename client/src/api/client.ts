@@ -66,6 +66,9 @@ export const tickets = {
     request<any>(`/tickets/${id}/assign`, { method: 'PATCH', body: JSON.stringify({ engineerId }) }),
   analyze: (id: number) =>
     request<any>(`/tickets/${id}/analyze`, { method: 'POST' }),
+  getResponses: (id: number) => request<any[]>(`/tickets/${id}/responses`),
+  addResponse: (id: number, message: string, isInternal?: boolean) =>
+    request<any>(`/tickets/${id}/responses`, { method: 'POST', body: JSON.stringify({ message, isInternal: isInternal || false }) }),
 };
 
 // Engineers

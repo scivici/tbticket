@@ -15,6 +15,10 @@ router.post('/', optionalAuth, upload.array('files', 5), ticketsController.creat
 router.get('/', authenticate, ticketsController.listTickets);
 router.get('/:id', authenticate, ticketsController.getTicket);
 
+// Authenticated - responses
+router.get('/:id/responses', authenticate, ticketsController.getResponses);
+router.post('/:id/responses', authenticate, ticketsController.addResponse);
+
 // Admin only
 router.patch('/:id/status', authenticate, requireAdmin, ticketsController.updateStatus);
 router.patch('/:id/assign', authenticate, requireAdmin, ticketsController.assignEngineer);

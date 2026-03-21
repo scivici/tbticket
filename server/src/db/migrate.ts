@@ -26,4 +26,27 @@ export function runMigrations(): void {
   } else {
     console.log('[DB] Database already initialized.');
   }
+
+  // Migration: add ticket_responses table if it doesn't exist
+  const responsesTableExists = db.prepare(
+    "SELECT name FROM sqlite_master WHERE type='table' AND name='ticket_responses'"
+  ).get();
+
+  if (!responsesTableExists) {
+    console.log('[DB] Running ticket_responses migration...');
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS ticket_responses (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          ticket_id INTEGER NOT NULL REFERENCES tickets(id),
+          author_id INTEGER NOT NULL REFERENCES customers(id),
+          author_name TEXT NOT NULL,
+          author_role TEXT NOT NULL CHECK(author_role IN ('admin', 'customer', 'engineer')),
+          message TEXT NOT NULL,
+          is_internal INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_ticket_responses_ticket ON ticket_responses(ticket_id);
+    `);
+    console.log('[DB] ticket_responses table created successfully.');
+  }
 }

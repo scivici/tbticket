@@ -50,7 +50,7 @@ export default function MyTickets() {
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
               {data.tickets.map((ticket: any) => (
                 <tr key={ticket.id} className="hover:bg-black/5 dark:hover:bg-white/5">
-                  <td className="px-6 py-4 text-sm font-mono text-accent-blue">{ticket.ticketNumber}</td>
+                  <td className="px-6 py-4 text-sm font-mono"><Link to={`/my-tickets/${ticket.id}`} className="text-accent-blue hover:underline">{ticket.ticketNumber}</Link></td>
                   <td className="px-6 py-4 text-sm text-gray-700 dark:text-gray-200">{ticket.subject}</td>
                   <td className="px-6 py-4"><StatusBadge status={ticket.status} /></td>
                   <td className="px-6 py-4"><PriorityBadge priority={ticket.priority} /></td>

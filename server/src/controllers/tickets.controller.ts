@@ -198,6 +198,74 @@ export function assignEngineer(req: AuthenticatedRequest, res: Response): void {
   res.json({ message: 'Engineer assigned' });
 }
 
+export function addResponse(req: AuthenticatedRequest, res: Response): void {
+  try {
+    const { id } = req.params;
+    const ticketId = parseInt(id);
+    const ticket = ticketService.getTicketById(ticketId);
+
+    if (!ticket) {
+      res.status(404).json({ error: 'Ticket not found' });
+      return;
+    }
+
+    // Check access: admin can respond to any, customer only to own tickets
+    if (req.user?.role !== 'admin' && ticket.customerId !== req.user?.userId) {
+      res.status(403).json({ error: 'Access denied' });
+      return;
+    }
+
+    const { message, isInternal } = req.body;
+    if (!message || !message.trim()) {
+      res.status(400).json({ error: 'Message is required' });
+      return;
+    }
+
+    // Look up the user's name from customers table
+    const db = getDb();
+    const customer = db.prepare('SELECT name FROM customers WHERE id = ?').get(req.user!.userId) as any;
+    const authorName = customer?.name || 'Unknown';
+    const authorRole = req.user!.role;
+
+    // Only admins can create internal notes
+    const internal = req.user?.role === 'admin' ? (isInternal || false) : false;
+
+    const responseId = ticketService.addResponse(ticketId, req.user!.userId, authorName, authorRole, message.trim(), internal);
+
+    res.status(201).json({ id: responseId, message: 'Response added' });
+  } catch (error: any) {
+    console.error('[Tickets] Add response error:', error);
+    res.status(500).json({ error: 'Failed to add response' });
+  }
+}
+
+export function getResponses(req: AuthenticatedRequest, res: Response): void {
+  try {
+    const { id } = req.params;
+    const ticketId = parseInt(id);
+    const ticket = ticketService.getTicketById(ticketId);
+
+    if (!ticket) {
+      res.status(404).json({ error: 'Ticket not found' });
+      return;
+    }
+
+    // Check access: admin sees all, customer only own tickets
+    if (req.user?.role !== 'admin' && ticket.customerId !== req.user?.userId) {
+      res.status(403).json({ error: 'Access denied' });
+      return;
+    }
+
+    const includeInternal = req.user?.role === 'admin';
+    const responses = ticketService.getResponses(ticketId, includeInternal);
+
+    res.json(responses);
+  } catch (error: any) {
+    console.error('[Tickets] Get responses error:', error);
+    res.status(500).json({ error: 'Failed to get responses' });
+  }
+}
+
 export function reanalyzeTicket(req: AuthenticatedRequest, res: Response): void {
   const { id } = req.params;
   const ticketId = parseInt(id);

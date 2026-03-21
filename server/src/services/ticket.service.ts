@@ -258,3 +258,19 @@ export function updateAiAnalysis(ticketId: number, analysis: string, confidence:
     WHERE id = ?
   `).run(analysis, confidence, ticketId);
 }
+
+export function addResponse(ticketId: number, authorId: number, authorName: string, authorRole: string, message: string, isInternal: boolean) {
+  const db = getDb();
+  const result = db.prepare(
+    'INSERT INTO ticket_responses (ticket_id, author_id, author_name, author_role, message, is_internal) VALUES (?, ?, ?, ?, ?, ?)'
+  ).run(ticketId, authorId, authorName, authorRole, message, isInternal ? 1 : 0);
+  return result.lastInsertRowid;
+}
+
+export function getResponses(ticketId: number, includeInternal: boolean) {
+  const db = getDb();
+  const where = includeInternal ? '' : 'AND is_internal = 0';
+  return db.prepare(
+    `SELECT * FROM ticket_responses WHERE ticket_id = ? ${where} ORDER BY created_at ASC`
+  ).all(ticketId);
+}

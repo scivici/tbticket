@@ -8,6 +8,7 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import TicketTracker from './pages/TicketTracker';
 import MyTickets from './pages/MyTickets';
+import CustomerTicketDetail from './pages/CustomerTicketDetail';
 import WizardContainer from './pages/TicketWizard/WizardContainer';
 import Dashboard from './pages/admin/Dashboard';
 import TicketList from './pages/admin/TicketList';
@@ -36,6 +37,7 @@ export default function App() {
         <Route path="/submit" element={<WizardContainer />} />
         <Route path="/track" element={<TicketTracker />} />
         <Route path="/my-tickets" element={<MyTickets />} />
+        <Route path="/my-tickets/:id" element={<CustomerTicketDetail />} />
       </Route>
 
       {/* Admin Pages — separate layout with sidebar */}

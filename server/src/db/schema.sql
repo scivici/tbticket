@@ -114,6 +114,19 @@ CREATE TABLE IF NOT EXISTS ticket_attachments (
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS ticket_responses (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticket_id INTEGER NOT NULL REFERENCES tickets(id),
+    author_id INTEGER NOT NULL REFERENCES customers(id),
+    author_name TEXT NOT NULL,
+    author_role TEXT NOT NULL CHECK(author_role IN ('admin', 'customer', 'engineer')),
+    message TEXT NOT NULL,
+    is_internal INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_ticket_responses_ticket ON ticket_responses(ticket_id);
+
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status);
 CREATE INDEX IF NOT EXISTS idx_tickets_assigned ON tickets(assigned_engineer_id);
