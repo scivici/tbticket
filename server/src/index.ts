@@ -12,6 +12,7 @@ import ticketsRoutes from './routes/tickets.routes';
 import engineersRoutes from './routes/engineers.routes';
 import adminRoutes from './routes/admin.routes';
 import adminManageRoutes from './routes/admin-manage.routes';
+import adminUsersRoutes from './routes/admin-users.routes';
 
 const app = express();
 
@@ -35,6 +36,7 @@ app.use('/api/tickets', ticketsRoutes);
 app.use('/api/engineers', engineersRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/admin/manage', adminManageRoutes);
+app.use('/api/admin/users', adminUsersRoutes);
 
 // Health check
 app.get('/api/health', (_req, res) => {

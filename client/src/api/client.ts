@@ -135,3 +135,18 @@ export const adminSkills = {
   delete: (id: number) =>
     request<any>(`${manage}/skills/${id}`, { method: 'DELETE' }),
 };
+
+// Admin Users
+export const adminUsers = {
+  list: () => request<any[]>('/admin/users'),
+  create: (data: { email: string; name: string; password: string }) =>
+    request<any>('/admin/users', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: number, data: { email?: string; name?: string }) =>
+    request<any>(`/admin/users/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  changePassword: (id: number, password: string) =>
+    request<any>(`/admin/users/${id}/password`, { method: 'PATCH', body: JSON.stringify({ password }) }),
+  changeMyPassword: (currentPassword: string, newPassword: string) =>
+    request<any>('/admin/users/me/password', { method: 'PATCH', body: JSON.stringify({ currentPassword, newPassword }) }),
+  delete: (id: number) =>
+    request<any>(`/admin/users/${id}`, { method: 'DELETE' }),
+};
