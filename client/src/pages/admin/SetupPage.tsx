@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { settings as settingsApi } from '../../api/client';
-import { Settings, Key, Mail, MessageSquare, Globe, Shield, Save, TestTube, ExternalLink, Brain, Terminal } from 'lucide-react';
+import { settings as settingsApi, adminUsers } from '../../api/client';
+import { useAuth } from '../../context/AuthContext';
+import { Settings, Key, Mail, MessageSquare, Globe, Shield, Save, TestTube, ExternalLink, Brain, Terminal, UserCog, Plus, Pencil, Trash2, X, Eye, EyeOff } from 'lucide-react';
 
-type Tab = 'claude' | 'license' | 'email' | 'webhooks' | 'general';
+type Tab = 'claude' | 'license' | 'email' | 'webhooks' | 'general' | 'users';
 
 export default function SetupPage() {
   const [activeTab, setActiveTab] = useState<Tab>('claude');
@@ -74,6 +75,7 @@ export default function SetupPage() {
     { id: 'email', label: 'Email (SMTP)', icon: Mail },
     { id: 'webhooks', label: 'Webhooks', icon: MessageSquare },
     { id: 'general', label: 'General', icon: Globe },
+    { id: 'users', label: 'Admin Users', icon: UserCog },
   ];
 
   if (loading) return <div className="text-center py-12 text-gray-500">Loading settings...</div>;
@@ -656,6 +658,172 @@ export default function SetupPage() {
           </div>
         </div>
       )}
+
+      {/* Tab: Admin Users */}
+      {activeTab === 'users' && <UsersPanel />}
+    </div>
+  );
+}
+
+// ============ Users Panel (embedded) ============
+
+function UsersPanel() {
+  const { user: currentUser } = useAuth();
+  const [users, setUsers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState<number | null>(null);
+  const [changingPw, setChangingPw] = useState<number | null>(null);
+  const [changingMyPw, setChangingMyPw] = useState(false);
+  const [form, setForm] = useState({ name: '', email: '', password: '', confirmPassword: '' });
+  const [pwForm, setPwForm] = useState({ password: '', confirmPassword: '' });
+  const [myPwForm, setMyPwForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [showPw, setShowPw] = useState(false);
+
+  const load = () => { setLoading(true); adminUsers.list().then(setUsers).catch(console.error).finally(() => setLoading(false)); };
+  useEffect(() => { load(); }, []);
+
+  const resetMessages = () => { setError(''); setSuccess(''); };
+
+  const startCreate = () => { setCreating(true); setEditing(null); setChangingPw(null); setForm({ name: '', email: '', password: '', confirmPassword: '' }); resetMessages(); };
+  const startEdit = (u: any) => { setEditing(u.id); setCreating(false); setChangingPw(null); setForm({ name: u.name, email: u.email, password: '', confirmPassword: '' }); resetMessages(); };
+  const cancel = () => { setCreating(false); setEditing(null); setChangingPw(null); setChangingMyPw(false); resetMessages(); };
+
+  const handleSave = async () => {
+    resetMessages();
+    if (creating) {
+      if (!form.name || !form.email || !form.password) { setError('All fields are required'); return; }
+      if (form.password.length < 6) { setError('Password must be at least 6 characters'); return; }
+      if (form.password !== form.confirmPassword) { setError('Passwords do not match'); return; }
+    }
+    setSaving(true);
+    try {
+      if (creating) { await adminUsers.create({ email: form.email, name: form.name, password: form.password }); setSuccess('Admin created'); }
+      else if (editing) { await adminUsers.update(editing, { email: form.email, name: form.name }); setSuccess('Admin updated'); }
+      cancel(); load();
+    } catch (err: any) { setError(err.message); } finally { setSaving(false); }
+  };
+
+  const handleChangePw = async (id: number) => {
+    resetMessages();
+    if (!pwForm.password || pwForm.password.length < 6) { setError('Password must be at least 6 characters'); return; }
+    if (pwForm.password !== pwForm.confirmPassword) { setError('Passwords do not match'); return; }
+    setSaving(true);
+    try { await adminUsers.changePassword(id, pwForm.password); setSuccess('Password changed'); setChangingPw(null); setPwForm({ password: '', confirmPassword: '' }); } catch (err: any) { setError(err.message); } finally { setSaving(false); }
+  };
+
+  const handleChangeMyPw = async () => {
+    resetMessages();
+    if (!myPwForm.currentPassword || !myPwForm.newPassword) { setError('All fields are required'); return; }
+    if (myPwForm.newPassword.length < 6) { setError('New password must be at least 6 characters'); return; }
+    if (myPwForm.newPassword !== myPwForm.confirmPassword) { setError('New passwords do not match'); return; }
+    setSaving(true);
+    try { await adminUsers.changeMyPassword(myPwForm.currentPassword, myPwForm.newPassword); setSuccess('Your password has been changed'); setChangingMyPw(false); setMyPwForm({ currentPassword: '', newPassword: '', confirmPassword: '' }); } catch (err: any) { setError(err.message); } finally { setSaving(false); }
+  };
+
+  const handleDelete = async (id: number, name: string) => {
+    if (!confirm(`Delete admin "${name}"?`)) return;
+    try { await adminUsers.delete(id); load(); } catch (err: any) { alert(err.message); }
+  };
+
+  if (loading) return <div className="text-center py-8 text-gray-500">Loading...</div>;
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="tb-card p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2"><UserCog className="w-5 h-5" /> Admin Users</h2>
+          <button onClick={startCreate} className="tb-btn-primary flex items-center gap-2 text-sm"><Plus className="w-4 h-4" /> Add Admin</button>
+        </div>
+
+        {error && <div className="mb-4 p-3 bg-status-expired-bg text-status-expired-text rounded-lg text-sm">{error}</div>}
+        {success && <div className="mb-4 p-3 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-lg text-sm">{success}</div>}
+
+        {/* Create/Edit Form */}
+        {(creating || editing) && (
+          <div className="mb-4 p-4 bg-[#f2f2f2] dark:bg-tb-bg rounded-lg border border-gray-200 dark:border-gray-700">
+            <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">{creating ? 'New Admin' : 'Edit Admin'}</h3>
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div><label className="block text-xs text-gray-500 mb-1">Name *</label><input type="text" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className="tb-input text-sm" /></div>
+              <div><label className="block text-xs text-gray-500 mb-1">Email *</label><input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} className="tb-input text-sm" /></div>
+              {creating && (
+                <>
+                  <div><label className="block text-xs text-gray-500 mb-1">Password *</label><input type="password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} className="tb-input text-sm" /></div>
+                  <div><label className="block text-xs text-gray-500 mb-1">Confirm Password *</label><input type="password" value={form.confirmPassword} onChange={e => setForm(f => ({ ...f, confirmPassword: e.target.value }))} className="tb-input text-sm" /></div>
+                </>
+              )}
+            </div>
+            <div className="flex gap-2 mt-3">
+              <button onClick={handleSave} disabled={saving} className="tb-btn-success text-sm flex items-center gap-1"><Save className="w-3 h-3" /> {saving ? 'Saving...' : 'Save'}</button>
+              <button onClick={cancel} className="tb-btn-secondary text-sm">Cancel</button>
+            </div>
+          </div>
+        )}
+
+        {/* User List */}
+        <div className="space-y-2">
+          {users.map(u => (
+            <div key={u.id} className="flex items-center justify-between p-3 bg-[#f2f2f2] dark:bg-tb-bg rounded-lg border border-gray-200 dark:border-gray-700">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-900 dark:text-white">{u.name}</span>
+                  {u.id === currentUser?.id && <span className="px-1.5 py-0.5 bg-primary-500/20 text-accent-blue text-xs rounded">You</span>}
+                </div>
+                <span className="text-xs text-gray-500">{u.email}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <button onClick={() => startEdit(u)} className="p-1.5 text-gray-400 hover:text-accent-blue hover:bg-black/10 dark:hover:bg-white/10 rounded"><Pencil className="w-3.5 h-3.5" /></button>
+                <button onClick={() => { setChangingPw(u.id); setPwForm({ password: '', confirmPassword: '' }); resetMessages(); }} className="p-1.5 text-gray-400 hover:text-accent-amber hover:bg-black/10 dark:hover:bg-white/10 rounded"><Key className="w-3.5 h-3.5" /></button>
+                {u.id !== currentUser?.id && <button onClick={() => handleDelete(u.id, u.name)} className="p-1.5 text-gray-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-500/10 rounded"><Trash2 className="w-3.5 h-3.5" /></button>}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Change Password Form */}
+        {changingPw && (
+          <div className="mt-4 p-4 bg-[#f2f2f2] dark:bg-tb-bg rounded-lg border border-accent-amber/30">
+            <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">Change Password for {users.find(u => u.id === changingPw)?.name}</h3>
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div className="relative">
+                <label className="block text-xs text-gray-500 mb-1">New Password</label>
+                <input type={showPw ? 'text' : 'password'} value={pwForm.password} onChange={e => setPwForm(f => ({ ...f, password: e.target.value }))} className="tb-input text-sm pr-10" />
+                <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-2 top-6 p-1 text-gray-400">{showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button>
+              </div>
+              <div><label className="block text-xs text-gray-500 mb-1">Confirm</label><input type="password" value={pwForm.confirmPassword} onChange={e => setPwForm(f => ({ ...f, confirmPassword: e.target.value }))} className="tb-input text-sm" /></div>
+            </div>
+            <div className="flex gap-2 mt-3">
+              <button onClick={() => handleChangePw(changingPw)} disabled={saving} className="tb-btn-success text-sm">Change</button>
+              <button onClick={cancel} className="tb-btn-secondary text-sm">Cancel</button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Change My Password */}
+      <div className="tb-card p-6">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-medium text-gray-900 dark:text-white">Change Your Password</h3>
+          {!changingMyPw && <button onClick={() => { setChangingMyPw(true); resetMessages(); }} className="tb-btn-secondary text-sm flex items-center gap-1"><Key className="w-3 h-3" /> Change</button>}
+        </div>
+        {changingMyPw && (
+          <div className="space-y-3">
+            <div><label className="block text-xs text-gray-500 mb-1">Current Password</label><input type="password" value={myPwForm.currentPassword} onChange={e => setMyPwForm(f => ({ ...f, currentPassword: e.target.value }))} className="tb-input text-sm" /></div>
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div><label className="block text-xs text-gray-500 mb-1">New Password</label><input type="password" value={myPwForm.newPassword} onChange={e => setMyPwForm(f => ({ ...f, newPassword: e.target.value }))} className="tb-input text-sm" /></div>
+              <div><label className="block text-xs text-gray-500 mb-1">Confirm New</label><input type="password" value={myPwForm.confirmPassword} onChange={e => setMyPwForm(f => ({ ...f, confirmPassword: e.target.value }))} className="tb-input text-sm" /></div>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={handleChangeMyPw} disabled={saving} className="tb-btn-success text-sm">Save</button>
+              <button onClick={cancel} className="tb-btn-secondary text-sm">Cancel</button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

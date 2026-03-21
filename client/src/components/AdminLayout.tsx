@@ -20,7 +20,6 @@ const navItems = [
   { to: '/admin/canned-responses', icon: MessageSquarePlus, label: 'Canned Responses' },
   { to: '/admin/escalations', icon: AlertTriangle, label: 'Escalations' },
   { to: '/admin/recurring', icon: Repeat, label: 'Recurring' },
-  { to: '/admin/users', icon: UserCog, label: 'Users' },
   { to: '/admin/setup', icon: Settings, label: 'Setup' },
 ];
 

@@ -61,7 +61,7 @@ export default function App() {
         <Route path="/admin/canned-responses" element={<CannedResponseManager />} />
         <Route path="/admin/escalations" element={<EscalationManager />} />
         <Route path="/admin/recurring" element={<RecurringTickets />} />
-        <Route path="/admin/users" element={<UserManager />} />
+        <Route path="/admin/users" element={<Navigate to="/admin/setup" />} />
         <Route path="/admin/setup" element={<SetupPage />} />
       </Route>
     </Routes>
