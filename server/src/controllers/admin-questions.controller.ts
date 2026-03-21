@@ -99,9 +99,12 @@ export function deleteQuestion(req: Request, res: Response): void {
 
   const answerRef = db.prepare('SELECT id FROM ticket_answers WHERE question_template_id = ? LIMIT 1').get(id) as any;
   if (answerRef) {
-    res.status(409).json({ error: 'Cannot delete question: ticket answers reference it' });
+    res.status(409).json({ error: 'Cannot delete question: existing ticket answers reference it. This question was already used in submitted tickets.' });
     return;
   }
+
+  // Clear conditional references from other questions pointing to this one
+  db.prepare('UPDATE question_templates SET conditional_on = NULL, conditional_value = NULL WHERE conditional_on = ?').run(id);
 
   db.prepare('DELETE FROM question_templates WHERE id = ?').run(id);
   res.json({ message: 'Question deleted' });

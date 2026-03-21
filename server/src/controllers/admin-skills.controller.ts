@@ -52,12 +52,11 @@ export function deleteSkill(req: Request, res: Response): void {
     return;
   }
 
-  const ref = db.prepare('SELECT id FROM engineer_skills WHERE skill_id = ? LIMIT 1').get(id) as any;
-  if (ref) {
-    res.status(409).json({ error: 'Cannot delete skill: engineer skills reference it' });
-    return;
-  }
-
-  db.prepare('DELETE FROM skills WHERE id = ?').run(id);
+  db.transaction(() => {
+    // Remove skill from all engineers first
+    db.prepare('DELETE FROM engineer_skills WHERE skill_id = ?').run(id);
+    // Delete the skill
+    db.prepare('DELETE FROM skills WHERE id = ?').run(id);
+  })();
   res.json({ message: 'Skill deleted' });
 }

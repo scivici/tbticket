@@ -49,10 +49,22 @@ export function deleteProduct(req: Request, res: Response): void {
 
   const ticketRef = db.prepare('SELECT id FROM tickets WHERE product_id = ? LIMIT 1').get(id) as any;
   if (ticketRef) {
-    res.status(409).json({ error: 'Cannot delete product: tickets reference it' });
+    res.status(409).json({ error: 'Cannot delete product: tickets reference it. Resolve or delete those tickets first.' });
     return;
   }
 
-  db.prepare('DELETE FROM products WHERE id = ?').run(id);
-  res.json({ message: 'Product deleted' });
+  db.transaction(() => {
+    // Delete question templates for all categories of this product
+    const catIds = db.prepare('SELECT id FROM product_categories WHERE product_id = ?').all(id) as any[];
+    for (const cat of catIds) {
+      db.prepare('DELETE FROM question_templates WHERE category_id = ?').run(cat.id);
+    }
+    // Delete categories
+    db.prepare('DELETE FROM product_categories WHERE product_id = ?').run(id);
+    // Delete engineer product expertise
+    db.prepare('DELETE FROM engineer_product_expertise WHERE product_id = ?').run(id);
+    // Delete the product
+    db.prepare('DELETE FROM products WHERE id = ?').run(id);
+  })();
+  res.json({ message: 'Product and all related data deleted' });
 }
