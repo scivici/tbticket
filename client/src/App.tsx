@@ -2,6 +2,7 @@ import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import Layout from './components/Layout';
+import AdminLayout from './components/AdminLayout';
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
@@ -17,15 +18,16 @@ import CategoryManager from './pages/admin/CategoryManager';
 import QuestionManager from './pages/admin/QuestionManager';
 import SkillManager from './pages/admin/SkillManager';
 
-function AdminRoute({ children }: { children: React.ReactNode }) {
+function AdminGuard() {
   const { isAdmin, loading } = useAuth();
-  if (loading) return <div className="text-center py-12">Loading...</div>;
-  return isAdmin ? <>{children}</> : <Navigate to="/login" />;
+  if (loading) return <div className="min-h-screen bg-tb-bg flex items-center justify-center text-gray-500">Loading...</div>;
+  return isAdmin ? <AdminLayout /> : <Navigate to="/login" />;
 }
 
 export default function App() {
   return (
     <Routes>
+      {/* Public Pages */}
       <Route element={<Layout />}>
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
@@ -33,16 +35,18 @@ export default function App() {
         <Route path="/submit" element={<WizardContainer />} />
         <Route path="/track" element={<TicketTracker />} />
         <Route path="/my-tickets" element={<MyTickets />} />
+      </Route>
 
-        {/* Admin Routes */}
-        <Route path="/admin" element={<AdminRoute><Dashboard /></AdminRoute>} />
-        <Route path="/admin/tickets" element={<AdminRoute><TicketList /></AdminRoute>} />
-        <Route path="/admin/tickets/:id" element={<AdminRoute><TicketDetail /></AdminRoute>} />
-        <Route path="/admin/engineers" element={<AdminRoute><EngineerManager /></AdminRoute>} />
-        <Route path="/admin/products" element={<AdminRoute><ProductManager /></AdminRoute>} />
-        <Route path="/admin/categories" element={<AdminRoute><CategoryManager /></AdminRoute>} />
-        <Route path="/admin/questions" element={<AdminRoute><QuestionManager /></AdminRoute>} />
-        <Route path="/admin/skills" element={<AdminRoute><SkillManager /></AdminRoute>} />
+      {/* Admin Pages — separate layout with sidebar */}
+      <Route element={<AdminGuard />}>
+        <Route path="/admin" element={<Dashboard />} />
+        <Route path="/admin/tickets" element={<TicketList />} />
+        <Route path="/admin/tickets/:id" element={<TicketDetail />} />
+        <Route path="/admin/engineers" element={<EngineerManager />} />
+        <Route path="/admin/products" element={<ProductManager />} />
+        <Route path="/admin/categories" element={<CategoryManager />} />
+        <Route path="/admin/questions" element={<QuestionManager />} />
+        <Route path="/admin/skills" element={<SkillManager />} />
       </Route>
     </Routes>
   );

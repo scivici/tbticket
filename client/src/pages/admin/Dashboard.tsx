@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { admin } from '../../api/client';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { Ticket, Users, CheckCircle, Clock } from 'lucide-react';
@@ -22,16 +21,8 @@ export default function Dashboard() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-white">Admin Dashboard</h1>
-        <div className="flex gap-2 flex-wrap">
-          <Link to="/admin/tickets" className="tb-btn-primary text-xs px-3 py-2">Tickets</Link>
-          <Link to="/admin/engineers" className="tb-btn-secondary text-xs px-3 py-2">Engineers</Link>
-          <Link to="/admin/products" className="tb-btn-secondary text-xs px-3 py-2">Products</Link>
-          <Link to="/admin/categories" className="tb-btn-secondary text-xs px-3 py-2">Categories</Link>
-          <Link to="/admin/questions" className="tb-btn-secondary text-xs px-3 py-2">Questions</Link>
-          <Link to="/admin/skills" className="tb-btn-secondary text-xs px-3 py-2">Skills</Link>
-        </div>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-white">Dashboard</h1>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
