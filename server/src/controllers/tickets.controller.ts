@@ -35,7 +35,7 @@ export function createTicket(req: AuthenticatedRequest, res: Response): void {
       }
     }
 
-    const { productId, categoryId, subject, description } = req.body;
+    const { productId, categoryId, subject, description, productKey } = req.body;
     let answers = req.body.answers;
 
     if (!productId || !categoryId || !subject || !description) {
@@ -56,6 +56,7 @@ export function createTicket(req: AuthenticatedRequest, res: Response): void {
       categoryId: parseInt(categoryId),
       subject,
       description,
+      productKey: productKey || undefined,
       answers: answers || [],
       files,
     });

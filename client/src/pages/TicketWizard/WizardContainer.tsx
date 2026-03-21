@@ -21,6 +21,7 @@ export interface WizardData {
   questions: any[];
   subject: string;
   description: string;
+  productKey: string;
   files: File[];
   email: string;
   name: string;
@@ -30,7 +31,7 @@ export default function WizardContainer() {
   const [currentStep, setCurrentStep] = useState(0);
   const [data, setData] = useState<WizardData>({
     product: null, category: null, answers: {}, questions: [],
-    subject: '', description: '', files: [], email: '', name: '',
+    subject: '', description: '', productKey: '', files: [], email: '', name: '',
   });
 
   const next = () => setCurrentStep(s => Math.min(s + 1, steps.length - 1));

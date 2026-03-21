@@ -29,6 +29,7 @@ export default function ReviewSubmit({ data, onUpdate, onPrev }: Props) {
       formData.append('categoryId', String(data.category.id));
       formData.append('subject', data.subject);
       formData.append('description', data.description);
+      if (data.productKey) formData.append('productKey', data.productKey);
       const answersArray = Object.entries(data.answers).filter(([_, v]) => v.trim())
         .map(([qId, answer]) => ({ questionTemplateId: parseInt(qId), answer }));
       formData.append('answers', JSON.stringify(answersArray));
@@ -72,6 +73,9 @@ export default function ReviewSubmit({ data, onUpdate, onPrev }: Props) {
           <div className="grid grid-cols-2 gap-4">
             <div><p className="text-xs text-gray-500 uppercase font-medium">Product</p><p className="font-medium text-gray-900 dark:text-white">{data.product?.name}</p></div>
             <div><p className="text-xs text-gray-500 uppercase font-medium">Category</p><p className="font-medium text-gray-900 dark:text-white">{data.category?.name}</p></div>
+            {data.productKey && (
+              <div><p className="text-xs text-gray-500 uppercase font-medium">{data.product?.name?.toLowerCase().includes('prosbc') ? 'Product Key' : 'Serial Number'}</p><p className="font-medium font-mono text-accent-blue">{data.productKey}</p></div>
+            )}
           </div>
         </div>
 

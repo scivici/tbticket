@@ -14,6 +14,7 @@ export interface CreateTicketData {
   categoryId: number;
   subject: string;
   description: string;
+  productKey?: string;
   answers: { questionTemplateId: number; answer: string }[];
   files?: Express.Multer.File[];
 }
@@ -23,8 +24,8 @@ export function createTicket(data: CreateTicketData) {
   const ticketNumber = generateTicketNumber();
 
   const insertTicket = db.prepare(`
-    INSERT INTO tickets (ticket_number, customer_id, product_id, category_id, subject, description)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO tickets (ticket_number, customer_id, product_id, category_id, subject, description, product_key)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
   `);
 
   const insertAnswer = db.prepare(`
@@ -40,7 +41,7 @@ export function createTicket(data: CreateTicketData) {
   const result = db.transaction(() => {
     const ticketResult = insertTicket.run(
       ticketNumber, data.customerId, data.productId, data.categoryId,
-      data.subject, data.description
+      data.subject, data.description, data.productKey || null
     );
     const ticketId = ticketResult.lastInsertRowid as number;
 
@@ -102,6 +103,7 @@ export function getTicketById(ticketId: number) {
     categoryId: ticket.category_id,
     subject: ticket.subject,
     description: ticket.description,
+    productKey: ticket.product_key,
     status: ticket.status,
     priority: ticket.priority,
     assignedEngineerId: ticket.assigned_engineer_id,

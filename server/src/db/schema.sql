@@ -87,6 +87,7 @@ CREATE TABLE IF NOT EXISTS tickets (
     category_id INTEGER NOT NULL REFERENCES product_categories(id),
     subject TEXT NOT NULL,
     description TEXT NOT NULL,
+    product_key TEXT,
     status TEXT NOT NULL DEFAULT 'new' CHECK(status IN ('new', 'analyzing', 'assigned', 'in_progress', 'pending_info', 'resolved', 'closed')),
     priority TEXT NOT NULL DEFAULT 'medium' CHECK(priority IN ('low', 'medium', 'high', 'critical')),
     assigned_engineer_id INTEGER REFERENCES engineers(id),

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { products as productsApi } from '../../api/client';
 import { WizardData } from './WizardContainer';
+import { Key } from 'lucide-react';
 
 interface Props {
   data: WizardData;
@@ -9,13 +10,42 @@ interface Props {
   onPrev: () => void;
 }
 
+// Product Key / Serial Number config per product
+function getProductKeyConfig(product: any): { label: string; placeholder: string; pattern: RegExp; hint: string } | null {
+  if (!product) return null;
+  const name = (product.name || '').toLowerCase();
+
+  if (name.includes('prosbc')) {
+    return {
+      label: 'Product Key',
+      placeholder: 'VTB-XXXX-XXXX',
+      pattern: /^VTB-[A-Za-z0-9]{4}-[A-Za-z0-9]{4}$/,
+      hint: 'Format: VTB-XXXX-XXXX (e.g., VTB-1A2V-3C4D)',
+    };
+  }
+
+  if (name.includes('tmg') || name.includes('tsg')) {
+    return {
+      label: 'Serial Number',
+      placeholder: 'TB0XXXXX',
+      pattern: /^TB0\d{5}$/,
+      hint: 'Format: TB0 followed by 5 digits (e.g., TB021234)',
+    };
+  }
+
+  return null;
+}
+
 export default function QuestionnaireForm({ data, onUpdate, onNext, onPrev }: Props) {
   const [questions, setQuestions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [subject, setSubject] = useState(data.subject);
   const [description, setDescription] = useState(data.description);
+  const [productKey, setProductKey] = useState(data.productKey);
   const [answers, setAnswers] = useState<Record<number, string>>(data.answers);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const keyConfig = getProductKeyConfig(data.product);
 
   useEffect(() => {
     if (data.category) {
@@ -36,6 +66,16 @@ export default function QuestionnaireForm({ data, onUpdate, onNext, onPrev }: Pr
     const errs: Record<string, string> = {};
     if (!subject.trim()) errs.subject = 'Subject is required';
     if (!description.trim()) errs.description = 'Description is required';
+
+    // Product Key / Serial Number validation
+    if (keyConfig) {
+      if (!productKey.trim()) {
+        errs.productKey = `${keyConfig.label} is required`;
+      } else if (!keyConfig.pattern.test(productKey.trim())) {
+        errs.productKey = `Invalid format. ${keyConfig.hint}`;
+      }
+    }
+
     for (const q of questions) {
       if (q.isRequired && isVisible(q) && !answers[q.id]?.trim()) {
         errs[`q_${q.id}`] = 'This field is required';
@@ -47,7 +87,7 @@ export default function QuestionnaireForm({ data, onUpdate, onNext, onPrev }: Pr
 
   const handleNext = () => {
     if (!validate()) return;
-    onUpdate({ subject, description, answers, questions });
+    onUpdate({ subject, description, productKey, answers, questions });
     onNext();
   };
 
@@ -56,6 +96,25 @@ export default function QuestionnaireForm({ data, onUpdate, onNext, onPrev }: Pr
   return (
     <div className="space-y-6">
       <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Tell us about the issue</h2>
+
+      {/* Product Key / Serial Number — always first, always required */}
+      {keyConfig && (
+        <div className="bg-primary-500/10 rounded-lg p-4 border border-primary-500/30">
+          <div className="flex items-center gap-2 mb-2">
+            <Key className="w-4 h-4 text-accent-blue" />
+            <label className="text-sm font-medium text-gray-900 dark:text-white">{keyConfig.label} *</label>
+          </div>
+          <input
+            type="text"
+            value={productKey}
+            onChange={e => setProductKey(e.target.value.toUpperCase())}
+            placeholder={keyConfig.placeholder}
+            className={`tb-input font-mono tracking-wider ${errors.productKey ? 'border-red-500' : ''}`}
+          />
+          <p className="text-xs text-gray-500 mt-1">{keyConfig.hint}</p>
+          {errors.productKey && <p className="text-red-400 text-xs mt-1 font-medium">{errors.productKey}</p>}
+        </div>
+      )}
 
       <div>
         <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Subject *</label>

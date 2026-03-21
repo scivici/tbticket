@@ -97,6 +97,14 @@ export function runMigrations(): void {
     console.log('[DB] sla_policies table created and seeded successfully.');
   }
 
+  // Migration: add product_key column to tickets if it doesn't exist
+  const hasProductKey = db.prepare("PRAGMA table_info(tickets)").all().find((c: any) => c.name === 'product_key');
+  if (!hasProductKey) {
+    console.log('[DB] Adding product_key column to tickets...');
+    db.exec('ALTER TABLE tickets ADD COLUMN product_key TEXT');
+    console.log('[DB] product_key column added.');
+  }
+
   // Migration: add company column to customers if it doesn't exist
   const hasCompany = db.prepare("PRAGMA table_info(customers)").all().find((c: any) => c.name === 'company');
   if (!hasCompany) {
