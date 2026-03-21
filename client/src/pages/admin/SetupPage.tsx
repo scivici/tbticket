@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { settings as settingsApi } from '../../api/client';
-import { Settings, Key, Mail, MessageSquare, Globe, Shield, Save, TestTube, ExternalLink, Brain } from 'lucide-react';
+import { Settings, Key, Mail, MessageSquare, Globe, Shield, Save, TestTube, ExternalLink, Brain, Terminal } from 'lucide-react';
 
 type Tab = 'claude' | 'license' | 'email' | 'webhooks' | 'general';
 
@@ -126,16 +126,88 @@ export default function SetupPage() {
             <Brain className="w-5 h-5" /> Claude AI Configuration
           </h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-            Configure the Claude AI server for ticket analysis and automatic engineer assignment.
+            Configure Claude AI for ticket analysis and automatic engineer assignment.
           </p>
 
           <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Server URL</label>
-              <input type="text" value={get('claude_server_url')} onChange={e => set('claude_server_url', e.target.value)}
-                className="tb-input" placeholder="e.g., http://claude-support-2.telcobridges.lan or https://api.anthropic.com" />
-              <p className="text-xs text-gray-500 mt-1">Leave empty to disable AI analysis. For Anthropic API use https://api.anthropic.com</p>
+            {/* Analysis Mode */}
+            <div className="bg-primary-500/10 rounded-lg p-4 border border-primary-500/30">
+              <label className="block text-sm font-medium text-gray-900 dark:text-white mb-2">Analysis Mode</label>
+              <div className="grid sm:grid-cols-3 gap-3">
+                {[
+                  { value: 'ssh', label: 'SSH + Claude Code CLI', desc: 'SFTP files to server, run Claude Code CLI via SSH' },
+                  { value: 'api', label: 'HTTP API', desc: 'Send via HTTP API (Anthropic or proxy)' },
+                  { value: 'disabled', label: 'Disabled', desc: 'No AI analysis, use scoring fallback only' },
+                ].map(mode => (
+                  <button key={mode.value} onClick={() => set('claude_analysis_mode', mode.value)}
+                    className={`p-3 rounded-lg border-2 text-left transition-all ${
+                      get('claude_analysis_mode') === mode.value || (!get('claude_analysis_mode') && mode.value === 'ssh')
+                        ? 'border-primary-500 bg-primary-500/10'
+                        : 'border-gray-300 dark:border-gray-600'
+                    }`}>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">{mode.label}</p>
+                    <p className="text-xs text-gray-500 mt-1">{mode.desc}</p>
+                  </button>
+                ))}
+              </div>
             </div>
+
+            {/* SSH Mode Settings */}
+            {(get('claude_analysis_mode') === 'ssh' || !get('claude_analysis_mode')) && (
+              <div className="bg-[#f2f2f2] dark:bg-tb-bg rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                <div className="flex items-center gap-2 mb-3">
+                  <Terminal className="w-4 h-4 text-accent-blue" />
+                  <h3 className="text-sm font-medium text-gray-900 dark:text-white">SSH / SFTP Connection</h3>
+                </div>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">SSH Host</label>
+                    <input type="text" value={get('claude_ssh_host')} onChange={e => set('claude_ssh_host', e.target.value)}
+                      className="tb-input text-sm" placeholder="claude-support-2.telcobridges.lan" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">SSH Port</label>
+                    <input type="number" value={get('claude_ssh_port') || '22'} onChange={e => set('claude_ssh_port', e.target.value)}
+                      className="tb-input text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Username</label>
+                    <input type="text" value={get('claude_ssh_user')} onChange={e => set('claude_ssh_user', e.target.value)}
+                      className="tb-input text-sm" placeholder="support" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Password</label>
+                    <input type="password" value={get('claude_ssh_pass')} onChange={e => set('claude_ssh_pass', e.target.value)}
+                      className="tb-input text-sm" />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Remote Ticket Path</label>
+                    <input type="text" value={get('claude_ssh_remote_path') || '/home/support/tickets'} onChange={e => set('claude_ssh_remote_path', e.target.value)}
+                      className="tb-input text-sm" placeholder="/home/support/tickets" />
+                    <p className="text-xs text-gray-500 mt-1">Ticket files will be uploaded to {'{path}/{ticketNumber}/'}</p>
+                  </div>
+                </div>
+                <div className="mt-3 p-3 bg-white dark:bg-tb-card rounded-lg border border-gray-200 dark:border-gray-700 text-xs text-gray-500">
+                  <p className="font-medium text-gray-700 dark:text-gray-300 mb-1">How it works:</p>
+                  <ol className="list-decimal ml-4 space-y-0.5">
+                    <li>Customer uploads files with ticket</li>
+                    <li>Files are transferred via SFTP to <code>{get('claude_ssh_remote_path') || '/home/support/tickets'}/TKT-XXXX/</code></li>
+                    <li>Claude Code CLI runs: <code>cd ticket_dir && claude -p "analyze..."</code></li>
+                    <li>Report is captured and saved to ticket</li>
+                    <li>Engineer is auto-assigned based on report</li>
+                  </ol>
+                </div>
+              </div>
+            )}
+
+            {/* API Mode Settings */}
+            {get('claude_analysis_mode') === 'api' && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Server URL</label>
+                  <input type="text" value={get('claude_server_url')} onChange={e => set('claude_server_url', e.target.value)}
+                    className="tb-input" placeholder="e.g., https://api.anthropic.com" />
+                </div>
 
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
@@ -159,10 +231,15 @@ export default function SetupPage() {
                     get('claude_auth_type') === 'api-key' ? 'sk-ant-...' : ''} />
               </div>
             </div>
+              </>
+            )}
 
+            {/* Common settings for both SSH and API modes */}
+            {get('claude_analysis_mode') !== 'disabled' && (
+              <>
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Model</label>
+                <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Model (for API mode)</label>
                 <select value={get('claude_model')} onChange={e => set('claude_model', e.target.value)} className="tb-select w-full">
                   <option value="claude-opus-4-20250514">Claude Opus 4</option>
                   <option value="claude-sonnet-4-20250514">Claude Sonnet 4</option>
@@ -172,7 +249,7 @@ export default function SetupPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Max Tokens</label>
+                <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Max Tokens (for API mode)</label>
                 <input type="number" value={get('claude_max_tokens')} onChange={e => set('claude_max_tokens', e.target.value)}
                   className="tb-input" min="500" max="8000" />
               </div>
@@ -191,18 +268,12 @@ export default function SetupPage() {
               </div>
               <p className="text-xs text-gray-500 mt-1">If AI confidence is above this threshold, the ticket will be auto-assigned. Below = flagged for manual review.</p>
             </div>
-
-            <div className="bg-[#f2f2f2] dark:bg-tb-bg rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-              <h3 className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-2">Connection Types</h3>
-              <div className="text-xs text-gray-500 space-y-1">
-                <p><strong>Office Claude Server:</strong> Set URL to your server (e.g., http://claude-support-2.telcobridges.lan), Auth Type = Basic, Credentials = user:pass</p>
-                <p><strong>Anthropic API Direct:</strong> Set URL to https://api.anthropic.com, Auth Type = Anthropic API Key, paste your sk-ant-... key</p>
-              </div>
-            </div>
+              </>
+            )}
           </div>
 
           <div className="flex justify-end mt-6">
-            <button onClick={() => saveKeys(['claude_server_url', 'claude_auth_type', 'claude_auth_value', 'claude_model', 'claude_max_tokens', 'claude_auto_assign_threshold'])}
+            <button onClick={() => saveKeys(['claude_analysis_mode', 'claude_server_url', 'claude_auth_type', 'claude_auth_value', 'claude_model', 'claude_max_tokens', 'claude_auto_assign_threshold', 'claude_ssh_host', 'claude_ssh_port', 'claude_ssh_user', 'claude_ssh_pass', 'claude_ssh_remote_path'])}
               disabled={saving} className="tb-btn-success flex items-center gap-2">
               <Save className="w-4 h-4" /> {saving ? 'Saving...' : 'Save Claude Settings'}
             </button>

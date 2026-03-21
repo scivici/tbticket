@@ -2,6 +2,8 @@ import { Response } from 'express';
 import { AuthenticatedRequest } from '../types';
 import * as ticketService from '../services/ticket.service';
 import { analyzeTicket, getAutoAssignThreshold } from '../services/claude.service';
+import * as claudeSshService from '../services/claude-ssh.service';
+import { getSetting } from '../services/settings.service';
 import { getBestEngineer } from '../services/assignment.service';
 import { config } from '../config';
 import * as notificationService from '../services/notification.service';
@@ -98,6 +100,15 @@ export function createTicket(req: AuthenticatedRequest, res: Response): void {
 
 async function triggerAnalysis(ticketId: number, productId: number, categoryId: number) {
   try {
+    const analysisMode = getSetting('claude_analysis_mode') || 'ssh';
+
+    // SSH mode: SFTP files + Claude CLI
+    if (analysisMode === 'ssh') {
+      await triggerSshAnalysis(ticketId);
+      return;
+    }
+
+    // API mode: HTTP API call (original flow)
     const analysis = await analyzeTicket(ticketId);
 
     if (analysis) {
@@ -134,6 +145,117 @@ async function triggerAnalysis(ticketId: number, productId: number, categoryId: 
     }
   } catch (error) {
     console.error(`[AI] Analysis failed for ticket ${ticketId}:`, error);
+    ticketService.updateTicketStatus(ticketId, 'new');
+  }
+}
+
+async function triggerSshAnalysis(ticketId: number) {
+  const db = getDb();
+  const ticket = ticketService.getTicketById(ticketId);
+  if (!ticket) return;
+
+  // Gather engineer info
+  const engineers = db.prepare('SELECT * FROM engineers WHERE is_active = 1 AND current_workload < max_workload').all() as any[];
+  const engineerList = engineers.map((e: any) => {
+    const skills = db.prepare('SELECT s.name, es.proficiency FROM engineer_skills es JOIN skills s ON es.skill_id = s.id WHERE es.engineer_id = ?').all(e.id) as any[];
+    const expertise = db.prepare('SELECT p.name as pname, COALESCE(pc.name, \'General\') as cname, epe.expertise_level FROM engineer_product_expertise epe JOIN products p ON epe.product_id = p.id LEFT JOIN product_categories pc ON epe.category_id = pc.id WHERE epe.engineer_id = ?').all(e.id) as any[];
+    return {
+      id: e.id,
+      name: e.name,
+      skills: skills.map((s: any) => `${s.name}(${s.proficiency}/5)`).join(', '),
+      expertise: expertise.map((ex: any) => `${ex.pname}/${ex.cname}(${ex.expertise_level}/5)`).join(', '),
+      workload: `${e.current_workload}/${e.max_workload}`,
+    };
+  });
+
+  // Gather attachments with local paths
+  const attachments = db.prepare('SELECT * FROM ticket_attachments WHERE ticket_id = ?').all(ticketId) as any[];
+
+  try {
+    const result = await claudeSshService.analyzeTicketViaSsh({
+      ticketNumber: ticket.ticketNumber,
+      productName: ticket.product.name,
+      productModel: ticket.product.model,
+      categoryName: ticket.category.name,
+      subject: ticket.subject,
+      description: ticket.description,
+      productKey: ticket.productKey,
+      answers: ticket.answers.map((a: any) => ({ question: a.question_text, answer: a.answer })),
+      attachments: attachments.map((a: any) => ({
+        localPath: a.path,
+        filename: a.filename,
+        originalName: a.original_name,
+      })),
+      engineers: engineerList,
+    });
+
+    if (result.success && result.report) {
+      // Save full report
+      const fullReport = result.report;
+
+      // Try to extract JSON from report
+      const jsonMatch = fullReport.match(/```json\s*([\s\S]*?)```/) || fullReport.match(/\{[\s\S]*"classification"[\s\S]*\}/);
+      let analysisJson: any = null;
+
+      if (jsonMatch) {
+        try {
+          const jsonStr = jsonMatch[1] || jsonMatch[0];
+          analysisJson = JSON.parse(jsonStr.trim());
+        } catch { /* JSON parse failed, use report as-is */ }
+      }
+
+      if (analysisJson) {
+        // Structured analysis found
+        const analysis = {
+          ...analysisJson,
+          fullReport: fullReport, // Include full Claude report
+        };
+        const confidence = analysisJson.confidence || 0.5;
+        ticketService.updateAiAnalysis(ticketId, JSON.stringify(analysis), confidence);
+
+        if (confidence >= getAutoAssignThreshold() && analysisJson.recommendedEngineerId) {
+          ticketService.assignTicket(ticketId, analysisJson.recommendedEngineerId);
+          console.log(`[SSH-AI] Auto-assigned ticket ${ticketId} to ${analysisJson.recommendedEngineerName} (confidence: ${confidence})`);
+        } else {
+          ticketService.updateTicketStatus(ticketId, 'new');
+          console.log(`[SSH-AI] Ticket ${ticketId} flagged for manual review (confidence: ${confidence})`);
+        }
+      } else {
+        // No structured JSON, save full report as analysis
+        const fallback = {
+          classification: 'Analyzed by Claude Code (see full report)',
+          severity: 'medium',
+          rootCauseHypothesis: 'See full report below',
+          fullReport: fullReport,
+          confidence: 0.5,
+        };
+        ticketService.updateAiAnalysis(ticketId, JSON.stringify(fallback), 0.5);
+        ticketService.updateTicketStatus(ticketId, 'new');
+      }
+
+      // Log activity
+      activityService.logActivity(ticketId, null, 'Claude AI', 'ai_analysis', 'AI analysis completed via SSH');
+    } else {
+      console.error(`[SSH-AI] Analysis failed for ticket ${ticketId}: ${result.error}`);
+      // Fallback to scoring
+      const best = getBestEngineer(ticket.productId, ticket.categoryId);
+      if (best) {
+        ticketService.updateAiAnalysis(ticketId, JSON.stringify({
+          classification: 'SSH analysis failed, using fallback',
+          severity: 'medium',
+          rootCauseHypothesis: 'Manual investigation needed',
+          recommendedEngineerId: best.engineerId,
+          recommendedEngineerName: best.engineerName,
+          confidence: 0.3,
+          reasoning: `SSH analysis failed: ${result.error}. Fallback scoring used.`,
+          suggestedSkills: [],
+          estimatedComplexity: 'medium',
+        }), 0.3);
+      }
+      ticketService.updateTicketStatus(ticketId, 'new');
+    }
+  } catch (error: any) {
+    console.error(`[SSH-AI] Error for ticket ${ticketId}:`, error);
     ticketService.updateTicketStatus(ticketId, 'new');
   }
 }

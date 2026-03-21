@@ -280,4 +280,20 @@ export function runMigrations(): void {
     `);
     console.log('[DB] Claude settings added.');
   }
+
+  // Migration: add SSH/SFTP settings if missing
+  const hasSshHost = db.prepare("SELECT key FROM settings WHERE key = 'claude_ssh_host'").get();
+  if (!hasSshHost) {
+    console.log('[DB] Adding SSH/SFTP settings...');
+    db.exec(`
+      INSERT OR IGNORE INTO settings (key, value, description) VALUES
+      ('claude_ssh_host', '', 'Claude server SSH hostname'),
+      ('claude_ssh_port', '22', 'SSH port'),
+      ('claude_ssh_user', 'support', 'SSH username'),
+      ('claude_ssh_pass', '', 'SSH password'),
+      ('claude_ssh_remote_path', '/home/support/tickets', 'Remote base path for ticket files'),
+      ('claude_analysis_mode', 'ssh', 'Analysis mode: ssh (SFTP+CLI), api (HTTP API), disabled');
+    `);
+    console.log('[DB] SSH/SFTP settings added.');
+  }
 }
