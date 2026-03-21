@@ -2,8 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { products as productsApi } from '../../api/client';
 import { WizardData } from './WizardContainer';
 
-const productEmojis: Record<number, string> = { 1: '📡', 2: '📡', 3: '🔌', 4: '🔌', 5: '🔌', 6: '🔗', 7: '🔗' };
-
 interface Props {
   data: WizardData;
   onUpdate: (partial: Partial<WizardData>) => void;
@@ -30,15 +28,19 @@ export default function ProductSelect({ data, onUpdate, onNext }: Props) {
       <div className="grid sm:grid-cols-2 gap-4">
         {products.map(product => (
           <button key={product.id} onClick={() => selectProduct(product)}
-            className={`p-6 rounded-xl border-2 text-left transition-all hover:shadow-lg ${
+            className={`p-5 rounded-xl border-2 text-left transition-all hover:shadow-lg ${
               data.product?.id === product.id
                 ? 'border-primary-500 bg-primary-500/10'
                 : 'border-gray-300 dark:border-gray-600 hover:border-primary-400 bg-[#f2f2f2] dark:bg-tb-bg'
             }`}>
-            <div className="text-3xl mb-3">{productEmojis[product.id] || '📦'}</div>
+            {product.image_url && (
+              <div className="h-16 mb-3 flex items-center">
+                <img src={product.image_url} alt={product.name} className="max-h-16 max-w-full object-contain" />
+              </div>
+            )}
             <h3 className="font-semibold text-lg text-gray-900 dark:text-white">{product.name}</h3>
             <p className="text-sm text-gray-500 mt-1">{product.model}</p>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">{product.description}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 line-clamp-2">{product.description}</p>
           </button>
         ))}
       </div>

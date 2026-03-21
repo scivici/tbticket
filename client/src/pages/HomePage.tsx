@@ -63,17 +63,23 @@ export default function HomePage() {
         <h2 className="text-2xl font-bold text-center text-gray-900 dark:text-white mb-8">Supported Products</h2>
         <div className="grid md:grid-cols-3 gap-5 max-w-5xl mx-auto">
           <div className="tb-card p-5">
-            <div className="text-2xl mb-2">📡</div>
+            <div className="h-12 mb-3 flex items-center">
+              <img src="/images/prosbc.png" alt="ProSBC" className="max-h-12 object-contain" />
+            </div>
             <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-1">ProSBC</h3>
-            <p className="text-gray-500 dark:text-gray-400 text-xs">Carrier-grade Session Border Controllers for SIP trunking, peering, and security.</p>
+            <p className="text-gray-500 dark:text-gray-400 text-xs">Carrier-grade Session Border Controller for SIP trunking, peering, and security.</p>
           </div>
           <div className="tb-card p-5">
-            <div className="text-2xl mb-2">🔌</div>
+            <div className="h-12 mb-3 flex items-center">
+              <img src="/images/tmg800-3200.png" alt="Tmedia Gateways" className="max-h-12 object-contain" />
+            </div>
             <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-1">Tmedia Gateways</h3>
             <p className="text-gray-500 dark:text-gray-400 text-xs">TMG800, TMG3200, TMG7800 VoIP/SS7 media gateways for TDM-to-IP migration.</p>
           </div>
           <div className="tb-card p-5">
-            <div className="text-2xl mb-2">🔗</div>
+            <div className="h-12 mb-3 flex items-center">
+              <img src="/images/tmg800-3200.png" alt="Tsig Gateways" className="max-h-12 object-contain" />
+            </div>
             <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-1">Tsig Gateways</h3>
             <p className="text-gray-500 dark:text-gray-400 text-xs">TSG800, TSG3200 SS7/SIGTRAN signaling gateways with 99.999% availability.</p>
           </div>

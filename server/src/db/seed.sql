@@ -5,11 +5,11 @@ VALUES ('admin@telcobridges.com', 'TB Admin', '$2a$10$UIqE7rpJ9B.WUvHyzdtC2elkZF
 -- ============ Products ============
 INSERT OR IGNORE INTO products (id, name, model, description, image_url) VALUES
 (1, 'ProSBC', 'SBC-SW', 'Carrier-grade Session Border Controller software. SIP trunking, peering, STIR/SHAKEN, DDoS protection, Microsoft Teams Direct Routing. 500 to 60,000 concurrent sessions.', '/images/prosbc.png'),
-(3, 'TMG800', 'TMG800', 'Entry-level 1U VoIP/SS7 media gateway. 1-16 T1/E1, 32-512 VoIP channels. Software upgradeable capacity.', '/images/tmg800.png'),
-(4, 'TMG3200', 'TMG3200', 'Mid-density 1U carrier-grade VoIP media gateway. Up to 64 T1/E1, 3 DS3, or 1 OC3/STM-1.', '/images/tmg3200.png'),
+(3, 'TMG800', 'TMG800', 'Entry-level 1U VoIP/SS7 media gateway. 1-16 T1/E1, 32-512 VoIP channels. Software upgradeable capacity.', '/images/tmg800-3200.png'),
+(4, 'TMG3200', 'TMG3200', 'Mid-density 1U carrier-grade VoIP media gateway. Up to 64 T1/E1, 3 DS3, or 1 OC3/STM-1.', '/images/tmg800-3200.png'),
 (5, 'TMG7800', 'TMG7800', 'High-density scalable cluster-based VoIP media gateway. Up to 1,024 T1/E1 per cluster, 131,072 channels max.', '/images/tmg7800.png'),
-(6, 'TSG800', 'TSG800', 'Cost-effective 1U SS7/SIGTRAN signaling gateway. 1-16 T1/E1 with software upgradeable capacity.', '/images/tsg800.png'),
-(7, 'TSG3200', 'TSG3200', 'High-density signaling gateway. 16-64 T1/E1, 1-3 DS3, or 1 OC3/STM-1. SS7-to-SIGTRAN translation.', '/images/tsg3200.png');
+(6, 'TSG800', 'TSG800', 'Cost-effective 1U SS7/SIGTRAN signaling gateway. 1-16 T1/E1 with software upgradeable capacity.', '/images/tmg800-3200.png'),
+(7, 'TSG3200', 'TSG3200', 'High-density signaling gateway. 16-64 T1/E1, 1-3 DS3, or 1 OC3/STM-1. SS7-to-SIGTRAN translation.', '/images/tmg800-3200.png');
 
 -- ============ Product Categories ============
 
