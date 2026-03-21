@@ -7,8 +7,8 @@ import { getDb } from '../db/connection';
 export function register(req: Request, res: Response): void {
   const { email, password, name, company } = req.body;
 
-  if (!email || !password || !name) {
-    res.status(400).json({ error: 'Email, password, and name are required' });
+  if (!email || !password || !name || !company) {
+    res.status(400).json({ error: 'Email, password, name, and company are required' });
     return;
   }
 

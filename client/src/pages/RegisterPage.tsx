@@ -46,7 +46,7 @@ export default function RegisterPage() {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Company Name</label>
-            <input type="text" value={company} onChange={e => setCompany(e.target.value)} className="tb-input" placeholder="e.g., Acme Telecom Inc." />
+            <input type="text" required value={company} onChange={e => setCompany(e.target.value)} className="tb-input" placeholder="e.g., Acme Telecom Inc." />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Email</label>
