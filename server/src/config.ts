@@ -8,7 +8,9 @@ export const config = {
   uploadDir: process.env.UPLOAD_DIR || path.join(__dirname, '..', 'uploads'),
   maxFileSize: 10 * 1024 * 1024, // 10MB
   maxFiles: 5,
-  claudeServerUrl: process.env.CLAUDE_SERVER_URL || 'http://localhost:3002',
+  claudeServerUrl: process.env.CLAUDE_SERVER_URL || 'http://claude-support-2.telcobridges.lan',
+  claudeUser: process.env.CLAUDE_USER || 'support',
+  claudePass: process.env.CLAUDE_PASS || 'support',
   claudeModel: process.env.CLAUDE_MODEL || 'claude-sonnet-4-20250514',
   autoAssignThreshold: 0.7,
   corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:4173',

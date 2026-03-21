@@ -1,3 +1,5 @@
+import fs from 'fs';
+import path from 'path';
 import { config } from '../config';
 import { getDb } from '../db/connection';
 
@@ -9,6 +11,7 @@ interface ClaudeAnalysisInput {
     productModel: string;
     categoryName: string;
     answers: { question: string; answer: string }[];
+    attachments: { originalName: string; mimeType: string; path: string }[];
   };
   engineers: {
     id: number;
@@ -33,6 +36,11 @@ export interface ClaudeAnalysisResult {
   estimatedComplexity: string;
 }
 
+function getBasicAuthHeader(): string {
+  const credentials = Buffer.from(`${config.claudeUser}:${config.claudePass}`).toString('base64');
+  return `Basic ${credentials}`;
+}
+
 function buildPrompt(input: ClaudeAnalysisInput): string {
   const answersText = input.ticket.answers
     .map(a => `Q: ${a.question}\nA: ${a.answer}`)
@@ -48,7 +56,11 @@ function buildPrompt(input: ClaudeAnalysisInput): string {
     })
     .join('\n');
 
-  return `You are a technical support ticket analyzer for a technology company. Analyze the following support ticket and recommend the best engineer to handle it.
+  const attachmentsList = input.ticket.attachments.length > 0
+    ? `\n## Attached Files\n${input.ticket.attachments.map(a => `- ${a.originalName} (${a.mimeType})`).join('\n')}\nNote: File contents are included in the message if they are text-based or images.`
+    : '';
+
+  return `You are a technical support ticket analyzer for TelcoBridges, a telecom equipment company. Analyze the following support ticket and recommend the best engineer to handle it.
 
 ## Ticket Information
 - **Product**: ${input.ticket.productName} (${input.ticket.productModel})
@@ -58,6 +70,7 @@ function buildPrompt(input: ClaudeAnalysisInput): string {
 
 ## Customer Questionnaire Responses
 ${answersText}
+${attachmentsList}
 
 ## Available Engineers
 ${engineersText}
@@ -79,6 +92,53 @@ Consider these factors for engineer selection:
 - Relevant technical skills
 - Current workload (prefer less loaded engineers)
 - Availability (must be under max workload)`;
+}
+
+function buildMessageContent(input: ClaudeAnalysisInput): any[] {
+  const content: any[] = [];
+
+  // Add text prompt
+  content.push({ type: 'text', text: buildPrompt(input) });
+
+  // Add file contents where possible
+  for (const att of input.ticket.attachments) {
+    try {
+      const filePath = att.path;
+      if (!fs.existsSync(filePath)) continue;
+
+      // Text-based files: include content directly
+      if (att.mimeType.startsWith('text/') || att.mimeType === 'application/json' ||
+          att.originalName.endsWith('.log') || att.originalName.endsWith('.cfg') ||
+          att.originalName.endsWith('.conf') || att.originalName.endsWith('.pcap.txt')) {
+        const fileContent = fs.readFileSync(filePath, 'utf-8');
+        const truncated = fileContent.length > 10000 ? fileContent.substring(0, 10000) + '\n... [truncated]' : fileContent;
+        content.push({
+          type: 'text',
+          text: `\n--- File: ${att.originalName} ---\n${truncated}\n--- End of file ---`,
+        });
+      }
+      // Images: include as base64
+      else if (att.mimeType.startsWith('image/') && ['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(att.mimeType)) {
+        const fileBuffer = fs.readFileSync(filePath);
+        // Only include images under 5MB
+        if (fileBuffer.length < 5 * 1024 * 1024) {
+          const base64 = fileBuffer.toString('base64');
+          content.push({
+            type: 'image',
+            source: {
+              type: 'base64',
+              media_type: att.mimeType,
+              data: base64,
+            },
+          });
+        }
+      }
+    } catch (err) {
+      console.warn(`[Claude] Could not read attachment ${att.originalName}:`, err);
+    }
+  }
+
+  return content;
 }
 
 function gatherAnalysisInput(ticketId: number): ClaudeAnalysisInput | null {
@@ -103,6 +163,10 @@ function gatherAnalysisInput(ticketId: number): ClaudeAnalysisInput | null {
     ORDER BY qt.display_order
   `).all(ticketId) as any[];
 
+  const attachments = db.prepare(`
+    SELECT original_name, mime_type, path FROM ticket_attachments WHERE ticket_id = ?
+  `).all(ticketId) as any[];
+
   const engineers = db.prepare(`
     SELECT * FROM engineers WHERE is_active = 1 AND current_workload < max_workload
   `).all() as any[];
@@ -110,8 +174,7 @@ function gatherAnalysisInput(ticketId: number): ClaudeAnalysisInput | null {
   const enrichedEngineers = engineers.map((e: any) => {
     const skills = db.prepare(`
       SELECT s.name, es.proficiency
-      FROM engineer_skills es
-      JOIN skills s ON es.skill_id = s.id
+      FROM engineer_skills es JOIN skills s ON es.skill_id = s.id
       WHERE es.engineer_id = ?
     `).all(e.id) as any[];
 
@@ -124,28 +187,20 @@ function gatherAnalysisInput(ticketId: number): ClaudeAnalysisInput | null {
     `).all(e.id) as any[];
 
     return {
-      id: e.id,
-      name: e.name,
-      location: e.location,
-      currentWorkload: e.current_workload,
-      maxWorkload: e.max_workload,
+      id: e.id, name: e.name, location: e.location,
+      currentWorkload: e.current_workload, maxWorkload: e.max_workload,
       skills: skills.map((s: any) => ({ name: s.name, proficiency: s.proficiency })),
-      productExpertise: expertise.map((pe: any) => ({
-        productName: pe.product_name,
-        categoryName: pe.category_name,
-        level: pe.level,
-      })),
+      productExpertise: expertise.map((pe: any) => ({ productName: pe.product_name, categoryName: pe.category_name, level: pe.level })),
     };
   });
 
   return {
     ticket: {
-      subject: ticket.subject,
-      description: ticket.description,
-      productName: ticket.product_name,
-      productModel: ticket.product_model,
+      subject: ticket.subject, description: ticket.description,
+      productName: ticket.product_name, productModel: ticket.product_model,
       categoryName: ticket.category_name,
       answers: answers.map((a: any) => ({ question: a.question_text, answer: a.answer })),
+      attachments: attachments.map((a: any) => ({ originalName: a.original_name, mimeType: a.mime_type, path: a.path })),
     },
     engineers: enrichedEngineers,
   };
@@ -160,18 +215,22 @@ export async function analyzeTicket(ticketId: number): Promise<ClaudeAnalysisRes
     return null;
   }
 
-  const prompt = buildPrompt(input);
+  const messageContent = buildMessageContent(input);
 
   try {
-    console.log(`[Claude] Sending analysis request for ticket ${ticketId}...`);
+    console.log(`[Claude] Sending analysis request for ticket ${ticketId} to ${config.claudeServerUrl}...`);
+    console.log(`[Claude] Attachments: ${input.ticket.attachments.length} files`);
 
     const response = await fetch(`${config.claudeServerUrl}/api/chat`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': getBasicAuthHeader(),
+      },
       body: JSON.stringify({
         model: config.claudeModel,
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 1500,
+        messages: [{ role: 'user', content: messageContent }],
+        max_tokens: 2000,
       }),
     });
 

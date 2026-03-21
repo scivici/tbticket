@@ -10,7 +10,9 @@ services:
       - NODE_ENV=production
       - PORT=4001
       - JWT_SECRET=${JWT_SECRET:-change-this-secret-in-production}
-      - CLAUDE_SERVER_URL=${CLAUDE_SERVER_URL:-http://host.docker.internal:3002}
+      - CLAUDE_SERVER_URL=${CLAUDE_SERVER_URL:-http://claude-support-2.telcobridges.lan}
+      - CLAUDE_USER=${CLAUDE_USER:-support}
+      - CLAUDE_PASS=${CLAUDE_PASS:-support}
       - CLAUDE_MODEL=${CLAUDE_MODEL:-claude-sonnet-4-20250514}
       - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:4001}
       - DB_PATH=/app/server/data/tickets.db
@@ -19,6 +21,8 @@ services:
       - ticket_data:/app/server/data
       - ticket_uploads:/app/server/uploads
     restart: unless-stopped
+    dns:
+      - 10.0.0.1
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
