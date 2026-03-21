@@ -73,4 +73,12 @@ export function runMigrations(): void {
     `);
     console.log('[DB] notifications table created successfully.');
   }
+
+  // Migration: add company column to customers if it doesn't exist
+  const hasCompany = db.prepare("PRAGMA table_info(customers)").all().find((c: any) => c.name === 'company');
+  if (!hasCompany) {
+    console.log('[DB] Adding company column to customers...');
+    db.exec('ALTER TABLE customers ADD COLUMN company TEXT');
+    console.log('[DB] company column added.');
+  }
 }

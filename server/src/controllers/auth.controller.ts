@@ -5,7 +5,7 @@ import { config } from '../config';
 import { getDb } from '../db/connection';
 
 export function register(req: Request, res: Response): void {
-  const { email, password, name } = req.body;
+  const { email, password, name, company } = req.body;
 
   if (!email || !password || !name) {
     res.status(400).json({ error: 'Email, password, and name are required' });
@@ -21,8 +21,8 @@ export function register(req: Request, res: Response): void {
 
   const passwordHash = bcrypt.hashSync(password, 10);
   const result = db.prepare(
-    'INSERT INTO customers (email, name, password_hash, role) VALUES (?, ?, ?, ?)'
-  ).run(email, name, passwordHash, 'customer');
+    'INSERT INTO customers (email, name, company, password_hash, role) VALUES (?, ?, ?, ?, ?)'
+  ).run(email, name, company || null, passwordHash, 'customer');
 
   const userId = result.lastInsertRowid as number;
   const token = jwt.sign(
@@ -33,7 +33,7 @@ export function register(req: Request, res: Response): void {
 
   res.status(201).json({
     token,
-    user: { id: userId, email, name, role: 'customer', isAnonymous: false },
+    user: { id: userId, email, name, company: company || null, role: 'customer', isAnonymous: false },
   });
 }
 
@@ -97,7 +97,7 @@ export function anonymous(req: Request, res: Response): void {
 
 export function getMe(req: any, res: Response): void {
   const db = getDb();
-  const user = db.prepare('SELECT id, email, name, role, is_anonymous FROM customers WHERE id = ?').get(req.user.userId) as any;
+  const user = db.prepare('SELECT id, email, name, company, role, is_anonymous FROM customers WHERE id = ?').get(req.user.userId) as any;
 
   if (!user) {
     res.status(404).json({ error: 'User not found' });
@@ -108,6 +108,7 @@ export function getMe(req: any, res: Response): void {
     id: user.id,
     email: user.email,
     name: user.name,
+    company: user.company,
     role: user.role,
     isAnonymous: !!user.is_anonymous,
   });

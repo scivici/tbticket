@@ -36,8 +36,8 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 export const auth = {
   login: (email: string, password: string) =>
     request<any>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
-  register: (email: string, password: string, name: string) =>
-    request<any>('/auth/register', { method: 'POST', body: JSON.stringify({ email, password, name }) }),
+  register: (email: string, password: string, name: string, company?: string) =>
+    request<any>('/auth/register', { method: 'POST', body: JSON.stringify({ email, password, name, company }) }),
   anonymous: (email: string, name?: string) =>
     request<any>('/auth/anonymous', { method: 'POST', body: JSON.stringify({ email, name }) }),
   me: () => request<any>('/auth/me'),

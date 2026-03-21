@@ -14,7 +14,7 @@ interface AuthContextType {
   token: string | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, name: string) => Promise<void>;
+  register: (email: string, password: string, name: string, company?: string) => Promise<void>;
   loginAnonymous: (email: string, name?: string) => Promise<void>;
   logout: () => void;
   isAdmin: boolean;
@@ -52,8 +52,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     handleAuth(response);
   }, [handleAuth]);
 
-  const register = useCallback(async (email: string, password: string, name: string) => {
-    const response = await authApi.register(email, password, name);
+  const register = useCallback(async (email: string, password: string, name: string, company?: string) => {
+    const response = await authApi.register(email, password, name, company);
     handleAuth(response);
   }, [handleAuth]);
 

@@ -5,6 +5,7 @@ import { UserPlus } from 'lucide-react';
 
 export default function RegisterPage() {
   const [name, setName] = useState('');
+  const [company, setCompany] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -17,7 +18,7 @@ export default function RegisterPage() {
     setError('');
     setLoading(true);
     try {
-      await register(email, password, name);
+      await register(email, password, name, company);
       navigate('/');
     } catch (err: any) {
       setError(err.message || 'Registration failed');
@@ -41,7 +42,11 @@ export default function RegisterPage() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Full Name</label>
-            <input type="text" required value={name} onChange={e => setName(e.target.value)} className="tb-input" />
+            <input type="text" required value={name} onChange={e => setName(e.target.value)} className="tb-input" placeholder="e.g., John Smith" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Company Name</label>
+            <input type="text" value={company} onChange={e => setCompany(e.target.value)} className="tb-input" placeholder="e.g., Acme Telecom Inc." />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Email</label>

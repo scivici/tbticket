@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS customers (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     email TEXT UNIQUE NOT NULL,
     name TEXT NOT NULL DEFAULT 'Anonymous',
+    company TEXT,
     password_hash TEXT,
     role TEXT NOT NULL DEFAULT 'customer' CHECK(role IN ('customer', 'admin')),
     is_anonymous INTEGER NOT NULL DEFAULT 0,
