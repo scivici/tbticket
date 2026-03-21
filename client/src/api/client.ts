@@ -41,6 +41,10 @@ export const auth = {
   anonymous: (email: string, name?: string) =>
     request<any>('/auth/anonymous', { method: 'POST', body: JSON.stringify({ email, name }) }),
   me: () => request<any>('/auth/me'),
+  updateProfile: (data: { name?: string; company?: string }) =>
+    request<any>('/auth/profile', { method: 'PATCH', body: JSON.stringify(data) }),
+  changePassword: (currentPassword: string, newPassword: string) =>
+    request<any>('/auth/password', { method: 'PATCH', body: JSON.stringify({ currentPassword, newPassword }) }),
 };
 
 // Products
@@ -91,6 +95,8 @@ export const engineers = {
 // Admin
 export const admin = {
   dashboard: () => request<any>('/admin/dashboard'),
+  slaPolicies: () => request<any[]>('/admin/sla-policies'),
+  slaBreached: () => request<any[]>('/admin/sla-breached'),
 };
 
 // Admin Manage

@@ -207,3 +207,10 @@ INSERT OR IGNORE INTO engineer_product_expertise (engineer_id, product_id, categ
 -- Priya: Tmedia call quality, SS7, signaling gateways
 (5, 3, 15, 5), (5, 3, 16, 4), (5, 4, 20, 5), (5, 4, 21, 5),
 (5, 5, 26, 5), (5, 6, 28, 4), (5, 6, 29, 4);
+
+-- ============ SLA Policies ============
+INSERT OR IGNORE INTO sla_policies (priority, response_time_hours, resolution_time_hours) VALUES
+('critical', 4, 24),
+('high', 8, 48),
+('medium', 24, 72),
+('low', 48, 168);

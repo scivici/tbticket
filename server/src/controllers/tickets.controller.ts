@@ -5,6 +5,9 @@ import { analyzeTicket } from '../services/claude.service';
 import { getBestEngineer } from '../services/assignment.service';
 import { config } from '../config';
 import * as notificationService from '../services/notification.service';
+import * as emailService from '../services/email.service';
+import * as webhookService from '../services/webhook.service';
+import * as slaService from '../services/sla.service';
 import { getDb } from '../db/connection';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
@@ -66,6 +69,20 @@ export function createTicket(req: AuthenticatedRequest, res: Response): void {
       ticketNumber: result.ticketNumber,
       message: 'Ticket created successfully. AI analysis in progress.',
     });
+
+    // Send email notification
+    if (req.body.email || req.user?.email) {
+      emailService.sendTicketCreatedEmail(
+        req.body.email || req.user!.email,
+        result.ticketNumber,
+        subject
+      ).catch(() => {});
+    }
+    // Webhook notifications
+    const db2 = getDb();
+    const cust = db2.prepare('SELECT name FROM customers WHERE id = ?').get(customerId) as any;
+    const prod = db2.prepare('SELECT name FROM products WHERE id = ?').get(parseInt(productId)) as any;
+    webhookService.notifyNewTicket(result.ticketNumber, prod?.name || productId, subject, cust?.name || 'Unknown');
   } catch (error: any) {
     console.error('[Tickets] Create error:', error);
     res.status(500).json({ error: 'Failed to create ticket' });
@@ -128,7 +145,8 @@ export function getTicket(req: AuthenticatedRequest, res: Response): void {
     return;
   }
 
-  res.json(ticket);
+  const slaStatus = slaService.getTicketSlaStatus(parseInt(id));
+  res.json({ ...ticket, slaStatus });
 }
 
 export function trackTicket(req: AuthenticatedRequest, res: Response): void {
@@ -159,6 +177,9 @@ export function listTickets(req: AuthenticatedRequest, res: Response): void {
     priority: req.query.priority as string,
     productId: req.query.productId ? parseInt(req.query.productId as string) : undefined,
     assignedEngineerId: req.query.engineerId ? parseInt(req.query.engineerId as string) : undefined,
+    search: req.query.search as string || undefined,
+    fromDate: req.query.fromDate as string || undefined,
+    toDate: req.query.toDate as string || undefined,
     page: req.query.page ? parseInt(req.query.page as string) : 1,
     limit: req.query.limit ? parseInt(req.query.limit as string) : 20,
   };
@@ -200,6 +221,7 @@ export function updateStatus(req: AuthenticatedRequest, res: Response): void {
         statusLabels[status],
         `Ticket ${ticket.ticketNumber} status changed to "${status.replace('_', ' ')}"`
       );
+      emailService.sendTicketStatusEmail(ticket.customer.email, ticket.ticketNumber, status).catch(() => {});
     }
   }
 
@@ -270,6 +292,9 @@ export function addResponse(req: AuthenticatedRequest, res: Response): void {
         'New response on your ticket',
         `An engineer responded to ticket ${ticket.ticketNumber}`
       );
+      emailService.sendTicketResponseEmail(
+        ticket.customer.email, ticket.ticketNumber, authorName, message.trim()
+      ).catch(() => {});
     }
 
     res.status(201).json({ id: responseId, message: 'Response added' });

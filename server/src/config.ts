@@ -14,4 +14,14 @@ export const config = {
   claudeModel: process.env.CLAUDE_MODEL || 'claude-sonnet-4-20250514',
   autoAssignThreshold: 0.7,
   corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:4173',
+  smtp: {
+    host: process.env.SMTP_HOST || '',
+    port: process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT) : 587,
+    secure: process.env.SMTP_SECURE === 'true',
+    user: process.env.SMTP_USER || '',
+    pass: process.env.SMTP_PASS || '',
+    from: process.env.SMTP_FROM || 'support@telcobridges.com',
+  },
+  slackWebhookUrl: process.env.SLACK_WEBHOOK_URL || '',
+  teamsWebhookUrl: process.env.TEAMS_WEBHOOK_URL || '',
 };

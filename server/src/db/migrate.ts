@@ -74,6 +74,29 @@ export function runMigrations(): void {
     console.log('[DB] notifications table created successfully.');
   }
 
+  // Migration: add sla_policies table if it doesn't exist
+  const slaPoliciesTableExists = db.prepare(
+    "SELECT name FROM sqlite_master WHERE type='table' AND name='sla_policies'"
+  ).get();
+
+  if (!slaPoliciesTableExists) {
+    console.log('[DB] Running sla_policies migration...');
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS sla_policies (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          priority TEXT NOT NULL UNIQUE CHECK(priority IN ('low', 'medium', 'high', 'critical')),
+          response_time_hours INTEGER NOT NULL,
+          resolution_time_hours INTEGER NOT NULL
+      );
+      INSERT OR IGNORE INTO sla_policies (priority, response_time_hours, resolution_time_hours) VALUES
+      ('critical', 4, 24),
+      ('high', 8, 48),
+      ('medium', 24, 72),
+      ('low', 48, 168);
+    `);
+    console.log('[DB] sla_policies table created and seeded successfully.');
+  }
+
   // Migration: add company column to customers if it doesn't exist
   const hasCompany = db.prepare("PRAGMA table_info(customers)").all().find((c: any) => c.name === 'company');
   if (!hasCompany) {

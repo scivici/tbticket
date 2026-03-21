@@ -1,16 +1,23 @@
 import React, { useEffect, useState } from 'react';
 import { admin } from '../../api/client';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { Ticket, Users, CheckCircle, Clock } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
+import { Ticket, Users, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
 
 const COLORS = ['#0ea5e9', '#059669', '#D39340', '#832d2d', '#8b5cf6', '#ec4899', '#6b7280'];
 
 export default function Dashboard() {
   const [stats, setStats] = useState<any>(null);
+  const [breached, setBreached] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    admin.dashboard().then(setStats).catch(console.error).finally(() => setLoading(false));
+    Promise.all([
+      admin.dashboard(),
+      admin.slaBreached().catch(() => []),
+    ]).then(([s, b]) => {
+      setStats(s);
+      setBreached(b);
+    }).catch(console.error).finally(() => setLoading(false));
   }, []);
 
   if (loading) return <div className="text-center py-12 text-gray-500">Loading dashboard...</div>;
@@ -29,7 +36,7 @@ export default function Dashboard() {
         <StatCard icon={<Ticket className="w-5 h-5" />} label="Total Tickets" value={stats.totalTickets} color="blue" />
         <StatCard icon={<Clock className="w-5 h-5" />} label="Open Tickets" value={stats.openTickets} color="amber" />
         <StatCard icon={<CheckCircle className="w-5 h-5" />} label="Resolved" value={stats.resolvedTickets} color="green" />
-        <StatCard icon={<Users className="w-5 h-5" />} label="Avg Resolution (hrs)" value={stats.avgResolutionTime || '—'} color="purple" />
+        <StatCard icon={<Users className="w-5 h-5" />} label="Avg Resolution (hrs)" value={stats.avgResolutionTime || '\u2014'} color="purple" />
       </div>
 
       <div className="grid lg:grid-cols-2 gap-6 mb-8">
@@ -60,6 +67,85 @@ export default function Dashboard() {
             </ResponsiveContainer>
           ) : <p className="text-gray-500 text-center py-12">No ticket data yet</p>}
         </div>
+      </div>
+
+      {/* Weekly Trend Chart */}
+      <div className="tb-card p-6 mb-8">
+        <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Weekly Ticket Trend (Last 7 Days)</h3>
+        {(stats.weeklyTrend || []).length > 0 ? (
+          <ResponsiveContainer width="100%" height={250}>
+            <LineChart data={stats.weeklyTrend}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#444" />
+              <XAxis dataKey="day" tick={{ fill: '#999', fontSize: 12 }} />
+              <YAxis tick={{ fill: '#999' }} allowDecimals={false} />
+              <Tooltip contentStyle={{ backgroundColor: '#353535', border: '1px solid #555', color: '#fff' }} />
+              <Line type="monotone" dataKey="count" stroke="#0ea5e9" strokeWidth={2} dot={{ fill: '#0ea5e9', r: 4 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        ) : <p className="text-gray-500 text-center py-12">No ticket data for the last 7 days</p>}
+      </div>
+
+      {/* SLA Breaches Panel */}
+      <div className="tb-card p-6 mb-8">
+        <div className="flex items-center gap-3 mb-4">
+          <AlertTriangle className="w-5 h-5 text-red-500" />
+          <h3 className="font-semibold text-gray-900 dark:text-white">SLA Breaches</h3>
+          <span className={`ml-2 px-2.5 py-0.5 rounded-full text-xs font-bold ${
+            breached.length > 0 ? 'bg-red-500/20 text-red-400' : 'bg-accent-green/20 text-accent-green'
+          }`}>
+            {breached.length}
+          </span>
+        </div>
+        {breached.length === 0 ? (
+          <p className="text-gray-500 dark:text-gray-400 text-sm">No SLA breaches. All tickets are within SLA targets.</p>
+        ) : (
+          <div className="space-y-2">
+            {breached.map((t: any) => (
+              <div key={t.ticketId} className="flex items-center justify-between p-3 rounded-lg bg-red-500/10 border border-red-500/20">
+                <div className="flex items-center gap-3">
+                  <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                  <span className="text-sm font-medium text-gray-900 dark:text-white">Ticket #{t.ticketId}</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">Priority: {t.priority}</span>
+                </div>
+                <div className="flex gap-3 text-xs">
+                  {t.responseBreached && (
+                    <span className="px-2 py-0.5 bg-red-500/20 text-red-400 rounded font-medium">Response Breached</span>
+                  )}
+                  {t.resolutionBreached && (
+                    <span className="px-2 py-0.5 bg-red-500/20 text-red-400 rounded font-medium">Resolution Breached</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Engineer Performance Table */}
+      <div className="tb-card p-6 mb-8">
+        <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Engineer Performance</h3>
+        {(stats.engineerPerformance || []).length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead>
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Engineer Name</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Resolved Tickets</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Avg Resolution Time (hrs)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                {stats.engineerPerformance.map((eng: any, i: number) => (
+                  <tr key={i} className="hover:bg-black/5 dark:hover:bg-white/5">
+                    <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">{eng.name}</td>
+                    <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-200">{eng.resolved}</td>
+                    <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-200">{eng.avgHours !== null ? eng.avgHours : '\u2014'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : <p className="text-gray-500 text-center py-6">No engineer performance data yet</p>}
       </div>
 
       <div className="tb-card p-6">

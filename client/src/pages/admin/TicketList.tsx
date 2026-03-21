@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { tickets as ticketsApi } from '../../api/client';
 import { StatusBadge, PriorityBadge } from '../../components/StatusBadge';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Download } from 'lucide-react';
 
 export default function TicketList() {
   const [data, setData] = useState<any>(null);
@@ -17,13 +17,37 @@ export default function TicketList() {
 
   useEffect(() => { load(); }, [filters]);
 
+  const exportCSV = () => {
+    if (!data?.tickets?.length) return;
+    const headers = ['Ticket Number', 'Subject', 'Product', 'Status', 'Priority', 'Engineer', 'AI Confidence', 'Created'];
+    const rows = data.tickets.map((t: any) => [
+      t.ticketNumber, t.subject, t.productName, t.status, t.priority,
+      t.engineerName || '', t.aiConfidence != null ? (t.aiConfidence * 100).toFixed(0) + '%' : '',
+      new Date(t.createdAt).toLocaleDateString()
+    ]);
+    const csv = [headers, ...rows].map(r => r.map((c: string) => `"${c}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `tickets-${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">All Tickets</h1>
-        <button onClick={load} className="p-2 text-gray-500 dark:text-gray-400 hover:text-accent-blue transition-colors">
-          <RefreshCw className="w-5 h-5" />
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={exportCSV} disabled={!data?.tickets?.length} className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-accent-blue border border-gray-300 dark:border-gray-600 rounded-lg hover:border-accent-blue disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+            <Download className="w-4 h-4" />
+            Export CSV
+          </button>
+          <button onClick={load} className="p-2 text-gray-500 dark:text-gray-400 hover:text-accent-blue transition-colors">
+            <RefreshCw className="w-5 h-5" />
+          </button>
+        </div>
       </div>
 
       <div className="flex gap-3 mb-6">
@@ -66,13 +90,13 @@ export default function TicketList() {
                   <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{t.productName}</td>
                   <td className="px-4 py-3"><StatusBadge status={t.status} /></td>
                   <td className="px-4 py-3"><PriorityBadge priority={t.priority} /></td>
-                  <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{t.engineerName || '—'}</td>
+                  <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{t.engineerName || '\u2014'}</td>
                   <td className="px-4 py-3 text-sm">
                     {t.aiConfidence != null ? (
                       <span className={`font-medium ${t.aiConfidence >= 0.7 ? 'text-accent-green' : 'text-accent-amber'}`}>
                         {(t.aiConfidence * 100).toFixed(0)}%
                       </span>
-                    ) : '—'}
+                    ) : '\u2014'}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-500">{new Date(t.createdAt).toLocaleDateString()}</td>
                 </tr>

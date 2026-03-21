@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { tickets as ticketsApi, engineers as engineersApi } from '../../api/client';
 import { StatusBadge, PriorityBadge } from '../../components/StatusBadge';
-import { Brain, FileText, RefreshCw, MessageSquare, Send, Lock, Clock } from 'lucide-react';
+import { Brain, FileText, RefreshCw, MessageSquare, Send, Lock, Clock, ShieldAlert } from 'lucide-react';
 
 export default function TicketDetail() {
   const { id } = useParams();
@@ -260,8 +260,76 @@ export default function TicketDetail() {
               </button>
             </div>
           </div>
+
+          {/* SLA Status Card */}
+          {ticket.slaStatus && (
+            <div className="tb-card p-6">
+              <div className="flex items-center gap-2 mb-3">
+                <ShieldAlert className="w-5 h-5 text-accent-blue" />
+                <h3 className="font-semibold text-gray-900 dark:text-white">SLA Status</h3>
+              </div>
+              <div className="space-y-4 text-sm">
+                <SlaDeadlineRow
+                  label="Response Deadline"
+                  deadline={ticket.slaStatus.responseDeadline}
+                  breached={ticket.slaStatus.responseBreached}
+                  remaining={ticket.slaStatus.responseRemaining}
+                  completed={ticket.slaStatus.firstResponseAt !== null}
+                />
+                <SlaDeadlineRow
+                  label="Resolution Deadline"
+                  deadline={ticket.slaStatus.resolutionDeadline}
+                  breached={ticket.slaStatus.resolutionBreached}
+                  remaining={ticket.slaStatus.resolutionRemaining}
+                  completed={ticket.slaStatus.resolvedAt !== null}
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function SlaDeadlineRow({ label, deadline, breached, remaining, completed }: {
+  label: string;
+  deadline: string;
+  breached: boolean;
+  remaining: number | null;
+  completed: boolean;
+}) {
+  let statusColor = 'text-accent-green';
+  let statusBg = 'bg-accent-green/10';
+  let statusText = '';
+
+  if (completed) {
+    statusText = breached ? 'Completed (was breached)' : 'Completed';
+    statusColor = breached ? 'text-red-400' : 'text-accent-green';
+    statusBg = breached ? 'bg-red-500/10' : 'bg-accent-green/10';
+  } else if (breached) {
+    statusText = 'BREACHED';
+    statusColor = 'text-red-400';
+    statusBg = 'bg-red-500/10';
+  } else if (remaining !== null) {
+    if (remaining < 2) {
+      statusColor = 'text-yellow-400';
+      statusBg = 'bg-yellow-500/10';
+      statusText = `${remaining.toFixed(1)}h remaining`;
+    } else {
+      statusText = `${remaining.toFixed(1)}h remaining`;
+    }
+  }
+
+  return (
+    <div>
+      <p className="text-gray-500 dark:text-gray-400 mb-1">{label}</p>
+      <p className="text-gray-700 dark:text-gray-200 text-xs mb-1">
+        {new Date(deadline).toLocaleString()}
+      </p>
+      <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${statusColor} ${statusBg}`}>
+        {statusText}
+      </span>
     </div>
   );
 }

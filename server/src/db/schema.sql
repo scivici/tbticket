@@ -142,6 +142,13 @@ CREATE TABLE IF NOT EXISTS notifications (
 CREATE INDEX IF NOT EXISTS idx_notifications_customer ON notifications(customer_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_unread ON notifications(customer_id, is_read);
 
+CREATE TABLE IF NOT EXISTS sla_policies (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    priority TEXT NOT NULL UNIQUE CHECK(priority IN ('low', 'medium', 'high', 'critical')),
+    response_time_hours INTEGER NOT NULL,
+    resolution_time_hours INTEGER NOT NULL
+);
+
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status);
 CREATE INDEX IF NOT EXISTS idx_tickets_assigned ON tickets(assigned_engineer_id);

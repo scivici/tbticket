@@ -45,7 +45,7 @@ export default function Navbar() {
             <ThemeToggle />
             {user ? (
               <>
-                <span className="text-sm text-gray-500 dark:text-gray-400">{user.name}</span>
+                <Link to="/profile" className="text-sm text-gray-500 dark:text-gray-400 hover:text-primary-500 dark:hover:text-accent-blue transition-colors">{user.name}</Link>
                 {user.role === 'admin' && (
                   <span className="px-2 py-0.5 bg-status-role-bg text-white text-xs font-medium rounded-full">Admin</span>
                 )}

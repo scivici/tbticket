@@ -150,6 +150,9 @@ export function listTickets(filters: {
   productId?: number;
   assignedEngineerId?: number;
   customerId?: number;
+  search?: string;
+  fromDate?: string;
+  toDate?: string;
   page?: number;
   limit?: number;
 }) {
@@ -176,6 +179,19 @@ export function listTickets(filters: {
   if (filters.customerId) {
     conditions.push('t.customer_id = ?');
     params.push(filters.customerId);
+  }
+  if (filters.search) {
+    conditions.push('(t.subject LIKE ? OR t.description LIKE ? OR t.ticket_number LIKE ?)');
+    const term = `%${filters.search}%`;
+    params.push(term, term, term);
+  }
+  if (filters.fromDate) {
+    conditions.push('t.created_at >= ?');
+    params.push(filters.fromDate);
+  }
+  if (filters.toDate) {
+    conditions.push('t.created_at <= ?');
+    params.push(filters.toDate);
   }
 
   const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';

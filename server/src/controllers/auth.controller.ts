@@ -113,3 +113,28 @@ export function getMe(req: any, res: Response): void {
     isAnonymous: !!user.is_anonymous,
   });
 }
+
+export function updateProfile(req: any, res: Response): void {
+  const db = getDb();
+  const { name, company } = req.body;
+  db.prepare('UPDATE customers SET name = COALESCE(?, name), company = COALESCE(?, company), updated_at = datetime(\'now\') WHERE id = ?')
+    .run(name || null, company || null, req.user.userId);
+  res.json({ message: 'Profile updated' });
+}
+
+export function changePassword(req: any, res: Response): void {
+  const db = getDb();
+  const { currentPassword, newPassword } = req.body;
+  if (!currentPassword || !newPassword || newPassword.length < 6) {
+    res.status(400).json({ error: 'Valid current and new password required (min 6 chars)' });
+    return;
+  }
+  const user = db.prepare('SELECT password_hash FROM customers WHERE id = ?').get(req.user.userId) as any;
+  if (!user || !bcrypt.compareSync(currentPassword, user.password_hash)) {
+    res.status(401).json({ error: 'Current password is incorrect' });
+    return;
+  }
+  db.prepare('UPDATE customers SET password_hash = ?, updated_at = datetime(\'now\') WHERE id = ?')
+    .run(bcrypt.hashSync(newPassword, 10), req.user.userId);
+  res.json({ message: 'Password changed' });
+}

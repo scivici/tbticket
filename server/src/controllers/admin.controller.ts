@@ -31,6 +31,14 @@ export function getDashboardStats(_req: Request, res: Response): void {
   const priorityMap: Record<string, number> = {};
   byPriority.forEach((p: any) => { priorityMap[p.priority] = p.count; });
 
+  const weeklyTrend = db.prepare(
+    "SELECT date(created_at) as day, COUNT(*) as count FROM tickets WHERE created_at >= date('now', '-7 days') GROUP BY date(created_at) ORDER BY day"
+  ).all() as any[];
+
+  const engineerPerformance = db.prepare(
+    "SELECT e.name, COUNT(t.id) as resolved, AVG(CAST((julianday(t.resolved_at) - julianday(t.created_at)) * 24 AS REAL)) as avg_hours FROM engineers e LEFT JOIN tickets t ON t.assigned_engineer_id = e.id AND t.resolved_at IS NOT NULL WHERE e.is_active = 1 GROUP BY e.id"
+  ).all() as any[];
+
   res.json({
     totalTickets: total,
     openTickets: open,
@@ -40,5 +48,11 @@ export function getDashboardStats(_req: Request, res: Response): void {
     ticketsByPriority: priorityMap,
     ticketsByProduct: byProduct.map((p: any) => ({ productName: p.product_name, count: p.count })),
     engineerWorkloads: workloads,
+    weeklyTrend: weeklyTrend.map((w: any) => ({ day: w.day, count: w.count })),
+    engineerPerformance: engineerPerformance.map((e: any) => ({
+      name: e.name,
+      resolved: e.resolved,
+      avgHours: e.avg_hours !== null ? Math.round(e.avg_hours * 10) / 10 : null,
+    })),
   });
 }
