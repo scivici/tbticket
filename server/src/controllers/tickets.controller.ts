@@ -120,6 +120,13 @@ export function getTicket(req: AuthenticatedRequest, res: Response): void {
     res.status(404).json({ error: 'Ticket not found' });
     return;
   }
+
+  // Non-admin users can only view their own tickets
+  if (req.user?.role !== 'admin' && ticket.customerId !== req.user?.userId) {
+    res.status(403).json({ error: 'Access denied' });
+    return;
+  }
+
   res.json(ticket);
 }
 
