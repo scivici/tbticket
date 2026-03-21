@@ -39,28 +39,32 @@ export function updateCategory(req: Request, res: Response): void {
 }
 
 export function deleteCategory(req: Request, res: Response): void {
-  const db = getDb();
-  const { id } = req.params;
+  try {
+    const db = getDb();
+    const { id } = req.params;
 
-  const existing = db.prepare('SELECT id FROM product_categories WHERE id = ?').get(id);
-  if (!existing) {
-    res.status(404).json({ error: 'Category not found' });
-    return;
+    const existing = db.prepare('SELECT id FROM product_categories WHERE id = ?').get(id);
+    if (!existing) {
+      res.status(404).json({ error: 'Category not found' });
+      return;
+    }
+
+    const ticketRef = db.prepare('SELECT id FROM tickets WHERE category_id = ? LIMIT 1').get(id) as any;
+    if (ticketRef) {
+      res.status(409).json({ error: 'Cannot delete category: tickets reference it. Resolve or delete those tickets first.' });
+      return;
+    }
+
+    db.transaction(() => {
+      db.prepare('DELETE FROM question_templates WHERE category_id = ?').run(id);
+      db.prepare('DELETE FROM engineer_product_expertise WHERE category_id = ?').run(id);
+      db.prepare('DELETE FROM product_categories WHERE id = ?').run(id);
+    })();
+    res.json({ message: 'Category and its questions deleted' });
+  } catch (error: any) {
+    console.error('[Admin] Delete category error:', error.message);
+    res.status(500).json({ error: error.message || 'Failed to delete category' });
   }
-
-  const ticketRef = db.prepare('SELECT id FROM tickets WHERE category_id = ? LIMIT 1').get(id) as any;
-  if (ticketRef) {
-    res.status(409).json({ error: 'Cannot delete category: tickets reference it. Resolve or delete those tickets first.' });
-    return;
-  }
-
-  db.transaction(() => {
-    // Delete question templates that belong to this category
-    db.prepare('DELETE FROM question_templates WHERE category_id = ?').run(id);
-    // Delete the category
-    db.prepare('DELETE FROM product_categories WHERE id = ?').run(id);
-  })();
-  res.json({ message: 'Category and its questions deleted' });
 }
 
 export function reorderCategories(req: Request, res: Response): void {
