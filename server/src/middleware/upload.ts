@@ -20,18 +20,27 @@ const storage = multer.diskStorage({
 
 const fileFilter = (_req: Express.Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
   const allowedTypes = [
-    'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+    'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml',
     'application/pdf',
-    'text/plain', 'text/csv', 'text/log',
-    'application/json',
-    'application/zip',
+    'text/plain', 'text/csv', 'text/log', 'text/xml',
+    'application/json', 'application/xml',
+    'application/zip', 'application/x-zip-compressed',
+    'application/gzip', 'application/x-gzip', 'application/x-tar',
+    'application/x-compressed', 'application/x-7z-compressed',
     'application/octet-stream',
+    'application/vnd.tcpdump.pcap',
   ];
 
-  if (allowedTypes.includes(file.mimetype) || file.originalname.endsWith('.log')) {
+  const allowedExtensions = ['.log', '.cfg', '.conf', '.pcap', '.pcapng', '.cap',
+    '.gz', '.tgz', '.tar', '.7z', '.rar', '.csv', '.xml', '.yaml', '.yml',
+    '.ini', '.txt', '.md', '.sip', '.sdp'];
+
+  const ext = file.originalname.toLowerCase().substring(file.originalname.lastIndexOf('.'));
+
+  if (allowedTypes.includes(file.mimetype) || allowedExtensions.includes(ext)) {
     cb(null, true);
   } else {
-    cb(new Error(`File type ${file.mimetype} not allowed`));
+    cb(new Error(`File type ${file.mimetype} (${ext}) not allowed`));
   }
 };
 
