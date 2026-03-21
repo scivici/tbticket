@@ -235,6 +235,13 @@ export function updateStatus(req: AuthenticatedRequest, res: Response): void {
       );
       emailService.sendTicketStatusEmail(ticket.customer.email, ticket.ticketNumber, status).catch(() => {});
     }
+    if (status === 'resolved') {
+      notificationService.createNotification(
+        ticket.customerId, parseInt(id), 'resolved',
+        'Please rate your support experience',
+        `Ticket ${ticket.ticketNumber} has been resolved. We'd love your feedback!`
+      );
+    }
   }
 
   res.json({ message: 'Status updated' });
@@ -497,4 +504,86 @@ export function getTags(req: AuthenticatedRequest, res: Response): void {
   const { id } = req.params;
   const tags = db.prepare('SELECT tag FROM ticket_tags WHERE ticket_id = ?').all(id);
   res.json(tags.map((t: any) => t.tag));
+}
+
+export function submitSatisfaction(req: AuthenticatedRequest, res: Response): void {
+  try {
+    const { id } = req.params;
+    const ticketId = parseInt(id);
+    const { rating, comment } = req.body;
+    const db = getDb();
+
+    if (!rating || rating < 1 || rating > 5) {
+      res.status(400).json({ error: 'Rating must be between 1 and 5' });
+      return;
+    }
+
+    const ticket = ticketService.getTicketById(ticketId);
+    if (!ticket) {
+      res.status(404).json({ error: 'Ticket not found' });
+      return;
+    }
+
+    // Check ticket belongs to customer (or user is admin)
+    if (req.user?.role !== 'admin' && ticket.customerId !== req.user?.userId) {
+      res.status(403).json({ error: 'Access denied' });
+      return;
+    }
+
+    // Check ticket status is resolved or closed
+    if (ticket.status !== 'resolved' && ticket.status !== 'closed') {
+      res.status(400).json({ error: 'Ticket must be resolved or closed to submit a rating' });
+      return;
+    }
+
+    // Insert (UNIQUE constraint will prevent duplicates)
+    try {
+      db.prepare(
+        'INSERT INTO ticket_satisfaction (ticket_id, customer_id, rating, comment) VALUES (?, ?, ?, ?)'
+      ).run(ticketId, ticket.customerId, rating, comment || null);
+    } catch (err: any) {
+      if (err.message?.includes('UNIQUE')) {
+        res.status(409).json({ error: 'Satisfaction rating already submitted for this ticket' });
+        return;
+      }
+      throw err;
+    }
+
+    // Log activity
+    const customer = db.prepare('SELECT name FROM customers WHERE id = ?').get(req.user!.userId) as any;
+    activityService.logActivity(ticketId, req.user!.userId, customer?.name || 'Unknown', 'satisfaction_rated', `Rated ${rating}/5`);
+
+    res.status(201).json({ message: 'Satisfaction rating submitted' });
+  } catch (error: any) {
+    console.error('[Tickets] Submit satisfaction error:', error);
+    res.status(500).json({ error: 'Failed to submit satisfaction rating' });
+  }
+}
+
+export function getSatisfaction(req: AuthenticatedRequest, res: Response): void {
+  try {
+    const { id } = req.params;
+    const ticketId = parseInt(id);
+    const db = getDb();
+
+    const ticket = ticketService.getTicketById(ticketId);
+    if (!ticket) {
+      res.status(404).json({ error: 'Ticket not found' });
+      return;
+    }
+
+    if (req.user?.role !== 'admin' && ticket.customerId !== req.user?.userId) {
+      res.status(403).json({ error: 'Access denied' });
+      return;
+    }
+
+    const satisfaction = db.prepare(
+      'SELECT rating, comment, created_at as createdAt FROM ticket_satisfaction WHERE ticket_id = ?'
+    ).get(ticketId) as any;
+
+    res.json(satisfaction || null);
+  } catch (error: any) {
+    console.error('[Tickets] Get satisfaction error:', error);
+    res.status(500).json({ error: 'Failed to get satisfaction rating' });
+  }
 }

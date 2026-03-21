@@ -54,6 +54,11 @@ export function getDashboardStats(_req: Request, res: Response): void {
     "SELECT e.name, COUNT(t.id) as resolved, AVG(CAST((julianday(t.resolved_at) - julianday(t.created_at)) * 24 AS REAL)) as avg_hours FROM engineers e LEFT JOIN tickets t ON t.assigned_engineer_id = e.id AND t.resolved_at IS NOT NULL WHERE e.is_active = 1 GROUP BY e.id"
   ).all() as any[];
 
+  const satisfaction = db.prepare(`
+    SELECT AVG(rating) as avg_rating, COUNT(*) as total_ratings
+    FROM ticket_satisfaction
+  `).get() as any;
+
   res.json({
     totalTickets: total,
     openTickets: open,
@@ -69,5 +74,7 @@ export function getDashboardStats(_req: Request, res: Response): void {
       resolved: e.resolved,
       avgHours: e.avg_hours !== null ? Math.round(e.avg_hours * 10) / 10 : null,
     })),
+    avgSatisfaction: satisfaction?.avg_rating ? Math.round(satisfaction.avg_rating * 10) / 10 : null,
+    totalRatings: satisfaction?.total_ratings || 0,
   });
 }

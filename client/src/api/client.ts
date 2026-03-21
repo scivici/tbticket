@@ -88,6 +88,10 @@ export const tickets = {
     request<any>(`/tickets/${id}/tags`, { method: 'POST', body: JSON.stringify({ tag }) }),
   removeTag: (id: number, tag: string) =>
     request<any>(`/tickets/${id}/tags/${encodeURIComponent(tag)}`, { method: 'DELETE' }),
+  submitSatisfaction: (id: number, rating: number, comment?: string) =>
+    request<any>(`/tickets/${id}/satisfaction`, { method: 'POST', body: JSON.stringify({ rating, comment }) }),
+  getSatisfaction: (id: number) =>
+    request<any>(`/tickets/${id}/satisfaction`),
 };
 
 // Engineers
@@ -113,6 +117,20 @@ export const admin = {
   slaPolicies: () => request<any[]>('/admin/sla-policies'),
   slaBreached: () => request<any[]>('/admin/sla-breached'),
   customers: () => request<any[]>('/admin/customers'),
+  escalationRules: () => request<any[]>('/admin/escalation-rules'),
+  createEscalationRule: (data: any) =>
+    request<any>('/admin/escalation-rules', { method: 'POST', body: JSON.stringify(data) }),
+  updateEscalationRule: (id: number, data: any) =>
+    request<any>(`/admin/escalation-rules/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteEscalationRule: (id: number) =>
+    request<any>(`/admin/escalation-rules/${id}`, { method: 'DELETE' }),
+  escalationAlerts: () => request<any[]>('/admin/escalation-alerts'),
+  recurringTickets: (minCount?: number, daysBack?: number) => {
+    const params = new URLSearchParams();
+    if (minCount) params.set('minCount', String(minCount));
+    if (daysBack) params.set('daysBack', String(daysBack));
+    return request<any[]>(`/admin/recurring-tickets?${params}`);
+  },
 };
 
 // Admin Manage

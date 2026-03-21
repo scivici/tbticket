@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { tickets as ticketsApi } from '../api/client';
 import { StatusBadge, PriorityBadge } from '../components/StatusBadge';
 import { useAuth } from '../context/AuthContext';
-import { MessageSquare, Send, Clock, FileText, ArrowLeft } from 'lucide-react';
+import { MessageSquare, Send, Clock, FileText, ArrowLeft, Star } from 'lucide-react';
 
 export default function CustomerTicketDetail() {
   const { id } = useParams();
@@ -14,6 +14,37 @@ export default function CustomerTicketDetail() {
   const [responseMessage, setResponseMessage] = useState('');
   const [sendingResponse, setSendingResponse] = useState(false);
   const [error, setError] = useState('');
+
+  // Satisfaction
+  const [satisfaction, setSatisfaction] = useState<any>(null);
+  const [satLoading, setSatLoading] = useState(false);
+  const [satRating, setSatRating] = useState(0);
+  const [satHover, setSatHover] = useState(0);
+  const [satComment, setSatComment] = useState('');
+  const [satSubmitting, setSatSubmitting] = useState(false);
+  const [satSubmitted, setSatSubmitted] = useState(false);
+
+  const loadSatisfaction = (ticketId: number) => {
+    setSatLoading(true);
+    ticketsApi.getSatisfaction(ticketId)
+      .then(data => { if (data && data.rating) setSatisfaction(data); })
+      .catch(() => {})
+      .finally(() => setSatLoading(false));
+  };
+
+  const handleSubmitSatisfaction = async () => {
+    if (satRating === 0) return;
+    setSatSubmitting(true);
+    try {
+      await ticketsApi.submitSatisfaction(parseInt(id!), satRating, satComment.trim() || undefined);
+      setSatSubmitted(true);
+      loadSatisfaction(parseInt(id!));
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSatSubmitting(false);
+    }
+  };
 
   const load = () => {
     setLoading(true);
@@ -28,6 +59,12 @@ export default function CustomerTicketDetail() {
   };
 
   useEffect(() => { load(); }, [id]);
+
+  useEffect(() => {
+    if (ticket && (ticket.status === 'resolved' || ticket.status === 'closed')) {
+      loadSatisfaction(parseInt(id!));
+    }
+  }, [ticket?.status, id]);
 
   const handleSendResponse = async () => {
     if (!responseMessage.trim()) return;
@@ -184,6 +221,73 @@ export default function CustomerTicketDetail() {
           </div>
         </div>
       </div>
+
+      {/* Satisfaction Survey - only for resolved/closed */}
+      {(ticket.status === 'resolved' || ticket.status === 'closed') && (
+        <div className="tb-card p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Star className="w-5 h-5 text-yellow-400" />
+            <h3 className="font-semibold text-gray-900 dark:text-white">Rate Your Experience</h3>
+          </div>
+
+          {satLoading ? (
+            <p className="text-sm text-gray-500">Loading...</p>
+          ) : satSubmitted ? (
+            <p className="text-sm text-accent-green font-medium">Thank you for your feedback!</p>
+          ) : satisfaction ? (
+            <div className="space-y-3">
+              <div className="flex gap-1">
+                {[1, 2, 3, 4, 5].map(star => (
+                  <Star
+                    key={star}
+                    className={`w-6 h-6 ${star <= satisfaction.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300 dark:text-gray-600'}`}
+                  />
+                ))}
+              </div>
+              {satisfaction.comment && (
+                <p className="text-sm text-gray-600 dark:text-gray-300 italic">"{satisfaction.comment}"</p>
+              )}
+              <p className="text-xs text-gray-500">Submitted {new Date(satisfaction.created_at || satisfaction.createdAt).toLocaleString()}</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex gap-1">
+                {[1, 2, 3, 4, 5].map(star => (
+                  <button
+                    key={star}
+                    onClick={() => setSatRating(star)}
+                    onMouseEnter={() => setSatHover(star)}
+                    onMouseLeave={() => setSatHover(0)}
+                    className="focus:outline-none transition-transform hover:scale-110"
+                  >
+                    <Star
+                      className={`w-8 h-8 ${
+                        star <= (satHover || satRating)
+                          ? 'fill-yellow-400 text-yellow-400'
+                          : 'text-gray-300 dark:text-gray-600'
+                      } transition-colors`}
+                    />
+                  </button>
+                ))}
+              </div>
+              <textarea
+                value={satComment}
+                onChange={e => setSatComment(e.target.value)}
+                placeholder="Optional: Tell us about your experience..."
+                rows={3}
+                className="tb-input w-full"
+              />
+              <button
+                onClick={handleSubmitSatisfaction}
+                disabled={satRating === 0 || satSubmitting}
+                className="tb-btn-primary px-4 py-2 text-sm disabled:opacity-50"
+              >
+                {satSubmitting ? 'Submitting...' : 'Submit Rating'}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

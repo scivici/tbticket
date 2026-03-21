@@ -187,6 +187,24 @@ CREATE TABLE IF NOT EXISTS ticket_tags (
 
 CREATE INDEX IF NOT EXISTS idx_ticket_tags_ticket ON ticket_tags(ticket_id);
 
+CREATE TABLE IF NOT EXISTS ticket_satisfaction (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticket_id INTEGER NOT NULL UNIQUE REFERENCES tickets(id),
+    customer_id INTEGER NOT NULL REFERENCES customers(id),
+    rating INTEGER NOT NULL CHECK(rating BETWEEN 1 AND 5),
+    comment TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS escalation_rules (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    priority TEXT NOT NULL CHECK(priority IN ('low', 'medium', 'high', 'critical')),
+    hours_without_response INTEGER NOT NULL,
+    action TEXT NOT NULL CHECK(action IN ('notify_admin', 'increase_priority', 'reassign')),
+    is_active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status);
 CREATE INDEX IF NOT EXISTS idx_tickets_assigned ON tickets(assigned_engineer_id);

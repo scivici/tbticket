@@ -218,6 +218,53 @@ export function runMigrations(): void {
     console.log('[DB] ticket_tags table created successfully.');
   }
 
+  // Migration: add ticket_satisfaction table if it doesn't exist
+  const satisfactionTableExists = db.prepare(
+    "SELECT name FROM sqlite_master WHERE type='table' AND name='ticket_satisfaction'"
+  ).get();
+
+  if (!satisfactionTableExists) {
+    console.log('[DB] Running ticket_satisfaction migration...');
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS ticket_satisfaction (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          ticket_id INTEGER NOT NULL UNIQUE REFERENCES tickets(id),
+          customer_id INTEGER NOT NULL REFERENCES customers(id),
+          rating INTEGER NOT NULL CHECK(rating BETWEEN 1 AND 5),
+          comment TEXT,
+          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+    `);
+    console.log('[DB] ticket_satisfaction table created successfully.');
+  }
+
+  // Migration: add escalation_rules table if it doesn't exist
+  const escalationRulesTableExists = db.prepare(
+    "SELECT name FROM sqlite_master WHERE type='table' AND name='escalation_rules'"
+  ).get();
+
+  if (!escalationRulesTableExists) {
+    console.log('[DB] Running escalation_rules migration...');
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS escalation_rules (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          priority TEXT NOT NULL CHECK(priority IN ('low', 'medium', 'high', 'critical')),
+          hours_without_response INTEGER NOT NULL,
+          action TEXT NOT NULL CHECK(action IN ('notify_admin', 'increase_priority', 'reassign')),
+          is_active INTEGER NOT NULL DEFAULT 1,
+          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      INSERT OR IGNORE INTO escalation_rules (priority, hours_without_response, action) VALUES
+      ('critical', 2, 'notify_admin'),
+      ('critical', 4, 'increase_priority'),
+      ('high', 4, 'notify_admin'),
+      ('high', 8, 'increase_priority'),
+      ('medium', 12, 'notify_admin'),
+      ('low', 24, 'notify_admin');
+    `);
+    console.log('[DB] escalation_rules table created and seeded successfully.');
+  }
+
   // Migration: add Claude settings if missing (for existing DBs)
   const hasClaudeUrl = db.prepare("SELECT key FROM settings WHERE key = 'claude_server_url'").get();
   if (!hasClaudeUrl) {

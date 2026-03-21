@@ -33,6 +33,10 @@ router.get('/:id/tags', authenticate, ticketsController.getTags);
 router.post('/:id/tags', authenticate, requireAdmin, ticketsController.addTag);
 router.delete('/:id/tags/:tag', authenticate, requireAdmin, ticketsController.removeTag);
 
+// Customer submits satisfaction (authenticated, before admin-only routes)
+router.post('/:id/satisfaction', authenticate, ticketsController.submitSatisfaction);
+router.get('/:id/satisfaction', authenticate, ticketsController.getSatisfaction);
+
 // Admin only
 router.patch('/:id/status', authenticate, requireAdmin, ticketsController.updateStatus);
 router.patch('/:id/assign', authenticate, requireAdmin, ticketsController.assignEngineer);

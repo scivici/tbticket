@@ -5,7 +5,7 @@ import ThemeToggle from './ThemeToggle';
 import {
   LayoutDashboard, Ticket, Users, Package, FolderOpen,
   HelpCircle, Wrench, UserCog, LogOut, ChevronLeft, Settings,
-  UserCheck, MessageSquarePlus, Menu, X
+  UserCheck, MessageSquarePlus, Menu, X, AlertTriangle, Repeat
 } from 'lucide-react';
 
 const navItems = [
@@ -18,6 +18,8 @@ const navItems = [
   { to: '/admin/questions', icon: HelpCircle, label: 'Questions' },
   { to: '/admin/skills', icon: Wrench, label: 'Skills' },
   { to: '/admin/canned-responses', icon: MessageSquarePlus, label: 'Canned Responses' },
+  { to: '/admin/escalations', icon: AlertTriangle, label: 'Escalations' },
+  { to: '/admin/recurring', icon: Repeat, label: 'Recurring' },
   { to: '/admin/users', icon: UserCog, label: 'Users' },
   { to: '/admin/setup', icon: Settings, label: 'Setup' },
 ];

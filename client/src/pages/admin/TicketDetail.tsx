@@ -5,7 +5,7 @@ import { StatusBadge, PriorityBadge } from '../../components/StatusBadge';
 import {
   Brain, FileText, RefreshCw, MessageSquare, Send, Lock, Clock, ShieldAlert,
   Trash2, Tag, X, Plus, PlusCircle, ArrowRightCircle, UserCheck, AlertTriangle,
-  MessageSquarePlus, Image as ImageIcon
+  MessageSquarePlus, Image as ImageIcon, Star
 } from 'lucide-react';
 
 function timeAgo(dateStr: string) {
@@ -55,6 +55,9 @@ export default function TicketDetail() {
   const [cannedList, setCannedList] = useState<any[]>([]);
   const [showCanned, setShowCanned] = useState(false);
 
+  // Satisfaction
+  const [satisfaction, setSatisfaction] = useState<any>(null);
+
   const load = () => {
     setLoading(true);
     Promise.all([
@@ -63,9 +66,11 @@ export default function TicketDetail() {
       ticketsApi.getResponses(parseInt(id!)),
       ticketsApi.getTags(parseInt(id!)).catch(() => []),
       ticketsApi.getActivities(parseInt(id!)).catch(() => []),
+      ticketsApi.getSatisfaction(parseInt(id!)).catch(() => null),
     ])
-      .then(([t, e, r, tg, act]) => {
+      .then(([t, e, r, tg, act, sat]) => {
         setTicket(t); setEngineers(e); setResponses(r); setTags(tg); setActivities(act);
+        if (sat && sat.rating) setSatisfaction(sat);
       })
       .catch(console.error).finally(() => setLoading(false));
   };
@@ -491,6 +496,28 @@ export default function TicketDetail() {
               </button>
             </div>
           </div>
+
+          {/* Satisfaction Rating */}
+          {satisfaction && (
+            <div className="tb-card p-6">
+              <div className="flex items-center gap-2 mb-3">
+                <Star className="w-4 h-4 text-yellow-400" />
+                <h3 className="font-semibold text-gray-900 dark:text-white">Customer Satisfaction</h3>
+              </div>
+              <div className="flex gap-1 mb-2">
+                {[1, 2, 3, 4, 5].map(star => (
+                  <Star
+                    key={star}
+                    className={`w-5 h-5 ${star <= satisfaction.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300 dark:text-gray-600'}`}
+                  />
+                ))}
+                <span className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-200">{satisfaction.rating}/5</span>
+              </div>
+              {satisfaction.comment && (
+                <p className="text-sm text-gray-600 dark:text-gray-300 italic">"{satisfaction.comment}"</p>
+              )}
+            </div>
+          )}
 
           {/* SLA Status Card */}
           {ticket.slaStatus && (

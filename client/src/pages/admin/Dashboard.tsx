@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { admin, tickets as ticketsApi } from '../../api/client';
 import { StatusBadge } from '../../components/StatusBadge';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
-import { Ticket, Users, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
+import { Ticket, Users, CheckCircle, Clock, AlertTriangle, Star } from 'lucide-react';
 
 const COLORS = ['#0ea5e9', '#059669', '#D39340', '#832d2d', '#8b5cf6', '#ec4899', '#6b7280'];
 
@@ -22,6 +22,7 @@ export default function Dashboard() {
   const [stats, setStats] = useState<any>(null);
   const [breached, setBreached] = useState<any[]>([]);
   const [recentTickets, setRecentTickets] = useState<any[]>([]);
+  const [escalationAlerts, setEscalationAlerts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -29,10 +30,12 @@ export default function Dashboard() {
       admin.dashboard(),
       admin.slaBreached().catch(() => []),
       ticketsApi.list({ limit: '5' }).catch(() => ({ tickets: [] })),
-    ]).then(([s, b, rt]) => {
+      admin.escalationAlerts().catch(() => []),
+    ]).then(([s, b, rt, ea]) => {
       setStats(s);
       setBreached(b);
       setRecentTickets(rt.tickets || []);
+      setEscalationAlerts(ea || []);
     }).catch(console.error).finally(() => setLoading(false));
   }, []);
 
@@ -48,11 +51,13 @@ export default function Dashboard() {
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
         <StatCard icon={<Ticket className="w-5 h-5" />} label="Total Tickets" value={stats.totalTickets} color="blue" />
         <StatCard icon={<Clock className="w-5 h-5" />} label="Open Tickets" value={stats.openTickets} color="amber" />
         <StatCard icon={<CheckCircle className="w-5 h-5" />} label="Resolved" value={stats.resolvedTickets} color="green" />
         <StatCard icon={<Users className="w-5 h-5" />} label="Avg Resolution (hrs)" value={stats.avgResolutionTime || '\u2014'} color="purple" />
+        <StatCard icon={<Star className="w-5 h-5" />} label="Avg Satisfaction" value={stats.avgSatisfaction ? `${Number(stats.avgSatisfaction).toFixed(1)} / 5` : '\u2014'} color="amber" />
+        <StatCard icon={<AlertTriangle className="w-5 h-5" />} label="Escalation Alerts" value={escalationAlerts.length} color={escalationAlerts.length > 0 ? 'red' : 'green'} />
       </div>
 
       {/* Recent Tickets */}
@@ -223,6 +228,7 @@ function StatCard({ icon, label, value, color }: { icon: React.ReactNode; label:
     green: 'bg-accent-green/20 text-accent-green',
     amber: 'bg-accent-amber/20 text-accent-amber',
     purple: 'bg-purple-500/20 text-purple-400',
+    red: 'bg-red-500/20 text-red-500',
   };
   return (
     <div className="tb-card p-4">

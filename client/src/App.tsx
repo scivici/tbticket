@@ -23,6 +23,8 @@ import UserManager from './pages/admin/UserManager';
 import SetupPage from './pages/admin/SetupPage';
 import CustomerList from './pages/admin/CustomerList';
 import CannedResponseManager from './pages/admin/CannedResponseManager';
+import EscalationManager from './pages/admin/EscalationManager';
+import RecurringTickets from './pages/admin/RecurringTickets';
 
 function AdminGuard() {
   const { isAdmin, loading } = useAuth();
@@ -57,6 +59,8 @@ export default function App() {
         <Route path="/admin/questions" element={<QuestionManager />} />
         <Route path="/admin/skills" element={<SkillManager />} />
         <Route path="/admin/canned-responses" element={<CannedResponseManager />} />
+        <Route path="/admin/escalations" element={<EscalationManager />} />
+        <Route path="/admin/recurring" element={<RecurringTickets />} />
         <Route path="/admin/users" element={<UserManager />} />
         <Route path="/admin/setup" element={<SetupPage />} />
       </Route>
