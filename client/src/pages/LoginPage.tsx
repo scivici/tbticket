@@ -31,7 +31,7 @@ export default function LoginPage() {
         <div className="flex items-center justify-center mb-6">
           <LogIn className="w-8 h-8 text-accent-blue" />
         </div>
-        <h1 className="text-2xl font-bold text-center text-white mb-6">Sign In</h1>
+        <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-white mb-6">Sign In</h1>
 
         {error && (
           <div className="mb-4 p-3 bg-status-expired-bg text-status-expired-text rounded-lg text-sm">{error}</div>
@@ -39,12 +39,12 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">Email</label>
+            <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Email</label>
             <input type="email" required value={email} onChange={e => setEmail(e.target.value)}
               className="tb-input" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">Password</label>
+            <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Password</label>
             <input type="password" required value={password} onChange={e => setPassword(e.target.value)}
               className="tb-input" />
           </div>
@@ -56,7 +56,7 @@ export default function LoginPage() {
         <p className="mt-4 text-center text-sm text-gray-500">
           Don't have an account? <Link to="/register" className="text-accent-blue hover:underline">Register</Link>
         </p>
-        <p className="mt-2 text-center text-sm text-gray-600">
+        <p className="mt-2 text-center text-sm text-gray-300 dark:text-gray-600">
           Admin: admin@telcobridges.com / admin123
         </p>
       </div>

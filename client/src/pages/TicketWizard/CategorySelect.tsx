@@ -37,21 +37,21 @@ export default function CategorySelect({ data, onUpdate, onNext, onPrev }: Props
 
   return (
     <div>
-      <h2 className="text-lg font-semibold text-white mb-4">What type of issue are you experiencing?</h2>
+      <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">What type of issue are you experiencing?</h2>
       <div className="grid sm:grid-cols-2 gap-3">
         {categories.map(cat => (
           <button key={cat.id} onClick={() => selectCategory(cat)}
             className={`p-4 rounded-xl border-2 text-left transition-all hover:shadow-md flex items-start gap-3 ${
               data.category?.id === cat.id
                 ? 'border-primary-500 bg-primary-500/10'
-                : 'border-gray-600 hover:border-primary-400 bg-tb-bg'
+                : 'border-gray-300 dark:border-gray-600 hover:border-primary-400 bg-[#f2f2f2] dark:bg-tb-bg'
             }`}>
-            <div className={`p-2 rounded-lg ${data.category?.id === cat.id ? 'bg-primary-500/20 text-accent-blue' : 'bg-gray-700 text-gray-400'}`}>
+            <div className={`p-2 rounded-lg ${data.category?.id === cat.id ? 'bg-primary-500/20 text-accent-blue' : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}`}>
               {iconMap[cat.icon] || <Cpu className="w-5 h-5" />}
             </div>
             <div>
-              <h3 className="font-medium text-white">{cat.name}</h3>
-              <p className="text-sm text-gray-400 mt-0.5">{cat.description}</p>
+              <h3 className="font-medium text-gray-900 dark:text-white">{cat.name}</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{cat.description}</p>
             </div>
           </button>
         ))}

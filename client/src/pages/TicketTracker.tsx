@@ -27,7 +27,7 @@ export default function TicketTracker() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      <h1 className="text-2xl font-bold text-white mb-6">Track Your Ticket</h1>
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Track Your Ticket</h1>
 
       <form onSubmit={handleSearch} className="flex gap-3 mb-8">
         <div className="flex-1 relative">
@@ -48,7 +48,7 @@ export default function TicketTracker() {
           <div className="flex items-start justify-between mb-4">
             <div>
               <p className="text-sm text-gray-500 font-mono">{ticket.ticketNumber}</p>
-              <h2 className="text-xl font-semibold text-white mt-1">{ticket.subject}</h2>
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white mt-1">{ticket.subject}</h2>
             </div>
             <div className="flex gap-2">
               <StatusBadge status={ticket.status} />
@@ -58,24 +58,24 @@ export default function TicketTracker() {
           <div className="grid grid-cols-2 gap-4 mt-6">
             <div>
               <p className="text-sm text-gray-500">Product</p>
-              <p className="font-medium text-white">{ticket.productName}</p>
+              <p className="font-medium text-gray-900 dark:text-white">{ticket.productName}</p>
             </div>
             <div>
               <p className="text-sm text-gray-500">Category</p>
-              <p className="font-medium text-white">{ticket.categoryName}</p>
+              <p className="font-medium text-gray-900 dark:text-white">{ticket.categoryName}</p>
             </div>
             <div>
               <p className="text-sm text-gray-500">Assigned Engineer</p>
-              <p className="font-medium text-white">{ticket.engineerName || 'Pending assignment'}</p>
+              <p className="font-medium text-gray-900 dark:text-white">{ticket.engineerName || 'Pending assignment'}</p>
             </div>
             <div>
               <p className="text-sm text-gray-500">Created</p>
-              <p className="font-medium text-white">{new Date(ticket.createdAt).toLocaleString()}</p>
+              <p className="font-medium text-gray-900 dark:text-white">{new Date(ticket.createdAt).toLocaleString()}</p>
             </div>
             {ticket.resolvedAt && (
               <div>
                 <p className="text-sm text-gray-500">Resolved</p>
-                <p className="font-medium text-white">{new Date(ticket.resolvedAt).toLocaleString()}</p>
+                <p className="font-medium text-gray-900 dark:text-white">{new Date(ticket.resolvedAt).toLocaleString()}</p>
               </div>
             )}
           </div>

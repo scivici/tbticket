@@ -41,19 +41,19 @@ export default function ProductManager() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-white">Product Management</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Product Management</h1>
         <button onClick={startCreate} className="tb-btn-primary flex items-center gap-2"><Plus className="w-4 h-4" /> Add Product</button>
       </div>
 
       {(creating || editing) && (
         <div className="tb-card border-primary-500/30 p-6 mb-6">
-          <h3 className="font-semibold text-white mb-4">{creating ? 'New Product' : 'Edit Product'}</h3>
+          <h3 className="font-semibold text-gray-900 dark:text-white mb-4">{creating ? 'New Product' : 'Edit Product'}</h3>
           {error && <div className="mb-4 p-3 bg-status-expired-bg text-status-expired-text rounded-lg text-sm">{error}</div>}
           <div className="grid sm:grid-cols-2 gap-4">
-            <div><label className="block text-sm font-medium text-gray-300 mb-1">Name *</label><input type="text" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className="tb-input" placeholder="e.g., ProSBC" /></div>
-            <div><label className="block text-sm font-medium text-gray-300 mb-1">Model *</label><input type="text" value={form.model} onChange={e => setForm(f => ({ ...f, model: e.target.value }))} className="tb-input" placeholder="e.g., SBC-SW" /></div>
-            <div className="sm:col-span-2"><label className="block text-sm font-medium text-gray-300 mb-1">Description</label><textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={2} className="tb-input" /></div>
-            <div className="sm:col-span-2"><label className="block text-sm font-medium text-gray-300 mb-1">Image URL</label><input type="text" value={form.imageUrl} onChange={e => setForm(f => ({ ...f, imageUrl: e.target.value }))} className="tb-input" /></div>
+            <div><label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Name *</label><input type="text" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className="tb-input" placeholder="e.g., ProSBC" /></div>
+            <div><label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Model *</label><input type="text" value={form.model} onChange={e => setForm(f => ({ ...f, model: e.target.value }))} className="tb-input" placeholder="e.g., SBC-SW" /></div>
+            <div className="sm:col-span-2"><label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Description</label><textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={2} className="tb-input" /></div>
+            <div className="sm:col-span-2"><label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Image URL</label><input type="text" value={form.imageUrl} onChange={e => setForm(f => ({ ...f, imageUrl: e.target.value }))} className="tb-input" /></div>
           </div>
           <div className="flex justify-end gap-3 mt-4">
             <button onClick={cancel} className="tb-btn-secondary flex items-center gap-1"><X className="w-4 h-4" /> Cancel</button>
@@ -67,11 +67,11 @@ export default function ProductManager() {
           <div key={p.id} className="tb-card p-5 flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-primary-500/20 rounded-lg flex items-center justify-center"><Package className="w-6 h-6 text-accent-blue" /></div>
-              <div><h3 className="font-semibold text-white">{p.name}</h3><p className="text-sm text-gray-400">Model: {p.model}</p><p className="text-sm text-gray-500 mt-0.5 max-w-lg truncate">{p.description}</p></div>
+              <div><h3 className="font-semibold text-gray-900 dark:text-white">{p.name}</h3><p className="text-sm text-gray-500 dark:text-gray-400">Model: {p.model}</p><p className="text-sm text-gray-500 mt-0.5 max-w-lg truncate">{p.description}</p></div>
             </div>
             <div className="flex items-center gap-2">
-              <button onClick={() => startEdit(p)} className="p-2 text-gray-400 hover:text-accent-blue hover:bg-white/10 rounded-lg"><Pencil className="w-4 h-4" /></button>
-              <button onClick={() => handleDelete(p.id, p.name)} className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg"><Trash2 className="w-4 h-4" /></button>
+              <button onClick={() => startEdit(p)} className="p-2 text-gray-500 dark:text-gray-400 hover:text-accent-blue hover:bg-black/10 dark:hover:bg-white/10 rounded-lg"><Pencil className="w-4 h-4" /></button>
+              <button onClick={() => handleDelete(p.id, p.name)} className="p-2 text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-500/10 rounded-lg"><Trash2 className="w-4 h-4" /></button>
             </div>
           </div>
         ))}

@@ -55,10 +55,10 @@ export default function QuestionnaireForm({ data, onUpdate, onNext, onPrev }: Pr
 
   return (
     <div className="space-y-6">
-      <h2 className="text-lg font-semibold text-white">Tell us about the issue</h2>
+      <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Tell us about the issue</h2>
 
       <div>
-        <label className="block text-sm font-medium text-gray-300 mb-1">Subject *</label>
+        <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Subject *</label>
         <input type="text" value={subject} onChange={e => setSubject(e.target.value)}
           placeholder="Brief summary of the issue"
           className={`tb-input ${errors.subject ? 'border-red-500' : ''}`} />
@@ -66,18 +66,18 @@ export default function QuestionnaireForm({ data, onUpdate, onNext, onPrev }: Pr
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-300 mb-1">Description *</label>
+        <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Description *</label>
         <textarea value={description} onChange={e => setDescription(e.target.value)}
           rows={3} placeholder="Describe the issue in detail..."
           className={`tb-input ${errors.description ? 'border-red-500' : ''}`} />
         {errors.description && <p className="text-red-400 text-xs mt-1">{errors.description}</p>}
       </div>
 
-      <hr className="border-gray-700" />
+      <hr className="border-gray-200 dark:border-gray-700" />
 
       {questions.filter(isVisible).map(q => (
         <div key={q.id}>
-          <label className="block text-sm font-medium text-gray-300 mb-1">
+          <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">
             {q.questionText} {q.isRequired && '*'}
           </label>
           {renderQuestion(q, answers[q.id] || '', (val: string) => setAnswer(q.id, val))}
@@ -114,9 +114,9 @@ function renderQuestion(q: any, value: string, onChange: (val: string) => void) 
       return (
         <div className="space-y-2">
           {(q.options || []).map((opt: string) => (
-            <label key={opt} className="flex items-center gap-2 cursor-pointer text-gray-300">
+            <label key={opt} className="flex items-center gap-2 cursor-pointer text-gray-600 dark:text-gray-300">
               <input type="radio" name={`q_${q.id}`} value={opt} checked={value === opt}
-                onChange={() => onChange(opt)} className="text-primary-500 focus:ring-primary-500 bg-tb-card border-gray-600" />
+                onChange={() => onChange(opt)} className="text-primary-500 focus:ring-primary-500 bg-white dark:bg-tb-card border-gray-300 dark:border-gray-600" />
               <span className="text-sm">{opt}</span>
             </label>
           ))}
@@ -127,13 +127,13 @@ function renderQuestion(q: any, value: string, onChange: (val: string) => void) 
       return (
         <div className="space-y-2">
           {(q.options || []).map((opt: string) => (
-            <label key={opt} className="flex items-center gap-2 cursor-pointer text-gray-300">
+            <label key={opt} className="flex items-center gap-2 cursor-pointer text-gray-600 dark:text-gray-300">
               <input type="checkbox" checked={selected.includes(opt)}
                 onChange={e => {
                   const newSelected = e.target.checked ? [...selected, opt] : selected.filter(s => s !== opt);
                   onChange(newSelected.join(','));
                 }}
-                className="rounded text-primary-500 focus:ring-primary-500 bg-tb-card border-gray-600" />
+                className="rounded text-primary-500 focus:ring-primary-500 bg-white dark:bg-tb-card border-gray-300 dark:border-gray-600" />
               <span className="text-sm">{opt}</span>
             </label>
           ))}
@@ -141,9 +141,9 @@ function renderQuestion(q: any, value: string, onChange: (val: string) => void) 
       );
     case 'checkbox':
       return (
-        <label className="flex items-center gap-2 cursor-pointer text-gray-300">
+        <label className="flex items-center gap-2 cursor-pointer text-gray-600 dark:text-gray-300">
           <input type="checkbox" checked={value === 'true'} onChange={e => onChange(e.target.checked ? 'true' : 'false')}
-            className="rounded text-primary-500 focus:ring-primary-500 bg-tb-card border-gray-600" />
+            className="rounded text-primary-500 focus:ring-primary-500 bg-white dark:bg-tb-card border-gray-300 dark:border-gray-600" />
           <span className="text-sm">{q.questionText}</span>
         </label>
       );

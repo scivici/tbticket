@@ -59,29 +59,29 @@ export default function QuestionManager() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-white">Question Templates</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Question Templates</h1>
         <button onClick={startCreate} disabled={!selectedCategoryId} className="tb-btn-primary flex items-center gap-2 disabled:opacity-50"><Plus className="w-4 h-4" /> Add Question</button>
       </div>
 
       <div className="flex gap-4 mb-6">
-        <div><label className="block text-sm font-medium text-gray-300 mb-1">Product</label><select value={selectedProductId} onChange={e => { setSelectedProductId(parseInt(e.target.value)); cancel(); }} className="tb-select">{products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
-        <div><label className="block text-sm font-medium text-gray-300 mb-1">Category</label><select value={selectedCategoryId} onChange={e => { setSelectedCategoryId(parseInt(e.target.value)); cancel(); }} className="tb-select">{categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+        <div><label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Product</label><select value={selectedProductId} onChange={e => { setSelectedProductId(parseInt(e.target.value)); cancel(); }} className="tb-select">{products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
+        <div><label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Category</label><select value={selectedCategoryId} onChange={e => { setSelectedCategoryId(parseInt(e.target.value)); cancel(); }} className="tb-select">{categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
       </div>
 
       {(creating || editing) && (
         <div className="tb-card border-primary-500/30 p-6 mb-6">
-          <h3 className="font-semibold text-white mb-4">{creating ? 'New Question' : 'Edit Question'}</h3>
+          <h3 className="font-semibold text-gray-900 dark:text-white mb-4">{creating ? 'New Question' : 'Edit Question'}</h3>
           {error && <div className="mb-4 p-3 bg-status-expired-bg text-status-expired-text rounded-lg text-sm">{error}</div>}
           <div className="space-y-4">
             <div className="grid sm:grid-cols-2 gap-4">
-              <div className="sm:col-span-2"><label className="block text-sm font-medium text-gray-300 mb-1">Question Text *</label><input type="text" value={form.questionText} onChange={e => setForm(f => ({ ...f, questionText: e.target.value }))} className="tb-input" /></div>
-              <div><label className="block text-sm font-medium text-gray-300 mb-1">Type</label><select value={form.questionType} onChange={e => setForm(f => ({ ...f, questionType: e.target.value }))} className="tb-select w-full">{QUESTION_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}</select></div>
-              <div><label className="block text-sm font-medium text-gray-300 mb-1">Placeholder</label><input type="text" value={form.placeholder} onChange={e => setForm(f => ({ ...f, placeholder: e.target.value }))} className="tb-input" /></div>
+              <div className="sm:col-span-2"><label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Question Text *</label><input type="text" value={form.questionText} onChange={e => setForm(f => ({ ...f, questionText: e.target.value }))} className="tb-input" /></div>
+              <div><label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Type</label><select value={form.questionType} onChange={e => setForm(f => ({ ...f, questionType: e.target.value }))} className="tb-select w-full">{QUESTION_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}</select></div>
+              <div><label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Placeholder</label><input type="text" value={form.placeholder} onChange={e => setForm(f => ({ ...f, placeholder: e.target.value }))} className="tb-input" /></div>
             </div>
-            {needsOptions && (<div><label className="block text-sm font-medium text-gray-300 mb-1">Options (one per line) *</label><textarea value={form.options} onChange={e => setForm(f => ({ ...f, options: e.target.value }))} rows={4} className="tb-input font-mono text-sm" placeholder={"Option 1\nOption 2\nOption 3"} /></div>)}
-            <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={form.isRequired} onChange={e => setForm(f => ({ ...f, isRequired: e.target.checked }))} className="rounded text-primary-500 bg-tb-card border-gray-600" /><span className="text-sm font-medium text-gray-300">Required</span></label>
-            <div className="bg-tb-bg rounded-lg p-4 border border-gray-700">
-              <div className="flex items-center gap-2 mb-3"><GitBranch className="w-4 h-4 text-gray-500" /><span className="text-sm font-medium text-gray-300">Conditional Display</span></div>
+            {needsOptions && (<div><label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Options (one per line) *</label><textarea value={form.options} onChange={e => setForm(f => ({ ...f, options: e.target.value }))} rows={4} className="tb-input font-mono text-sm" placeholder={"Option 1\nOption 2\nOption 3"} /></div>)}
+            <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={form.isRequired} onChange={e => setForm(f => ({ ...f, isRequired: e.target.checked }))} className="rounded text-primary-500 bg-white dark:bg-tb-card border-gray-300 dark:border-gray-600" /><span className="text-sm font-medium text-gray-600 dark:text-gray-300">Required</span></label>
+            <div className="bg-[#f2f2f2] dark:bg-tb-bg rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+              <div className="flex items-center gap-2 mb-3"><GitBranch className="w-4 h-4 text-gray-500" /><span className="text-sm font-medium text-gray-600 dark:text-gray-300">Conditional Display</span></div>
               <div className="grid sm:grid-cols-2 gap-4">
                 <div><label className="block text-xs text-gray-500 mb-1">Show only when this question...</label><select value={form.conditionalOn || ''} onChange={e => setForm(f => ({ ...f, conditionalOn: e.target.value ? parseInt(e.target.value) : null }))} className="tb-select w-full"><option value="">Always visible</option>{questions.filter(q => q.id !== editing).map(q => (<option key={q.id} value={q.id}>Q{q.display_order}: {q.question_text.substring(0, 40)}...</option>))}</select></div>
                 {form.conditionalOn && (<div><label className="block text-xs text-gray-500 mb-1">...has this answer</label><input type="text" value={form.conditionalValue} onChange={e => setForm(f => ({ ...f, conditionalValue: e.target.value }))} className="tb-input" placeholder="Exact answer value" /></div>)}
@@ -101,25 +101,25 @@ export default function QuestionManager() {
             <div className="flex items-start justify-between">
               <div className="flex items-start gap-3">
                 <div className="flex flex-col gap-0.5 mt-1">
-                  <button onClick={() => moveQuestion(index, -1)} disabled={index === 0} className="p-0.5 text-gray-600 hover:text-gray-300 disabled:opacity-30"><ChevronUp className="w-4 h-4" /></button>
-                  <button onClick={() => moveQuestion(index, 1)} disabled={index === questions.length - 1} className="p-0.5 text-gray-600 hover:text-gray-300 disabled:opacity-30"><ChevronDown className="w-4 h-4" /></button>
+                  <button onClick={() => moveQuestion(index, -1)} disabled={index === 0} className="p-0.5 text-gray-300 dark:text-gray-600 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-30"><ChevronUp className="w-4 h-4" /></button>
+                  <button onClick={() => moveQuestion(index, 1)} disabled={index === questions.length - 1} className="p-0.5 text-gray-300 dark:text-gray-600 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-30"><ChevronDown className="w-4 h-4" /></button>
                 </div>
                 <div className="w-8 h-8 bg-purple-500/20 rounded-lg flex items-center justify-center text-sm font-bold text-purple-400">{q.display_order}</div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
-                    <h3 className="font-medium text-white">{q.question_text}</h3>
+                    <h3 className="font-medium text-gray-900 dark:text-white">{q.question_text}</h3>
                     {q.is_required ? <span className="px-1.5 py-0.5 bg-status-expired-bg text-status-expired-text text-xs rounded">Required</span> : null}
                   </div>
                   <div className="flex items-center gap-2 mt-1">
-                    <span className="px-2 py-0.5 bg-gray-700 text-gray-400 text-xs rounded-full">{q.question_type}</span>
+                    <span className="px-2 py-0.5 bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-xs rounded-full">{q.question_type}</span>
                     {q.options && <span className="text-xs text-gray-500">{JSON.parse(q.options).length} options</span>}
                     {q.conditional_on && <span className="flex items-center gap-1 text-xs text-accent-amber"><GitBranch className="w-3 h-3" /> Conditional</span>}
                   </div>
                 </div>
               </div>
               <div className="flex items-center gap-1">
-                <button onClick={() => startEdit(q)} className="p-2 text-gray-400 hover:text-accent-blue hover:bg-white/10 rounded-lg"><Pencil className="w-4 h-4" /></button>
-                <button onClick={() => handleDelete(q.id, q.question_text)} className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg"><Trash2 className="w-4 h-4" /></button>
+                <button onClick={() => startEdit(q)} className="p-2 text-gray-500 dark:text-gray-400 hover:text-accent-blue hover:bg-black/10 dark:hover:bg-white/10 rounded-lg"><Pencil className="w-4 h-4" /></button>
+                <button onClick={() => handleDelete(q.id, q.question_text)} className="p-2 text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-500/10 rounded-lg"><Trash2 className="w-4 h-4" /></button>
               </div>
             </div>
           </div>

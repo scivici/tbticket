@@ -45,8 +45,8 @@ export default function ReviewSubmit({ data, onUpdate, onPrev }: Props) {
     return (
       <div className="text-center py-8">
         <CheckCircle className="w-16 h-16 text-accent-green mx-auto mb-4" />
-        <h2 className="text-2xl font-bold text-white mb-2">Ticket Submitted!</h2>
-        <p className="text-gray-400 mb-4">Your ticket number is:</p>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Ticket Submitted!</h2>
+        <p className="text-gray-500 dark:text-gray-400 mb-4">Your ticket number is:</p>
         <p className="text-2xl font-mono font-bold text-accent-blue mb-6">{result.ticketNumber}</p>
         <p className="text-sm text-gray-500 mb-6">Save this number to track your ticket status.</p>
         <div className="flex justify-center gap-4">
@@ -64,32 +64,32 @@ export default function ReviewSubmit({ data, onUpdate, onPrev }: Props) {
 
   return (
     <div>
-      <h2 className="text-lg font-semibold text-white mb-4">Review & Submit</h2>
+      <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Review & Submit</h2>
       {error && <div className="mb-4 p-3 bg-status-expired-bg text-status-expired-text rounded-lg text-sm">{error}</div>}
 
       <div className="space-y-4">
-        <div className="bg-tb-bg rounded-lg p-4 border border-gray-700">
+        <div className="bg-[#f2f2f2] dark:bg-tb-bg rounded-lg p-4 border border-gray-200 dark:border-gray-700">
           <div className="grid grid-cols-2 gap-4">
-            <div><p className="text-xs text-gray-500 uppercase font-medium">Product</p><p className="font-medium text-white">{data.product?.name}</p></div>
-            <div><p className="text-xs text-gray-500 uppercase font-medium">Category</p><p className="font-medium text-white">{data.category?.name}</p></div>
+            <div><p className="text-xs text-gray-500 uppercase font-medium">Product</p><p className="font-medium text-gray-900 dark:text-white">{data.product?.name}</p></div>
+            <div><p className="text-xs text-gray-500 uppercase font-medium">Category</p><p className="font-medium text-gray-900 dark:text-white">{data.category?.name}</p></div>
           </div>
         </div>
 
-        <div className="bg-tb-bg rounded-lg p-4 border border-gray-700">
+        <div className="bg-[#f2f2f2] dark:bg-tb-bg rounded-lg p-4 border border-gray-200 dark:border-gray-700">
           <p className="text-xs text-gray-500 uppercase font-medium mb-1">Subject</p>
-          <p className="font-medium text-white mb-3">{data.subject}</p>
+          <p className="font-medium text-gray-900 dark:text-white mb-3">{data.subject}</p>
           <p className="text-xs text-gray-500 uppercase font-medium mb-1">Description</p>
-          <p className="text-sm text-gray-300">{data.description}</p>
+          <p className="text-sm text-gray-600 dark:text-gray-300">{data.description}</p>
         </div>
 
         {visibleQuestions.length > 0 && (
-          <div className="bg-tb-bg rounded-lg p-4 border border-gray-700">
+          <div className="bg-[#f2f2f2] dark:bg-tb-bg rounded-lg p-4 border border-gray-200 dark:border-gray-700">
             <p className="text-xs text-gray-500 uppercase font-medium mb-2">Questionnaire Answers</p>
             <div className="space-y-2">
               {visibleQuestions.map(q => data.answers[q.id] && (
                 <div key={q.id}>
                   <p className="text-xs text-gray-500">{q.questionText}</p>
-                  <p className="text-sm font-medium text-gray-200">{data.answers[q.id]}</p>
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-200">{data.answers[q.id]}</p>
                 </div>
               ))}
             </div>
@@ -97,11 +97,11 @@ export default function ReviewSubmit({ data, onUpdate, onPrev }: Props) {
         )}
 
         {data.files.length > 0 && (
-          <div className="bg-tb-bg rounded-lg p-4 border border-gray-700">
+          <div className="bg-[#f2f2f2] dark:bg-tb-bg rounded-lg p-4 border border-gray-200 dark:border-gray-700">
             <p className="text-xs text-gray-500 uppercase font-medium mb-2">Attachments ({data.files.length})</p>
             <div className="space-y-1">
               {data.files.map((f, i) => (
-                <div key={i} className="flex items-center gap-2 text-sm text-gray-300">
+                <div key={i} className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
                   <FileText className="w-4 h-4 text-gray-500" /><span>{f.name}</span>
                 </div>
               ))}
@@ -114,11 +114,11 @@ export default function ReviewSubmit({ data, onUpdate, onPrev }: Props) {
             <p className="text-sm font-medium text-accent-blue mb-3">Contact Information</p>
             <div className="space-y-3">
               <div>
-                <label className="block text-sm text-gray-300 mb-1">Email *</label>
+                <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">Email *</label>
                 <input type="email" required value={email} onChange={e => setEmail(e.target.value)} className="tb-input" />
               </div>
               <div>
-                <label className="block text-sm text-gray-300 mb-1">Name</label>
+                <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">Name</label>
                 <input type="text" value={name} onChange={e => setName(e.target.value)} className="tb-input" />
               </div>
             </div>

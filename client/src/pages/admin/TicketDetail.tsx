@@ -48,7 +48,7 @@ export default function TicketDetail() {
       <div className="flex items-start justify-between">
         <div>
           <p className="text-sm text-gray-500 font-mono">{ticket.ticketNumber}</p>
-          <h1 className="text-2xl font-bold text-white mt-1">{ticket.subject}</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{ticket.subject}</h1>
         </div>
         <div className="flex gap-2">
           <StatusBadge status={ticket.status} />
@@ -59,18 +59,18 @@ export default function TicketDetail() {
       <div className="grid lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           <div className="tb-card p-6">
-            <h3 className="font-semibold text-white mb-3">Description</h3>
-            <p className="text-gray-300 whitespace-pre-wrap">{ticket.description}</p>
+            <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Description</h3>
+            <p className="text-gray-600 dark:text-gray-300 whitespace-pre-wrap">{ticket.description}</p>
           </div>
 
           {ticket.answers?.length > 0 && (
             <div className="tb-card p-6">
-              <h3 className="font-semibold text-white mb-3">Questionnaire Responses</h3>
+              <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Questionnaire Responses</h3>
               <div className="space-y-3">
                 {ticket.answers.map((a: any) => (
                   <div key={a.id}>
                     <p className="text-sm text-gray-500">{a.question_text}</p>
-                    <p className="font-medium text-gray-200">{a.answer}</p>
+                    <p className="font-medium text-gray-700 dark:text-gray-200">{a.answer}</p>
                   </div>
                 ))}
               </div>
@@ -79,7 +79,7 @@ export default function TicketDetail() {
 
           {ticket.attachments?.length > 0 && (
             <div className="tb-card p-6">
-              <h3 className="font-semibold text-white mb-3">Attachments</h3>
+              <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Attachments</h3>
               <div className="space-y-2">
                 {ticket.attachments.map((att: any) => (
                   <a key={att.id} href={`/uploads/${att.filename}`} target="_blank" rel="noreferrer"
@@ -96,17 +96,17 @@ export default function TicketDetail() {
             <div className="tb-card border-purple-500/30 p-6">
               <div className="flex items-center gap-2 mb-4">
                 <Brain className="w-5 h-5 text-purple-400" />
-                <h3 className="font-semibold text-white">AI Analysis</h3>
+                <h3 className="font-semibold text-gray-900 dark:text-white">AI Analysis</h3>
                 <span className={`ml-auto px-2 py-0.5 rounded-full text-xs font-medium ${
                   ticket.aiConfidence >= 0.7 ? 'bg-status-active-bg text-status-active-text' : 'bg-status-warn-bg text-status-warn-text'
                 }`}>Confidence: {(ticket.aiConfidence * 100).toFixed(0)}%</span>
               </div>
               <div className="space-y-3 text-sm">
-                <div><p className="text-gray-500">Classification</p><p className="font-medium text-gray-200">{aiAnalysis.classification}</p></div>
+                <div><p className="text-gray-500">Classification</p><p className="font-medium text-gray-700 dark:text-gray-200">{aiAnalysis.classification}</p></div>
                 <div><p className="text-gray-500">Severity</p><PriorityBadge priority={aiAnalysis.severity} /></div>
-                <div><p className="text-gray-500">Root Cause Hypothesis</p><p className="font-medium text-gray-200">{aiAnalysis.rootCauseHypothesis}</p></div>
-                <div><p className="text-gray-500">Recommended Engineer</p><p className="font-medium text-gray-200">{aiAnalysis.recommendedEngineerName}</p></div>
-                <div><p className="text-gray-500">Reasoning</p><p className="text-gray-300">{aiAnalysis.reasoning}</p></div>
+                <div><p className="text-gray-500">Root Cause Hypothesis</p><p className="font-medium text-gray-700 dark:text-gray-200">{aiAnalysis.rootCauseHypothesis}</p></div>
+                <div><p className="text-gray-500">Recommended Engineer</p><p className="font-medium text-gray-700 dark:text-gray-200">{aiAnalysis.recommendedEngineerName}</p></div>
+                <div><p className="text-gray-500">Reasoning</p><p className="text-gray-600 dark:text-gray-300">{aiAnalysis.reasoning}</p></div>
                 {aiAnalysis.suggestedSkills?.length > 0 && (
                   <div>
                     <p className="text-gray-500">Required Skills</p>
@@ -117,7 +117,7 @@ export default function TicketDetail() {
                     </div>
                   </div>
                 )}
-                <div><p className="text-gray-500">Estimated Complexity</p><p className="font-medium text-gray-200 capitalize">{aiAnalysis.estimatedComplexity}</p></div>
+                <div><p className="text-gray-500">Estimated Complexity</p><p className="font-medium text-gray-700 dark:text-gray-200 capitalize">{aiAnalysis.estimatedComplexity}</p></div>
               </div>
             </div>
           )}
@@ -125,21 +125,21 @@ export default function TicketDetail() {
 
         <div className="space-y-4">
           <div className="tb-card p-6">
-            <h3 className="font-semibold text-white mb-3">Details</h3>
+            <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Details</h3>
             <div className="space-y-3 text-sm">
-              <div><p className="text-gray-500">Product</p><p className="font-medium text-gray-200">{ticket.product.name} ({ticket.product.model})</p></div>
-              <div><p className="text-gray-500">Category</p><p className="font-medium text-gray-200">{ticket.category.name}</p></div>
-              <div><p className="text-gray-500">Customer</p><p className="font-medium text-gray-200">{ticket.customer.name}</p><p className="text-gray-500">{ticket.customer.email}</p></div>
-              <div><p className="text-gray-500">Assigned Engineer</p><p className="font-medium text-gray-200">{ticket.assignedEngineer?.name || 'Unassigned'}</p></div>
-              <div><p className="text-gray-500">Created</p><p className="font-medium text-gray-200">{new Date(ticket.createdAt).toLocaleString()}</p></div>
+              <div><p className="text-gray-500">Product</p><p className="font-medium text-gray-700 dark:text-gray-200">{ticket.product.name} ({ticket.product.model})</p></div>
+              <div><p className="text-gray-500">Category</p><p className="font-medium text-gray-700 dark:text-gray-200">{ticket.category.name}</p></div>
+              <div><p className="text-gray-500">Customer</p><p className="font-medium text-gray-700 dark:text-gray-200">{ticket.customer.name}</p><p className="text-gray-500">{ticket.customer.email}</p></div>
+              <div><p className="text-gray-500">Assigned Engineer</p><p className="font-medium text-gray-700 dark:text-gray-200">{ticket.assignedEngineer?.name || 'Unassigned'}</p></div>
+              <div><p className="text-gray-500">Created</p><p className="font-medium text-gray-700 dark:text-gray-200">{new Date(ticket.createdAt).toLocaleString()}</p></div>
             </div>
           </div>
 
           <div className="tb-card p-6">
-            <h3 className="font-semibold text-white mb-3">Actions</h3>
+            <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Actions</h3>
             <div className="space-y-3">
               <div>
-                <label className="block text-sm text-gray-400 mb-1">Change Status</label>
+                <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Change Status</label>
                 <select value={ticket.status} onChange={e => handleStatusChange(e.target.value)} disabled={!!actionLoading} className="tb-select w-full">
                   {['new', 'analyzing', 'assigned', 'in_progress', 'pending_info', 'resolved', 'closed'].map(s => (
                     <option key={s} value={s}>{s.replace('_', ' ')}</option>
@@ -147,7 +147,7 @@ export default function TicketDetail() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm text-gray-400 mb-1">Assign Engineer</label>
+                <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Assign Engineer</label>
                 <select value={ticket.assignedEngineerId || ''} onChange={e => handleAssign(parseInt(e.target.value))} disabled={!!actionLoading} className="tb-select w-full">
                   <option value="">Select engineer...</option>
                   {engineers.map((e: any) => <option key={e.id} value={e.id}>{e.name} ({e.currentWorkload}/{e.maxWorkload})</option>)}

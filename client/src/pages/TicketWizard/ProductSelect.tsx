@@ -26,19 +26,19 @@ export default function ProductSelect({ data, onUpdate, onNext }: Props) {
 
   return (
     <div>
-      <h2 className="text-lg font-semibold text-white mb-4">Which product do you need help with?</h2>
+      <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Which product do you need help with?</h2>
       <div className="grid sm:grid-cols-2 gap-4">
         {products.map(product => (
           <button key={product.id} onClick={() => selectProduct(product)}
             className={`p-6 rounded-xl border-2 text-left transition-all hover:shadow-lg ${
               data.product?.id === product.id
                 ? 'border-primary-500 bg-primary-500/10'
-                : 'border-gray-600 hover:border-primary-400 bg-tb-bg'
+                : 'border-gray-300 dark:border-gray-600 hover:border-primary-400 bg-[#f2f2f2] dark:bg-tb-bg'
             }`}>
             <div className="text-3xl mb-3">{productEmojis[product.id] || '📦'}</div>
-            <h3 className="font-semibold text-lg text-white">{product.name}</h3>
+            <h3 className="font-semibold text-lg text-gray-900 dark:text-white">{product.name}</h3>
             <p className="text-sm text-gray-500 mt-1">{product.model}</p>
-            <p className="text-sm text-gray-400 mt-2">{product.description}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">{product.description}</p>
           </button>
         ))}
       </div>

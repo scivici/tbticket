@@ -31,17 +31,17 @@ export default function SkillManager() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-white">Skill Management</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Skill Management</h1>
         <button onClick={startCreate} className="tb-btn-primary flex items-center gap-2"><Plus className="w-4 h-4" /> Add Skill</button>
       </div>
 
       {(creating || editing) && (
         <div className="tb-card border-primary-500/30 p-6 mb-6">
-          <h3 className="font-semibold text-white mb-4">{creating ? 'New Skill' : 'Edit Skill'}</h3>
+          <h3 className="font-semibold text-gray-900 dark:text-white mb-4">{creating ? 'New Skill' : 'Edit Skill'}</h3>
           {error && <div className="mb-4 p-3 bg-status-expired-bg text-status-expired-text rounded-lg text-sm">{error}</div>}
           <div className="grid sm:grid-cols-2 gap-4">
-            <div><label className="block text-sm font-medium text-gray-300 mb-1">Name *</label><input type="text" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className="tb-input" placeholder="e.g., SIP & VoIP" /></div>
-            <div><label className="block text-sm font-medium text-gray-300 mb-1">Description</label><input type="text" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} className="tb-input" placeholder="e.g., SIP protocol, VoIP troubleshooting" /></div>
+            <div><label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Name *</label><input type="text" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className="tb-input" placeholder="e.g., SIP & VoIP" /></div>
+            <div><label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Description</label><input type="text" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} className="tb-input" placeholder="e.g., SIP protocol, VoIP troubleshooting" /></div>
           </div>
           <div className="flex justify-end gap-3 mt-4">
             <button onClick={cancel} className="tb-btn-secondary flex items-center gap-1"><X className="w-4 h-4" /> Cancel</button>
@@ -55,11 +55,11 @@ export default function SkillManager() {
           <div key={s.id} className="tb-card p-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-accent-amber/20 rounded-lg flex items-center justify-center"><Wrench className="w-5 h-5 text-accent-amber" /></div>
-              <div><h3 className="font-medium text-white">{s.name}</h3><p className="text-sm text-gray-500">{s.description}</p></div>
+              <div><h3 className="font-medium text-gray-900 dark:text-white">{s.name}</h3><p className="text-sm text-gray-500">{s.description}</p></div>
             </div>
             <div className="flex items-center gap-2">
-              <button onClick={() => startEdit(s)} className="p-2 text-gray-400 hover:text-accent-blue hover:bg-white/10 rounded-lg"><Pencil className="w-4 h-4" /></button>
-              <button onClick={() => handleDelete(s.id, s.name)} className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg"><Trash2 className="w-4 h-4" /></button>
+              <button onClick={() => startEdit(s)} className="p-2 text-gray-500 dark:text-gray-400 hover:text-accent-blue hover:bg-black/10 dark:hover:bg-white/10 rounded-lg"><Pencil className="w-4 h-4" /></button>
+              <button onClick={() => handleDelete(s.id, s.name)} className="p-2 text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-500/10 rounded-lg"><Trash2 className="w-4 h-4" /></button>
             </div>
           </div>
         ))}

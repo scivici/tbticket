@@ -1,10 +1,10 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {
-        // TelcoBridges palette from Color-Palette-Dashboard-V2
         tb: {
           bg: '#1a1a1a',
           card: '#353535',

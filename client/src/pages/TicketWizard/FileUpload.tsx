@@ -39,16 +39,16 @@ export default function FileUpload({ data, onUpdate, onNext, onPrev }: Props) {
 
   return (
     <div>
-      <h2 className="text-lg font-semibold text-white mb-4">Attach Files (Optional)</h2>
-      <p className="text-sm text-gray-400 mb-4">Upload screenshots, logs, or SIP traces. Max 10MB per file, up to 5 files.</p>
+      <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Attach Files (Optional)</h2>
+      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Upload screenshots, logs, or SIP traces. Max 10MB per file, up to 5 files.</p>
 
       <div onDragOver={e => { e.preventDefault(); setDragActive(true); }} onDragLeave={() => setDragActive(false)} onDrop={handleDrop}
         className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors ${
-          dragActive ? 'border-primary-500 bg-primary-500/10' : 'border-gray-600 hover:border-primary-400'
+          dragActive ? 'border-primary-500 bg-primary-500/10' : 'border-gray-300 dark:border-gray-600 hover:border-primary-400'
         }`}>
         <Upload className="w-10 h-10 text-gray-500 mx-auto mb-3" />
-        <p className="text-gray-400 mb-2">Drag and drop files here, or</p>
-        <label className="inline-flex items-center px-4 py-2 bg-tb-card border border-gray-600 rounded-lg text-sm font-medium text-gray-300 hover:bg-gray-600 cursor-pointer transition-colors">
+        <p className="text-gray-500 dark:text-gray-400 mb-2">Drag and drop files here, or</p>
+        <label className="inline-flex items-center px-4 py-2 bg-white dark:bg-tb-card border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer transition-colors">
           Browse Files
           <input type="file" multiple className="hidden" accept="image/*,.pdf,.txt,.csv,.log,.json,.zip,.pcap"
             onChange={e => e.target.files && addFiles(e.target.files)} />
@@ -61,15 +61,15 @@ export default function FileUpload({ data, onUpdate, onNext, onPrev }: Props) {
       {data.files.length > 0 && (
         <div className="mt-4 space-y-2">
           {data.files.map((file, index) => (
-            <div key={index} className="flex items-center justify-between p-3 bg-tb-bg rounded-lg border border-gray-700">
+            <div key={index} className="flex items-center justify-between p-3 bg-[#f2f2f2] dark:bg-tb-bg rounded-lg border border-gray-200 dark:border-gray-700">
               <div className="flex items-center gap-3">
-                {file.type.startsWith('image/') ? <Image className="w-5 h-5 text-accent-blue" /> : <FileText className="w-5 h-5 text-gray-400" />}
+                {file.type.startsWith('image/') ? <Image className="w-5 h-5 text-accent-blue" /> : <FileText className="w-5 h-5 text-gray-500 dark:text-gray-400" />}
                 <div>
-                  <p className="text-sm font-medium text-gray-200 truncate max-w-xs">{file.name}</p>
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate max-w-xs">{file.name}</p>
                   <p className="text-xs text-gray-500">{formatSize(file.size)}</p>
                 </div>
               </div>
-              <button onClick={() => removeFile(index)} className="p-1 text-gray-500 hover:text-red-400 transition-colors">
+              <button onClick={() => removeFile(index)} className="p-1 text-gray-500 hover:text-red-500 dark:hover:text-red-400 transition-colors">
                 <X className="w-4 h-4" />
               </button>
             </div>

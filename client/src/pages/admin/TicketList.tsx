@@ -20,8 +20,8 @@ export default function TicketList() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-white">All Tickets</h1>
-        <button onClick={load} className="p-2 text-gray-400 hover:text-accent-blue transition-colors">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">All Tickets</h1>
+        <button onClick={load} className="p-2 text-gray-500 dark:text-gray-400 hover:text-accent-blue transition-colors">
           <RefreshCw className="w-5 h-5" />
         </button>
       </div>
@@ -43,30 +43,30 @@ export default function TicketList() {
         <div className="text-center py-12 text-gray-500">Loading...</div>
       ) : (
         <div className="tb-card overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-700">
-            <thead className="bg-white/5">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead className="bg-black/5 dark:bg-white/5">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Ticket</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Subject</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Product</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Status</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Priority</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Engineer</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">AI</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Created</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Ticket</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Subject</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Product</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Priority</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Engineer</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">AI</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Created</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-700">
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
               {data?.tickets?.map((t: any) => (
-                <tr key={t.id} className="hover:bg-white/5">
+                <tr key={t.id} className="hover:bg-black/5 dark:hover:bg-white/5">
                   <td className="px-4 py-3">
                     <Link to={`/admin/tickets/${t.id}`} className="text-sm font-mono text-accent-blue hover:underline">{t.ticketNumber}</Link>
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-200 max-w-xs truncate">{t.subject}</td>
-                  <td className="px-4 py-3 text-sm text-gray-400">{t.productName}</td>
+                  <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-200 max-w-xs truncate">{t.subject}</td>
+                  <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{t.productName}</td>
                   <td className="px-4 py-3"><StatusBadge status={t.status} /></td>
                   <td className="px-4 py-3"><PriorityBadge priority={t.priority} /></td>
-                  <td className="px-4 py-3 text-sm text-gray-400">{t.engineerName || '—'}</td>
+                  <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{t.engineerName || '—'}</td>
                   <td className="px-4 py-3 text-sm">
                     {t.aiConfidence != null ? (
                       <span className={`font-medium ${t.aiConfidence >= 0.7 ? 'text-accent-green' : 'text-accent-amber'}`}>
@@ -80,7 +80,7 @@ export default function TicketList() {
             </tbody>
           </table>
           {data && (
-            <div className="px-4 py-3 bg-white/5 text-sm text-gray-500">
+            <div className="px-4 py-3 bg-black/5 dark:bg-white/5 text-sm text-gray-500">
               Showing {data.tickets.length} of {data.total} tickets (Page {data.page}/{data.totalPages})
             </div>
           )}

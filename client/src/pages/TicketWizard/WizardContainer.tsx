@@ -39,8 +39,8 @@ export default function WizardContainer() {
 
   return (
     <div className="max-w-3xl mx-auto">
-      <h1 className="text-2xl font-bold text-center text-white mb-2">Submit a Support Ticket</h1>
-      <p className="text-gray-400 text-center mb-8">We'll guide you through reporting your issue step by step.</p>
+      <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-white mb-2">Submit a Support Ticket</h1>
+      <p className="text-gray-500 dark:text-gray-400 text-center mb-8">We'll guide you through reporting your issue step by step.</p>
 
       <Stepper steps={steps} currentStep={currentStep} />
 
