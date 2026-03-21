@@ -146,8 +146,30 @@ export function runMigrations(): void {
       ('slack_webhook_url', '', 'Slack incoming webhook URL'),
       ('teams_webhook_url', '', 'Microsoft Teams webhook URL'),
       ('company_name', 'TelcoBridges', 'Company name used in emails and UI'),
-      ('support_email', 'support@telcobridges.com', 'Support contact email');
+      ('support_email', 'support@telcobridges.com', 'Support contact email'),
+      ('claude_server_url', '', 'Claude API server URL'),
+      ('claude_auth_type', 'basic', 'Claude auth: none, basic, bearer, api-key'),
+      ('claude_auth_value', '', 'Auth credentials (user:pass for basic, key for bearer/api-key)'),
+      ('claude_model', 'claude-sonnet-4-20250514', 'Claude model to use'),
+      ('claude_max_tokens', '2000', 'Max tokens for Claude response'),
+      ('claude_auto_assign_threshold', '0.7', 'Min confidence to auto-assign (0-1)');
     `);
     console.log('[DB] settings table created and seeded successfully.');
+  }
+
+  // Migration: add Claude settings if missing (for existing DBs)
+  const hasClaudeUrl = db.prepare("SELECT key FROM settings WHERE key = 'claude_server_url'").get();
+  if (!hasClaudeUrl) {
+    console.log('[DB] Adding Claude settings...');
+    db.exec(`
+      INSERT OR IGNORE INTO settings (key, value, description) VALUES
+      ('claude_server_url', '', 'Claude API server URL'),
+      ('claude_auth_type', 'basic', 'Claude auth: none, basic, bearer, api-key'),
+      ('claude_auth_value', '', 'Auth credentials (user:pass for basic, key for bearer/api-key)'),
+      ('claude_model', 'claude-sonnet-4-20250514', 'Claude model to use'),
+      ('claude_max_tokens', '2000', 'Max tokens for Claude response'),
+      ('claude_auto_assign_threshold', '0.7', 'Min confidence to auto-assign (0-1)');
+    `);
+    console.log('[DB] Claude settings added.');
   }
 }

@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { settings as settingsApi } from '../../api/client';
-import { Settings, Key, Mail, MessageSquare, Globe, Shield, Save, TestTube, ExternalLink } from 'lucide-react';
+import { Settings, Key, Mail, MessageSquare, Globe, Shield, Save, TestTube, ExternalLink, Brain } from 'lucide-react';
 
-type Tab = 'license' | 'email' | 'webhooks' | 'general';
+type Tab = 'claude' | 'license' | 'email' | 'webhooks' | 'general';
 
 export default function SetupPage() {
-  const [activeTab, setActiveTab] = useState<Tab>('license');
+  const [activeTab, setActiveTab] = useState<Tab>('claude');
   const [allSettings, setAllSettings] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -69,6 +69,7 @@ export default function SetupPage() {
   };
 
   const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
+    { id: 'claude', label: 'Claude AI', icon: Brain },
     { id: 'license', label: 'License API', icon: Key },
     { id: 'email', label: 'Email (SMTP)', icon: Mail },
     { id: 'webhooks', label: 'Webhooks', icon: MessageSquare },
@@ -115,6 +116,97 @@ export default function SetupPage() {
       {error && (
         <div className="mb-4 p-3 bg-status-expired-bg text-status-expired-text rounded-lg text-sm">
           {error}
+        </div>
+      )}
+
+      {/* Tab: Claude AI */}
+      {activeTab === 'claude' && (
+        <div className="tb-card p-6">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-1 flex items-center gap-2">
+            <Brain className="w-5 h-5" /> Claude AI Configuration
+          </h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+            Configure the Claude AI server for ticket analysis and automatic engineer assignment.
+          </p>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Server URL</label>
+              <input type="text" value={get('claude_server_url')} onChange={e => set('claude_server_url', e.target.value)}
+                className="tb-input" placeholder="e.g., http://claude-support-2.telcobridges.lan or https://api.anthropic.com" />
+              <p className="text-xs text-gray-500 mt-1">Leave empty to disable AI analysis. For Anthropic API use https://api.anthropic.com</p>
+            </div>
+
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Auth Type</label>
+                <select value={get('claude_auth_type')} onChange={e => set('claude_auth_type', e.target.value)} className="tb-select w-full">
+                  <option value="none">None</option>
+                  <option value="basic">Basic Auth (username:password)</option>
+                  <option value="bearer">Bearer Token</option>
+                  <option value="api-key">Anthropic API Key</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">
+                  {get('claude_auth_type') === 'basic' ? 'Credentials (user:pass)' :
+                   get('claude_auth_type') === 'api-key' ? 'API Key' :
+                   get('claude_auth_type') === 'bearer' ? 'Bearer Token' : 'Auth Value'}
+                </label>
+                <input type="password" value={get('claude_auth_value')} onChange={e => set('claude_auth_value', e.target.value)}
+                  className="tb-input"
+                  placeholder={get('claude_auth_type') === 'basic' ? 'support:support' :
+                    get('claude_auth_type') === 'api-key' ? 'sk-ant-...' : ''} />
+              </div>
+            </div>
+
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Model</label>
+                <select value={get('claude_model')} onChange={e => set('claude_model', e.target.value)} className="tb-select w-full">
+                  <option value="claude-opus-4-20250514">Claude Opus 4</option>
+                  <option value="claude-sonnet-4-20250514">Claude Sonnet 4</option>
+                  <option value="claude-haiku-4-20250414">Claude Haiku 4</option>
+                  <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
+                  <option value="claude-3-5-haiku-20241022">Claude 3.5 Haiku</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Max Tokens</label>
+                <input type="number" value={get('claude_max_tokens')} onChange={e => set('claude_max_tokens', e.target.value)}
+                  className="tb-input" min="500" max="8000" />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Auto-Assign Confidence Threshold</label>
+              <div className="flex items-center gap-3">
+                <input type="range" min="0" max="1" step="0.05"
+                  value={get('claude_auto_assign_threshold') || '0.7'}
+                  onChange={e => set('claude_auto_assign_threshold', e.target.value)}
+                  className="flex-1 accent-primary-500" />
+                <span className="text-sm font-mono text-gray-900 dark:text-white w-12 text-right">
+                  {(parseFloat(get('claude_auto_assign_threshold') || '0.7') * 100).toFixed(0)}%
+                </span>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">If AI confidence is above this threshold, the ticket will be auto-assigned. Below = flagged for manual review.</p>
+            </div>
+
+            <div className="bg-[#f2f2f2] dark:bg-tb-bg rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+              <h3 className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-2">Connection Types</h3>
+              <div className="text-xs text-gray-500 space-y-1">
+                <p><strong>Office Claude Server:</strong> Set URL to your server (e.g., http://claude-support-2.telcobridges.lan), Auth Type = Basic, Credentials = user:pass</p>
+                <p><strong>Anthropic API Direct:</strong> Set URL to https://api.anthropic.com, Auth Type = Anthropic API Key, paste your sk-ant-... key</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end mt-6">
+            <button onClick={() => saveKeys(['claude_server_url', 'claude_auth_type', 'claude_auth_value', 'claude_model', 'claude_max_tokens', 'claude_auto_assign_threshold'])}
+              disabled={saving} className="tb-btn-success flex items-center gap-2">
+              <Save className="w-4 h-4" /> {saving ? 'Saving...' : 'Save Claude Settings'}
+            </button>
+          </div>
         </div>
       )}
 

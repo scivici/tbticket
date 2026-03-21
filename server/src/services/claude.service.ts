@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { config } from '../config';
 import { getDb } from '../db/connection';
+import { getSettings } from './settings.service';
 
 interface ClaudeAnalysisInput {
   ticket: {
@@ -36,9 +37,30 @@ export interface ClaudeAnalysisResult {
   estimatedComplexity: string;
 }
 
-function getBasicAuthHeader(): string {
-  const credentials = Buffer.from(`${config.claudeUser}:${config.claudePass}`).toString('base64');
-  return `Basic ${credentials}`;
+function getClaudeConfig() {
+  const s = getSettings('claude_');
+  return {
+    serverUrl: s['claude_server_url'] || config.claudeServerUrl,
+    authType: s['claude_auth_type'] || 'basic',
+    authValue: s['claude_auth_value'] || `${config.claudeUser}:${config.claudePass}`,
+    model: s['claude_model'] || config.claudeModel,
+    maxTokens: parseInt(s['claude_max_tokens'] || '2000'),
+    autoAssignThreshold: parseFloat(s['claude_auto_assign_threshold'] || String(config.autoAssignThreshold)),
+  };
+}
+
+function getAuthHeader(authType: string, authValue: string): Record<string, string> {
+  if (!authValue) return {};
+  switch (authType) {
+    case 'basic':
+      return { 'Authorization': `Basic ${Buffer.from(authValue).toString('base64')}` };
+    case 'bearer':
+      return { 'Authorization': `Bearer ${authValue}` };
+    case 'api-key':
+      return { 'x-api-key': authValue, 'anthropic-version': '2023-06-01' };
+    default:
+      return {};
+  }
 }
 
 function buildPrompt(input: ClaudeAnalysisInput): string {
@@ -206,6 +228,10 @@ function gatherAnalysisInput(ticketId: number): ClaudeAnalysisInput | null {
   };
 }
 
+export function getAutoAssignThreshold(): number {
+  return getClaudeConfig().autoAssignThreshold;
+}
+
 export async function analyzeTicket(ticketId: number): Promise<ClaudeAnalysisResult | null> {
   const input = gatherAnalysisInput(ticketId);
   if (!input) return null;
@@ -215,22 +241,36 @@ export async function analyzeTicket(ticketId: number): Promise<ClaudeAnalysisRes
     return null;
   }
 
+  const claudeConfig = getClaudeConfig();
   const messageContent = buildMessageContent(input);
 
-  try {
-    console.log(`[Claude] Sending analysis request for ticket ${ticketId} to ${config.claudeServerUrl}...`);
-    console.log(`[Claude] Attachments: ${input.ticket.attachments.length} files`);
+  if (!claudeConfig.serverUrl) {
+    console.log('[Claude] No server URL configured, skipping analysis');
+    return null;
+  }
 
-    const response = await fetch(`${config.claudeServerUrl}/api/chat`, {
+  try {
+    // Determine endpoint: if using api-key auth, use Anthropic API format
+    const isAnthropicApi = claudeConfig.authType === 'api-key';
+    const endpoint = isAnthropicApi
+      ? `${claudeConfig.serverUrl}/v1/messages`
+      : `${claudeConfig.serverUrl}/api/chat`;
+
+    console.log(`[Claude] Sending analysis request for ticket ${ticketId} to ${endpoint}...`);
+    console.log(`[Claude] Model: ${claudeConfig.model}, Auth: ${claudeConfig.authType}`);
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...getAuthHeader(claudeConfig.authType, claudeConfig.authValue),
+    };
+
+    const response = await fetch(endpoint, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': getBasicAuthHeader(),
-      },
+      headers,
       body: JSON.stringify({
-        model: config.claudeModel,
+        model: claudeConfig.model,
         messages: [{ role: 'user', content: messageContent }],
-        max_tokens: 2000,
+        max_tokens: claudeConfig.maxTokens,
       }),
     });
 
@@ -241,7 +281,6 @@ export async function analyzeTicket(ticketId: number): Promise<ClaudeAnalysisRes
     const data = await response.json() as any;
     const content = data.content?.[0]?.text || data.message?.content || data.text || '';
 
-    // Extract JSON from response (handle possible markdown wrapping)
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       throw new Error('No JSON found in Claude response');

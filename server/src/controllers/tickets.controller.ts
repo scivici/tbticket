@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import { AuthenticatedRequest } from '../types';
 import * as ticketService from '../services/ticket.service';
-import { analyzeTicket } from '../services/claude.service';
+import { analyzeTicket, getAutoAssignThreshold } from '../services/claude.service';
 import { getBestEngineer } from '../services/assignment.service';
 import { config } from '../config';
 import * as notificationService from '../services/notification.service';
@@ -97,7 +97,7 @@ async function triggerAnalysis(ticketId: number, productId: number, categoryId: 
     if (analysis) {
       ticketService.updateAiAnalysis(ticketId, JSON.stringify(analysis), analysis.confidence);
 
-      if (analysis.confidence >= config.autoAssignThreshold) {
+      if (analysis.confidence >= getAutoAssignThreshold()) {
         ticketService.assignTicket(ticketId, analysis.recommendedEngineerId);
         console.log(`[AI] Auto-assigned ticket ${ticketId} to engineer ${analysis.recommendedEngineerName} (confidence: ${analysis.confidence})`);
       } else {
