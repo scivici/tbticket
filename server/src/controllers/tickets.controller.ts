@@ -4,6 +4,7 @@ import * as ticketService from '../services/ticket.service';
 import { analyzeTicket } from '../services/claude.service';
 import { getBestEngineer } from '../services/assignment.service';
 import { config } from '../config';
+import * as notificationService from '../services/notification.service';
 import { getDb } from '../db/connection';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
@@ -182,6 +183,26 @@ export function updateStatus(req: AuthenticatedRequest, res: Response): void {
   }
 
   ticketService.updateTicketStatus(parseInt(id), status);
+
+  const ticket = ticketService.getTicketById(parseInt(id));
+  if (ticket) {
+    const statusLabels: Record<string, string> = {
+      assigned: 'Your ticket has been assigned to an engineer',
+      in_progress: 'An engineer is working on your ticket',
+      pending_info: 'More information is needed for your ticket',
+      resolved: 'Your ticket has been resolved',
+      closed: 'Your ticket has been closed',
+    };
+    if (statusLabels[status]) {
+      notificationService.createNotification(
+        ticket.customerId, parseInt(id),
+        status === 'resolved' ? 'resolved' : 'status_change',
+        statusLabels[status],
+        `Ticket ${ticket.ticketNumber} status changed to "${status.replace('_', ' ')}"`
+      );
+    }
+  }
+
   res.json({ message: 'Status updated' });
 }
 
@@ -195,6 +216,17 @@ export function assignEngineer(req: AuthenticatedRequest, res: Response): void {
   }
 
   ticketService.assignTicket(parseInt(id), engineerId);
+
+  const ticket = ticketService.getTicketById(parseInt(id));
+  if (ticket) {
+    const engineer = ticket.assignedEngineer;
+    notificationService.createNotification(
+      ticket.customerId, parseInt(id), 'assigned',
+      'Engineer assigned to your ticket',
+      `${engineer?.name || 'An engineer'} has been assigned to ticket ${ticket.ticketNumber}`
+    );
+  }
+
   res.json({ message: 'Engineer assigned' });
 }
 
@@ -231,6 +263,14 @@ export function addResponse(req: AuthenticatedRequest, res: Response): void {
     const internal = req.user?.role === 'admin' ? (isInternal || false) : false;
 
     const responseId = ticketService.addResponse(ticketId, req.user!.userId, authorName, authorRole, message.trim(), internal);
+
+    if (authorRole === 'admin' && !internal) {
+      notificationService.createNotification(
+        ticket.customerId, ticketId, 'response',
+        'New response on your ticket',
+        `An engineer responded to ticket ${ticket.ticketNumber}`
+      );
+    }
 
     res.status(201).json({ id: responseId, message: 'Response added' });
   } catch (error: any) {

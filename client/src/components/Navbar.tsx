@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { LayoutDashboard, LogOut, LogIn, UserPlus } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
+import NotificationBell from './NotificationBell';
 
 export default function Navbar() {
   const { user, logout, isAdmin } = useAuth();
@@ -40,6 +41,7 @@ export default function Navbar() {
             </div>
           </div>
           <div className="flex items-center space-x-3">
+            {user && <NotificationBell />}
             <ThemeToggle />
             {user ? (
               <>

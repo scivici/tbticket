@@ -49,4 +49,28 @@ export function runMigrations(): void {
     `);
     console.log('[DB] ticket_responses table created successfully.');
   }
+
+  // Migration: add notifications table if it doesn't exist
+  const notificationsTableExists = db.prepare(
+    "SELECT name FROM sqlite_master WHERE type='table' AND name='notifications'"
+  ).get();
+
+  if (!notificationsTableExists) {
+    console.log('[DB] Running notifications migration...');
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS notifications (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          customer_id INTEGER NOT NULL REFERENCES customers(id),
+          ticket_id INTEGER NOT NULL REFERENCES tickets(id),
+          type TEXT NOT NULL CHECK(type IN ('status_change', 'assigned', 'response', 'resolved')),
+          title TEXT NOT NULL,
+          message TEXT NOT NULL,
+          is_read INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_notifications_customer ON notifications(customer_id);
+      CREATE INDEX IF NOT EXISTS idx_notifications_unread ON notifications(customer_id, is_read);
+    `);
+    console.log('[DB] notifications table created successfully.');
+  }
 }

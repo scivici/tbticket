@@ -127,6 +127,20 @@ CREATE TABLE IF NOT EXISTS ticket_responses (
 
 CREATE INDEX IF NOT EXISTS idx_ticket_responses_ticket ON ticket_responses(ticket_id);
 
+CREATE TABLE IF NOT EXISTS notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    customer_id INTEGER NOT NULL REFERENCES customers(id),
+    ticket_id INTEGER NOT NULL REFERENCES tickets(id),
+    type TEXT NOT NULL CHECK(type IN ('status_change', 'assigned', 'response', 'resolved')),
+    title TEXT NOT NULL,
+    message TEXT NOT NULL,
+    is_read INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_notifications_customer ON notifications(customer_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_unread ON notifications(customer_id, is_read);
+
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status);
 CREATE INDEX IF NOT EXISTS idx_tickets_assigned ON tickets(assigned_engineer_id);

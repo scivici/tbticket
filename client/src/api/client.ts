@@ -139,6 +139,14 @@ export const adminSkills = {
     request<any>(`${manage}/skills/${id}`, { method: 'DELETE' }),
 };
 
+// Notifications
+export const notifications = {
+  list: () => request<any[]>('/notifications'),
+  unreadCount: () => request<{ count: number }>('/notifications/unread-count'),
+  markAsRead: (id: number) => request<any>(`/notifications/${id}/read`, { method: 'PATCH' }),
+  markAllAsRead: () => request<any>('/notifications/read-all', { method: 'PATCH' }),
+};
+
 // Admin Users
 export const adminUsers = {
   list: () => request<any[]>('/admin/users'),
