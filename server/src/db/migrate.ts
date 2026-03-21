@@ -112,4 +112,42 @@ export function runMigrations(): void {
     db.exec('ALTER TABLE customers ADD COLUMN company TEXT');
     console.log('[DB] company column added.');
   }
+
+  // Migration: add settings table if it doesn't exist
+  const settingsTableExists = db.prepare(
+    "SELECT name FROM sqlite_master WHERE type='table' AND name='settings'"
+  ).get();
+
+  if (!settingsTableExists) {
+    console.log('[DB] Running settings migration...');
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS settings (
+          key TEXT PRIMARY KEY NOT NULL,
+          value TEXT NOT NULL,
+          description TEXT,
+          updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      INSERT OR IGNORE INTO settings (key, value, description) VALUES
+      ('license_api_url', '', 'License validation API endpoint URL'),
+      ('license_api_method', 'GET', 'HTTP method for license API (GET or POST)'),
+      ('license_api_headers', '{"Content-Type":"application/json"}', 'JSON headers for license API'),
+      ('license_api_body_template', '{"productKey":"{{productKey}}"}', 'Request body template. Use {{productKey}} placeholder'),
+      ('license_api_response_path', 'valid', 'JSON path in response that indicates validity (e.g., valid, data.hasSupport)'),
+      ('license_api_auth_type', 'none', 'Auth type: none, basic, bearer'),
+      ('license_api_auth_value', '', 'Auth credentials (username:password for basic, token for bearer)'),
+      ('license_no_support_url', 'https://telcobridges.com/support-options/', 'URL to redirect customers without support agreement'),
+      ('license_no_support_message', 'Your product does not have an active support agreement. Please visit our support options page to purchase one.', 'Message shown to customers without support'),
+      ('smtp_host', '', 'SMTP server hostname'),
+      ('smtp_port', '587', 'SMTP server port'),
+      ('smtp_user', '', 'SMTP username'),
+      ('smtp_pass', '', 'SMTP password'),
+      ('smtp_from', 'support@telcobridges.com', 'From email address'),
+      ('smtp_secure', 'false', 'Use TLS (true/false)'),
+      ('slack_webhook_url', '', 'Slack incoming webhook URL'),
+      ('teams_webhook_url', '', 'Microsoft Teams webhook URL'),
+      ('company_name', 'TelcoBridges', 'Company name used in emails and UI'),
+      ('support_email', 'support@telcobridges.com', 'Support contact email');
+    `);
+    console.log('[DB] settings table created and seeded successfully.');
+  }
 }

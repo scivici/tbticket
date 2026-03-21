@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { products as productsApi } from '../../api/client';
+import { products as productsApi, settings as settingsApi } from '../../api/client';
 import { WizardData } from './WizardContainer';
-import { Key } from 'lucide-react';
+import { Key, AlertTriangle, ExternalLink, Loader2 } from 'lucide-react';
 
 interface Props {
   data: WizardData;
@@ -44,6 +44,8 @@ export default function QuestionnaireForm({ data, onUpdate, onNext, onPrev }: Pr
   const [productKey, setProductKey] = useState(data.productKey);
   const [answers, setAnswers] = useState<Record<number, string>>(data.answers);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [licenseChecking, setLicenseChecking] = useState(false);
+  const [licenseError, setLicenseError] = useState<{ message: string; redirectUrl?: string } | null>(null);
 
   const keyConfig = getProductKeyConfig(data.product);
 
@@ -85,8 +87,30 @@ export default function QuestionnaireForm({ data, onUpdate, onNext, onPrev }: Pr
     return Object.keys(errs).length === 0;
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (!validate()) return;
+    setLicenseError(null);
+
+    // Check license/support agreement if product key is provided
+    if (keyConfig && productKey.trim()) {
+      setLicenseChecking(true);
+      try {
+        const result = await settingsApi.checkLicense(productKey.trim());
+        if (!result.hasSupport) {
+          setLicenseError({
+            message: result.message || 'No active support agreement found.',
+            redirectUrl: result.redirectUrl,
+          });
+          setLicenseChecking(false);
+          return;
+        }
+      } catch {
+        // If license check fails (API not configured, network error), allow to proceed
+        console.warn('[License] Check failed, proceeding anyway');
+      }
+      setLicenseChecking(false);
+    }
+
     onUpdate({ subject, description, productKey, answers, questions });
     onNext();
   };
@@ -144,9 +168,32 @@ export default function QuestionnaireForm({ data, onUpdate, onNext, onPrev }: Pr
         </div>
       ))}
 
+      {/* License/Support error */}
+      {licenseError && (
+        <div className="bg-status-expired-bg border border-red-300 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-status-expired-text flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="font-medium text-status-expired-text">{licenseError.message}</p>
+              {licenseError.redirectUrl && (
+                <a href={licenseError.redirectUrl} target="_blank" rel="noreferrer"
+                  className="inline-flex items-center gap-1 mt-2 text-sm font-medium text-primary-500 hover:underline">
+                  <ExternalLink className="w-4 h-4" />
+                  View Support Options
+                </a>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex justify-between pt-4">
         <button onClick={onPrev} className="tb-btn-secondary">Back</button>
-        <button onClick={handleNext} className="tb-btn-primary px-6">Next</button>
+        <button onClick={handleNext} disabled={licenseChecking} className="tb-btn-primary px-6 disabled:opacity-50">
+          {licenseChecking ? (
+            <span className="flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Checking license...</span>
+          ) : 'Next'}
+        </button>
       </div>
     </div>
   );

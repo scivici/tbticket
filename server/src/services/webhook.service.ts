@@ -1,9 +1,11 @@
 import { config } from '../config';
+import { getSetting } from './settings.service';
 
 export async function sendSlackNotification(text: string): Promise<boolean> {
-  if (!config.slackWebhookUrl) return false;
+  const url = getSetting('slack_webhook_url') || config.slackWebhookUrl;
+  if (!url) return false;
   try {
-    await fetch(config.slackWebhookUrl, {
+    await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text }),
@@ -17,9 +19,10 @@ export async function sendSlackNotification(text: string): Promise<boolean> {
 }
 
 export async function sendTeamsNotification(title: string, text: string): Promise<boolean> {
-  if (!config.teamsWebhookUrl) return false;
+  const url = getSetting('teams_webhook_url') || config.teamsWebhookUrl;
+  if (!url) return false;
   try {
-    await fetch(config.teamsWebhookUrl, {
+    await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import ThemeToggle from './ThemeToggle';
 import {
   LayoutDashboard, Ticket, Users, Package, FolderOpen,
-  HelpCircle, Wrench, UserCog, LogOut, ChevronLeft
+  HelpCircle, Wrench, UserCog, LogOut, ChevronLeft, Settings
 } from 'lucide-react';
 
 const navItems = [
@@ -16,6 +16,7 @@ const navItems = [
   { to: '/admin/questions', icon: HelpCircle, label: 'Questions' },
   { to: '/admin/skills', icon: Wrench, label: 'Skills' },
   { to: '/admin/users', icon: UserCog, label: 'Users' },
+  { to: '/admin/setup', icon: Settings, label: 'Setup' },
 ];
 
 export default function AdminLayout() {

@@ -1,18 +1,34 @@
 import nodemailer from 'nodemailer';
 import { config } from '../config';
+import { getSettings } from './settings.service';
 
 let transporter: nodemailer.Transporter | null = null;
 
+export function resetTransporter() { transporter = null; }
+
 function getTransporter() {
-  if (!transporter && config.smtp.host) {
+  if (!transporter) {
+    const s = getSettings('smtp_');
+    const host = s['smtp_host'] || config.smtp.host;
+    const port = parseInt(s['smtp_port'] || String(config.smtp.port));
+    const user = s['smtp_user'] || config.smtp.user;
+    const pass = s['smtp_pass'] || config.smtp.pass;
+
+    if (!host) return null;
+
     transporter = nodemailer.createTransport({
-      host: config.smtp.host,
-      port: config.smtp.port,
-      secure: config.smtp.secure,
-      auth: config.smtp.user ? { user: config.smtp.user, pass: config.smtp.pass } : undefined,
+      host,
+      port,
+      secure: (s['smtp_secure'] || String(config.smtp.secure)) === 'true',
+      auth: user ? { user, pass } : undefined,
     });
   }
   return transporter;
+}
+
+function getFromAddress(): string {
+  const s = getSettings('smtp_');
+  return s['smtp_from'] || config.smtp.from;
 }
 
 export async function sendEmail(to: string, subject: string, html: string): Promise<boolean> {
@@ -22,7 +38,7 @@ export async function sendEmail(to: string, subject: string, html: string): Prom
     return false;
   }
   try {
-    await t.sendMail({ from: config.smtp.from, to, subject, html });
+    await t.sendMail({ from: getFromAddress(), to, subject, html });
     console.log('[Email] Sent to', to, ':', subject);
     return true;
   } catch (error) {

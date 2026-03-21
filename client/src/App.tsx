@@ -20,6 +20,7 @@ import CategoryManager from './pages/admin/CategoryManager';
 import QuestionManager from './pages/admin/QuestionManager';
 import SkillManager from './pages/admin/SkillManager';
 import UserManager from './pages/admin/UserManager';
+import SetupPage from './pages/admin/SetupPage';
 
 function AdminGuard() {
   const { isAdmin, loading } = useAuth();
@@ -53,6 +54,7 @@ export default function App() {
         <Route path="/admin/questions" element={<QuestionManager />} />
         <Route path="/admin/skills" element={<SkillManager />} />
         <Route path="/admin/users" element={<UserManager />} />
+        <Route path="/admin/setup" element={<SetupPage />} />
       </Route>
     </Routes>
   );

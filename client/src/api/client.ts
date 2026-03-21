@@ -145,6 +145,17 @@ export const adminSkills = {
     request<any>(`${manage}/skills/${id}`, { method: 'DELETE' }),
 };
 
+// Settings
+export const settings = {
+  getAll: () => request<any[]>('/settings'),
+  update: (settingsObj: Record<string, string>) =>
+    request<any>('/settings', { method: 'PATCH', body: JSON.stringify({ settings: settingsObj }) }),
+  checkLicense: (productKey: string) =>
+    request<any>('/settings/check-license', { method: 'POST', body: JSON.stringify({ productKey }) }),
+  testLicenseApi: (productKey: string) =>
+    request<any>('/settings/test-license-api', { method: 'POST', body: JSON.stringify({ productKey }) }),
+};
+
 // Notifications
 export const notifications = {
   list: () => request<any[]>('/notifications'),

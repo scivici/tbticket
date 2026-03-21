@@ -14,6 +14,7 @@ import adminRoutes from './routes/admin.routes';
 import adminManageRoutes from './routes/admin-manage.routes';
 import adminUsersRoutes from './routes/admin-users.routes';
 import notificationsRoutes from './routes/notifications.routes';
+import settingsRoutes from './routes/settings.routes';
 
 const app = express();
 
@@ -39,6 +40,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/admin/manage', adminManageRoutes);
 app.use('/api/admin/users', adminUsersRoutes);
 app.use('/api/notifications', notificationsRoutes);
+app.use('/api/settings', settingsRoutes);
 
 // Health check
 app.get('/api/health', (_req, res) => {
