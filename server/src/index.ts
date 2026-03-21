@@ -16,9 +16,16 @@ import adminManageRoutes from './routes/admin-manage.routes';
 const app = express();
 
 // Middleware
-app.use(cors({ origin: config.corsOrigin, credentials: true }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(cors({
+  origin: (_origin, callback) => {
+    // Allow all origins when serving client from same server (production)
+    // or match configured origin (development with separate Vite server)
+    callback(null, true);
+  },
+  credentials: true,
+}));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use('/uploads', express.static(config.uploadDir));
 
 // API Routes
