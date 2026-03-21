@@ -157,6 +157,67 @@ export function runMigrations(): void {
     console.log('[DB] settings table created and seeded successfully.');
   }
 
+  // Migration: add canned_responses table if it doesn't exist
+  const cannedResponsesTableExists = db.prepare(
+    "SELECT name FROM sqlite_master WHERE type='table' AND name='canned_responses'"
+  ).get();
+
+  if (!cannedResponsesTableExists) {
+    console.log('[DB] Running canned_responses migration...');
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS canned_responses (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          title TEXT NOT NULL,
+          content TEXT NOT NULL,
+          category TEXT,
+          created_by INTEGER REFERENCES customers(id),
+          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+    `);
+    console.log('[DB] canned_responses table created successfully.');
+  }
+
+  // Migration: add ticket_activity_log table if it doesn't exist
+  const activityLogTableExists = db.prepare(
+    "SELECT name FROM sqlite_master WHERE type='table' AND name='ticket_activity_log'"
+  ).get();
+
+  if (!activityLogTableExists) {
+    console.log('[DB] Running ticket_activity_log migration...');
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS ticket_activity_log (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          ticket_id INTEGER NOT NULL REFERENCES tickets(id),
+          actor_id INTEGER REFERENCES customers(id),
+          actor_name TEXT NOT NULL,
+          action TEXT NOT NULL,
+          details TEXT,
+          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_ticket_activity_ticket ON ticket_activity_log(ticket_id);
+    `);
+    console.log('[DB] ticket_activity_log table created successfully.');
+  }
+
+  // Migration: add ticket_tags table if it doesn't exist
+  const ticketTagsTableExists = db.prepare(
+    "SELECT name FROM sqlite_master WHERE type='table' AND name='ticket_tags'"
+  ).get();
+
+  if (!ticketTagsTableExists) {
+    console.log('[DB] Running ticket_tags migration...');
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS ticket_tags (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          ticket_id INTEGER NOT NULL REFERENCES tickets(id),
+          tag TEXT NOT NULL,
+          UNIQUE(ticket_id, tag)
+      );
+      CREATE INDEX IF NOT EXISTS idx_ticket_tags_ticket ON ticket_tags(ticket_id);
+    `);
+    console.log('[DB] ticket_tags table created successfully.');
+  }
+
   // Migration: add Claude settings if missing (for existing DBs)
   const hasClaudeUrl = db.prepare("SELECT key FROM settings WHERE key = 'claude_server_url'").get();
   if (!hasClaudeUrl) {

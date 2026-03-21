@@ -73,6 +73,21 @@ export const tickets = {
   getResponses: (id: number) => request<any[]>(`/tickets/${id}/responses`),
   addResponse: (id: number, message: string, isInternal?: boolean) =>
     request<any>(`/tickets/${id}/responses`, { method: 'POST', body: JSON.stringify({ message, isInternal: isInternal || false }) }),
+  delete: (id: number) => request<any>(`/tickets/${id}`, { method: 'DELETE' }),
+  updatePriority: (id: number, priority: string) =>
+    request<any>(`/tickets/${id}/priority`, { method: 'PATCH', body: JSON.stringify({ priority }) }),
+  bulkStatus: (ticketIds: number[], status: string) =>
+    request<any>('/tickets/bulk/status', { method: 'POST', body: JSON.stringify({ ticketIds, status }) }),
+  bulkAssign: (ticketIds: number[], engineerId: number) =>
+    request<any>('/tickets/bulk/assign', { method: 'POST', body: JSON.stringify({ ticketIds, engineerId }) }),
+  bulkDelete: (ticketIds: number[]) =>
+    request<any>('/tickets/bulk/delete', { method: 'POST', body: JSON.stringify({ ticketIds }) }),
+  getActivities: (id: number) => request<any[]>(`/tickets/${id}/activities`),
+  getTags: (id: number) => request<string[]>(`/tickets/${id}/tags`),
+  addTag: (id: number, tag: string) =>
+    request<any>(`/tickets/${id}/tags`, { method: 'POST', body: JSON.stringify({ tag }) }),
+  removeTag: (id: number, tag: string) =>
+    request<any>(`/tickets/${id}/tags/${encodeURIComponent(tag)}`, { method: 'DELETE' }),
 };
 
 // Engineers
@@ -97,6 +112,7 @@ export const admin = {
   dashboard: () => request<any>('/admin/dashboard'),
   slaPolicies: () => request<any[]>('/admin/sla-policies'),
   slaBreached: () => request<any[]>('/admin/sla-breached'),
+  customers: () => request<any[]>('/admin/customers'),
 };
 
 // Admin Manage
@@ -143,6 +159,17 @@ export const adminSkills = {
     request<any>(`${manage}/skills/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   delete: (id: number) =>
     request<any>(`${manage}/skills/${id}`, { method: 'DELETE' }),
+};
+
+// Canned Responses
+export const cannedResponses = {
+  list: () => request<any[]>('/canned-responses'),
+  create: (data: { title: string; content: string; category?: string }) =>
+    request<any>('/canned-responses', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: number, data: { title?: string; content?: string; category?: string }) =>
+    request<any>(`/canned-responses/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  delete: (id: number) =>
+    request<any>(`/canned-responses/${id}`, { method: 'DELETE' }),
 };
 
 // Settings

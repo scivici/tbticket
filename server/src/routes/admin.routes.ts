@@ -7,6 +7,7 @@ import { AuthenticatedRequest } from '../types';
 const router = Router();
 
 router.get('/dashboard', authenticate, requireAdmin, adminController.getDashboardStats);
+router.get('/customers', authenticate, requireAdmin, adminController.getCustomers);
 
 router.get('/sla-policies', authenticate, requireAdmin, (_req: any, res: Response) => {
   res.json(slaService.getAllSlaPolicies());

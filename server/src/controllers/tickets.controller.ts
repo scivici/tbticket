@@ -9,6 +9,7 @@ import * as emailService from '../services/email.service';
 import * as webhookService from '../services/webhook.service';
 import * as slaService from '../services/sla.service';
 import { getDb } from '../db/connection';
+import * as activityService from '../services/activity.service';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
@@ -64,6 +65,11 @@ export function createTicket(req: AuthenticatedRequest, res: Response): void {
     // Trigger async AI analysis
     ticketService.updateTicketStatus(result.ticketId, 'analyzing');
     triggerAnalysis(result.ticketId, parseInt(productId), parseInt(categoryId));
+
+    // Log activity
+    const db3 = getDb();
+    const custName = db3.prepare('SELECT name FROM customers WHERE id = ?').get(customerId) as any;
+    activityService.logActivity(result.ticketId, customerId!, custName?.name || 'Unknown', 'created', 'Ticket created');
 
     res.status(201).json({
       ticketId: result.ticketId,
@@ -206,6 +212,11 @@ export function updateStatus(req: AuthenticatedRequest, res: Response): void {
 
   ticketService.updateTicketStatus(parseInt(id), status);
 
+  // Log activity
+  const dbStatus = getDb();
+  const userForStatus = dbStatus.prepare('SELECT name FROM customers WHERE id = ?').get(req.user!.userId) as any;
+  activityService.logActivity(parseInt(id), req.user!.userId, userForStatus?.name || 'Unknown', 'status_changed', `Status changed to ${status}`);
+
   const ticket = ticketService.getTicketById(parseInt(id));
   if (ticket) {
     const statusLabels: Record<string, string> = {
@@ -239,6 +250,11 @@ export function assignEngineer(req: AuthenticatedRequest, res: Response): void {
   }
 
   ticketService.assignTicket(parseInt(id), engineerId);
+
+  // Log activity
+  const dbAssign = getDb();
+  const userForAssign = dbAssign.prepare('SELECT name FROM customers WHERE id = ?').get(req.user!.userId) as any;
+  activityService.logActivity(parseInt(id), req.user!.userId, userForAssign?.name || 'Unknown', 'assigned', `Assigned to engineer #${engineerId}`);
 
   const ticket = ticketService.getTicketById(parseInt(id));
   if (ticket) {
@@ -286,6 +302,9 @@ export function addResponse(req: AuthenticatedRequest, res: Response): void {
     const internal = req.user?.role === 'admin' ? (isInternal || false) : false;
 
     const responseId = ticketService.addResponse(ticketId, req.user!.userId, authorName, authorRole, message.trim(), internal);
+
+    // Log activity
+    activityService.logActivity(ticketId, req.user!.userId, authorName, internal ? 'internal_note' : 'response', 'Added response');
 
     if (authorRole === 'admin' && !internal) {
       notificationService.createNotification(
@@ -346,4 +365,136 @@ export function reanalyzeTicket(req: AuthenticatedRequest, res: Response): void 
   triggerAnalysis(ticketId, ticket.productId, ticket.categoryId);
 
   res.json({ message: 'Re-analysis triggered' });
+}
+
+export function deleteTicket(req: AuthenticatedRequest, res: Response): void {
+  try {
+    const { id } = req.params;
+    const ticketId = parseInt(id);
+    const db = getDb();
+
+    db.transaction(() => {
+      db.prepare('DELETE FROM ticket_responses WHERE ticket_id = ?').run(ticketId);
+      db.prepare('DELETE FROM ticket_attachments WHERE ticket_id = ?').run(ticketId);
+      db.prepare('DELETE FROM ticket_answers WHERE ticket_id = ?').run(ticketId);
+      db.prepare('DELETE FROM notifications WHERE ticket_id = ?').run(ticketId);
+      // Decrement engineer workload if assigned
+      const ticket = db.prepare('SELECT assigned_engineer_id FROM tickets WHERE id = ?').get(ticketId) as any;
+      if (ticket?.assigned_engineer_id) {
+        db.prepare('UPDATE engineers SET current_workload = MAX(0, current_workload - 1) WHERE id = ?').run(ticket.assigned_engineer_id);
+      }
+      db.prepare('DELETE FROM tickets WHERE id = ?').run(ticketId);
+    })();
+
+    res.json({ message: 'Ticket deleted' });
+  } catch (error: any) {
+    console.error('[Tickets] Delete error:', error);
+    res.status(500).json({ error: 'Failed to delete ticket' });
+  }
+}
+
+export function updatePriority(req: AuthenticatedRequest, res: Response): void {
+  const { id } = req.params;
+  const { priority } = req.body;
+  const validPriorities = ['low', 'medium', 'high', 'critical'];
+  if (!validPriorities.includes(priority)) {
+    res.status(400).json({ error: 'Invalid priority' });
+    return;
+  }
+  const db = getDb();
+  db.prepare("UPDATE tickets SET priority = ?, updated_at = datetime('now') WHERE id = ?").run(priority, id);
+
+  // Log activity
+  const userForPriority = db.prepare('SELECT name FROM customers WHERE id = ?').get(req.user!.userId) as any;
+  activityService.logActivity(parseInt(id), req.user!.userId, userForPriority?.name || 'Unknown', 'priority_changed', `Priority changed to ${priority}`);
+
+  res.json({ message: 'Priority updated' });
+}
+
+export function bulkUpdateStatus(req: AuthenticatedRequest, res: Response): void {
+  const { ticketIds, status } = req.body;
+  if (!Array.isArray(ticketIds) || !status) {
+    res.status(400).json({ error: 'ticketIds array and status are required' });
+    return;
+  }
+  const db = getDb();
+  const stmt = db.prepare("UPDATE tickets SET status = ?, updated_at = datetime('now') WHERE id = ?");
+  db.transaction(() => {
+    for (const id of ticketIds) stmt.run(status, id);
+  })();
+  res.json({ message: `${ticketIds.length} tickets updated` });
+}
+
+export function bulkAssign(req: AuthenticatedRequest, res: Response): void {
+  const { ticketIds, engineerId } = req.body;
+  if (!Array.isArray(ticketIds) || !engineerId) {
+    res.status(400).json({ error: 'ticketIds array and engineerId are required' });
+    return;
+  }
+  const db = getDb();
+  db.transaction(() => {
+    for (const id of ticketIds) {
+      const ticket = db.prepare('SELECT assigned_engineer_id FROM tickets WHERE id = ?').get(id) as any;
+      if (ticket?.assigned_engineer_id) {
+        db.prepare('UPDATE engineers SET current_workload = MAX(0, current_workload - 1) WHERE id = ?').run(ticket.assigned_engineer_id);
+      }
+      db.prepare("UPDATE tickets SET assigned_engineer_id = ?, status = 'assigned', updated_at = datetime('now') WHERE id = ?").run(engineerId, id);
+    }
+    db.prepare("UPDATE engineers SET current_workload = current_workload + ?, updated_at = datetime('now') WHERE id = ?").run(ticketIds.length, engineerId);
+  })();
+  res.json({ message: `${ticketIds.length} tickets assigned` });
+}
+
+export function bulkDelete(req: AuthenticatedRequest, res: Response): void {
+  const { ticketIds } = req.body;
+  if (!Array.isArray(ticketIds)) {
+    res.status(400).json({ error: 'ticketIds array is required' });
+    return;
+  }
+  const db = getDb();
+  db.transaction(() => {
+    for (const id of ticketIds) {
+      const ticket = db.prepare('SELECT assigned_engineer_id FROM tickets WHERE id = ?').get(id) as any;
+      if (ticket?.assigned_engineer_id) {
+        db.prepare('UPDATE engineers SET current_workload = MAX(0, current_workload - 1) WHERE id = ?').run(ticket.assigned_engineer_id);
+      }
+      db.prepare('DELETE FROM ticket_responses WHERE ticket_id = ?').run(id);
+      db.prepare('DELETE FROM ticket_attachments WHERE ticket_id = ?').run(id);
+      db.prepare('DELETE FROM ticket_answers WHERE ticket_id = ?').run(id);
+      db.prepare('DELETE FROM notifications WHERE ticket_id = ?').run(id);
+      db.prepare('DELETE FROM tickets WHERE id = ?').run(id);
+    }
+  })();
+  res.json({ message: `${ticketIds.length} tickets deleted` });
+}
+
+export function getActivities(req: AuthenticatedRequest, res: Response): void {
+  const { id } = req.params;
+  const activities = activityService.getActivities(parseInt(id));
+  res.json(activities);
+}
+
+export function addTag(req: AuthenticatedRequest, res: Response): void {
+  const db = getDb();
+  const { id } = req.params;
+  const { tag } = req.body;
+  if (!tag?.trim()) { res.status(400).json({ error: 'tag is required' }); return; }
+  try {
+    db.prepare('INSERT OR IGNORE INTO ticket_tags (ticket_id, tag) VALUES (?, ?)').run(id, tag.trim().toLowerCase());
+    res.json({ message: 'Tag added' });
+  } catch { res.status(500).json({ error: 'Failed to add tag' }); }
+}
+
+export function removeTag(req: AuthenticatedRequest, res: Response): void {
+  const db = getDb();
+  const { id, tag } = req.params;
+  db.prepare('DELETE FROM ticket_tags WHERE ticket_id = ? AND tag = ?').run(id, tag);
+  res.json({ message: 'Tag removed' });
+}
+
+export function getTags(req: AuthenticatedRequest, res: Response): void {
+  const db = getDb();
+  const { id } = req.params;
+  const tags = db.prepare('SELECT tag FROM ticket_tags WHERE ticket_id = ?').all(id);
+  res.json(tags.map((t: any) => t.tag));
 }

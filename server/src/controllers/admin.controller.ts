@@ -1,6 +1,21 @@
 import { Request, Response } from 'express';
 import { getDb } from '../db/connection';
 
+export function getCustomers(_req: Request, res: Response): void {
+  const db = getDb();
+  const customers = db.prepare(`
+    SELECT c.id, c.email, c.name, c.company, c.role, c.is_anonymous, c.created_at,
+           COUNT(t.id) as ticket_count,
+           MAX(t.created_at) as last_ticket_at
+    FROM customers c
+    LEFT JOIN tickets t ON t.customer_id = c.id
+    WHERE c.role = 'customer'
+    GROUP BY c.id
+    ORDER BY c.created_at DESC
+  `).all();
+  res.json(customers);
+}
+
 export function getDashboardStats(_req: Request, res: Response): void {
   const db = getDb();
 
