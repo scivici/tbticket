@@ -135,8 +135,9 @@ export default function SetupPage() {
             {/* Analysis Mode */}
             <div className="bg-primary-500/10 rounded-lg p-4 border border-primary-500/30">
               <label className="block text-sm font-medium text-gray-900 dark:text-white mb-2">Analysis Mode</label>
-              <div className="grid sm:grid-cols-3 gap-3">
+              <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 {[
+                  { value: 'wrapper', label: 'Wrapper Service (Recommended)', desc: 'HTTP → Claude Code CLI with full server access' },
                   { value: 'ssh', label: 'SSH + Claude Code CLI', desc: 'SFTP files to server, run Claude Code CLI via SSH' },
                   { value: 'api', label: 'HTTP API', desc: 'Send via HTTP API (Anthropic or proxy)' },
                   { value: 'disabled', label: 'Disabled', desc: 'No AI analysis, use scoring fallback only' },
@@ -153,6 +154,44 @@ export default function SetupPage() {
                 ))}
               </div>
             </div>
+
+            {/* Wrapper Mode Settings */}
+            {get('claude_analysis_mode') === 'wrapper' && (
+              <div className="bg-[#f2f2f2] dark:bg-tb-bg rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                <div className="flex items-center gap-2 mb-3">
+                  <Brain className="w-4 h-4 text-accent-green" />
+                  <h3 className="text-sm font-medium text-gray-900 dark:text-white">Wrapper Service Connection</h3>
+                </div>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Wrapper Service URL</label>
+                    <input type="text" value={get('claude_wrapper_url')} onChange={e => set('claude_wrapper_url', e.target.value)}
+                      className="tb-input text-sm" placeholder="http://claude-support-2.telcobridges.lan:4002" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Auth Token</label>
+                    <input type="password" value={get('claude_wrapper_auth_token')} onChange={e => set('claude_wrapper_auth_token', e.target.value)}
+                      className="tb-input text-sm" placeholder="tb-claude-wrapper-secret" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Timeout (ms)</label>
+                    <input type="number" value={get('claude_wrapper_timeout') || '310000'} onChange={e => set('claude_wrapper_timeout', e.target.value)}
+                      className="tb-input text-sm" />
+                  </div>
+                </div>
+                <div className="mt-3 p-3 bg-white dark:bg-tb-card rounded-lg border border-gray-200 dark:border-gray-700 text-xs text-gray-500">
+                  <p className="font-medium text-gray-700 dark:text-gray-300 mb-1">How it works:</p>
+                  <ol className="list-decimal ml-4 space-y-0.5">
+                    <li>Ticket data + base64-encoded attachments sent via HTTP POST</li>
+                    <li>Wrapper service saves files and runs <code>claude -p "..." --allowedTools "..." --output-format json</code></li>
+                    <li>Claude Code CLI has full access to source code, docs, and analysis tools</li>
+                    <li>Structured JSON analysis returned to ticket system</li>
+                    <li>Engineer auto-assigned based on confidence threshold</li>
+                  </ol>
+                  <p className="mt-2 text-accent-green font-medium">Recommended: Best analysis quality with full server capabilities.</p>
+                </div>
+              </div>
+            )}
 
             {/* SSH Mode Settings */}
             {(get('claude_analysis_mode') === 'ssh' || !get('claude_analysis_mode')) && (
@@ -275,7 +314,7 @@ export default function SetupPage() {
           </div>
 
           <div className="flex justify-end mt-6">
-            <button onClick={() => saveKeys(['claude_analysis_mode', 'claude_server_url', 'claude_auth_type', 'claude_auth_value', 'claude_model', 'claude_max_tokens', 'claude_auto_assign_threshold', 'claude_ssh_host', 'claude_ssh_port', 'claude_ssh_user', 'claude_ssh_pass', 'claude_ssh_remote_path'])}
+            <button onClick={() => saveKeys(['claude_analysis_mode', 'claude_server_url', 'claude_auth_type', 'claude_auth_value', 'claude_model', 'claude_max_tokens', 'claude_auto_assign_threshold', 'claude_ssh_host', 'claude_ssh_port', 'claude_ssh_user', 'claude_ssh_pass', 'claude_ssh_remote_path', 'claude_wrapper_url', 'claude_wrapper_auth_token', 'claude_wrapper_timeout'])}
               disabled={saving} className="tb-btn-success flex items-center gap-2">
               <Save className="w-4 h-4" /> {saving ? 'Saving...' : 'Save Claude Settings'}
             </button>

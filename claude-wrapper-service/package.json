@@ -1,0 +1,14 @@
+{
+  "name": "claude-analysis-wrapper",
+  "version": "1.0.0",
+  "description": "Thin HTTP wrapper around Claude Code CLI for automated ticket analysis",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "multer": "^1.4.5-lts.1"
+  }
+}
