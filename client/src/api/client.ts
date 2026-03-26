@@ -63,6 +63,7 @@ export const tickets = {
     return request<any>(`/tickets${query}`);
   },
   get: (id: number) => request<any>(`/tickets/${id}`),
+  getByNumber: (ticketNumber: string) => request<any>(`/tickets/${encodeURIComponent(ticketNumber)}`),
   track: (ticketNumber: string) => request<any>(`/tickets/track/${ticketNumber}`),
   updateStatus: (id: number, status: string) =>
     request<any>(`/tickets/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
@@ -70,6 +71,8 @@ export const tickets = {
     request<any>(`/tickets/${id}/assign`, { method: 'PATCH', body: JSON.stringify({ engineerId }) }),
   analyze: (id: number) =>
     request<any>(`/tickets/${id}/analyze`, { method: 'POST' }),
+  addAttachments: (id: number, formData: FormData) =>
+    request<any>(`/tickets/${id}/attachments`, { method: 'POST', body: formData }),
   getResponses: (id: number) => request<any[]>(`/tickets/${id}/responses`),
   addResponse: (id: number, message: string, isInternal?: boolean) =>
     request<any>(`/tickets/${id}/responses`, { method: 'POST', body: JSON.stringify({ message, isInternal: isInternal || false }) }),
@@ -82,6 +85,41 @@ export const tickets = {
     request<any>('/tickets/bulk/assign', { method: 'POST', body: JSON.stringify({ ticketIds, engineerId }) }),
   bulkDelete: (ticketIds: number[]) =>
     request<any>('/tickets/bulk/delete', { method: 'POST', body: JSON.stringify({ ticketIds }) }),
+  // CC users
+  getCcUsers: (id: number) => request<any[]>(`/tickets/${id}/cc`),
+  addCcUser: (id: number, email: string, name?: string) =>
+    request<any>(`/tickets/${id}/cc`, { method: 'POST', body: JSON.stringify({ email, name }) }),
+  removeCcUser: (id: number, email: string) =>
+    request<any>(`/tickets/${id}/cc/${encodeURIComponent(email)}`, { method: 'DELETE' }),
+
+  // Linked tickets
+  getLinkedTickets: (id: number) => request<any[]>(`/tickets/${id}/links`),
+  linkTicket: (id: number, linkedTicketId: string | number, linkType?: string) =>
+    request<any>(`/tickets/${id}/links`, { method: 'POST', body: JSON.stringify({ linkedTicketId, linkType }) }),
+  unlinkTicket: (id: number, linkId: number) =>
+    request<any>(`/tickets/${id}/links/${linkId}`, { method: 'DELETE' }),
+
+  // Jira
+  updateJiraKey: (id: number, jiraIssueKey: string) =>
+    request<any>(`/tickets/${id}/jira`, { method: 'PATCH', body: JSON.stringify({ jiraIssueKey }) }),
+  escalateToJira: (id: number) =>
+    request<any>(`/tickets/${id}/escalate-jira`, { method: 'POST' }),
+  getJiraStatus: (id: number) => request<any>(`/tickets/${id}/jira-status`),
+
+  // Time entries
+  getTimeEntries: (id: number) => request<any[]>(`/tickets/${id}/time-entries`),
+  addTimeEntry: (id: number, data: { hours: number; description: string; isChargeable?: boolean; engineerId?: number; date?: string }) =>
+    request<any>(`/tickets/${id}/time-entries`, { method: 'POST', body: JSON.stringify(data) }),
+  deleteTimeEntry: (id: number, entryId: number) =>
+    request<any>(`/tickets/${id}/time-entries/${entryId}`, { method: 'DELETE' }),
+
+  // AI suggestion
+  suggestReply: (id: number) => request<any>(`/tickets/${id}/suggest-reply`, { method: 'POST' }),
+
+  // Knowledge base
+  createKbArticle: (id: number, data?: { title?: string; content?: string }) =>
+    request<any>(`/tickets/${id}/create-kb-article`, { method: 'POST', body: JSON.stringify(data || {}) }),
+
   getActivities: (id: number) => request<any[]>(`/tickets/${id}/activities`),
   getTags: (id: number) => request<string[]>(`/tickets/${id}/tags`),
   addTag: (id: number, tag: string) =>
@@ -117,6 +155,9 @@ export const admin = {
   slaPolicies: () => request<any[]>('/admin/sla-policies'),
   slaBreached: () => request<any[]>('/admin/sla-breached'),
   customers: () => request<any[]>('/admin/customers'),
+  getCustomer: (id: number) => request<any>(`/admin/customers/${id}`),
+  updateCustomer: (id: number, data: any) =>
+    request<any>(`/admin/customers/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   escalationRules: () => request<any[]>('/admin/escalation-rules'),
   createEscalationRule: (data: any) =>
     request<any>('/admin/escalation-rules', { method: 'POST', body: JSON.stringify(data) }),
@@ -125,6 +166,23 @@ export const admin = {
   deleteEscalationRule: (id: number) =>
     request<any>(`/admin/escalation-rules/${id}`, { method: 'DELETE' }),
   escalationAlerts: () => request<any[]>('/admin/escalation-alerts'),
+  slaCompliance: (fromDate?: string, toDate?: string) => {
+    const params = new URLSearchParams();
+    if (fromDate) params.set('fromDate', fromDate);
+    if (toDate) params.set('toDate', toDate);
+    return request<any>(`/admin/sla-compliance?${params}`);
+  },
+  psHoursReport: () => request<any[]>('/admin/ps-hours'),
+  notifyVersionUpdate: (productId: number, version: string, releaseNotes?: string) =>
+    request<any>('/admin/notify-version-update', { method: 'POST', body: JSON.stringify({ productId, version, releaseNotes }) }),
+  knowledgeBase: () => request<any[]>('/admin/knowledge-base'),
+  deleteKbArticle: (id: number) => request<any>(`/admin/knowledge-base/${id}`, { method: 'DELETE' }),
+  timeReport: (fromDate?: string, toDate?: string) => {
+    const params = new URLSearchParams();
+    if (fromDate) params.set('fromDate', fromDate);
+    if (toDate) params.set('toDate', toDate);
+    return request<any>(`/admin/time-report?${params}`);
+  },
   recurringTickets: (minCount?: number, daysBack?: number) => {
     const params = new URLSearchParams();
     if (minCount) params.set('minCount', String(minCount));

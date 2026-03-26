@@ -74,6 +74,9 @@ export function createTicket(req: AuthenticatedRequest, res: Response): void {
     const custName = db3.prepare('SELECT name FROM customers WHERE id = ?').get(customerId) as any;
     activityService.logActivity(result.ticketId, customerId!, custName?.name || 'Unknown', 'created', 'Ticket created');
 
+    // Auto-detect missing required info and add auto-response
+    checkMissingInfo(result.ticketId, parseInt(productId), productKey, files);
+
     res.status(201).json({
       ticketId: result.ticketId,
       ticketNumber: result.ticketNumber,
@@ -96,6 +99,56 @@ export function createTicket(req: AuthenticatedRequest, res: Response): void {
   } catch (error: any) {
     console.error('[Tickets] Create error:', error);
     res.status(500).json({ error: 'Failed to create ticket' });
+  }
+}
+
+function checkMissingInfo(ticketId: number, productId: number, productKey: string | undefined, files: Express.Multer.File[] | undefined) {
+  try {
+    const db = getDb();
+    const product = db.prepare('SELECT name FROM products WHERE id = ?').get(productId) as any;
+    if (!product) return;
+
+    const productName = (product.name || '').toLowerCase();
+    const missingItems: string[] = [];
+
+    // Check if product key / serial number is missing for known products
+    const needsKey = productName.includes('prosbc') || productName.includes('tmg') || productName.includes('tsg');
+    if (needsKey && (!productKey || !productKey.trim())) {
+      if (productName.includes('prosbc')) {
+        missingItems.push('- **Product Key**: Please provide your ProSBC product key (format: VTB-XXXX-XXXX). You can find it under System > License in the ProSBC web interface.');
+      } else {
+        missingItems.push('- **Serial Number**: Please provide your unit serial number (format: TB0XXXXX). It is printed on the label on the back/bottom of your unit.');
+      }
+    }
+
+    // Check if log files are missing
+    const hasLogFiles = files && files.length > 0 && files.some(f => {
+      const ext = f.originalname.toLowerCase();
+      return ext.endsWith('.log') || ext.endsWith('.pcap') || ext.endsWith('.pcapng') || ext.endsWith('.gz') || ext.endsWith('.tgz') || ext.endsWith('.zip') || ext.endsWith('.tar') || ext.endsWith('.7z');
+    });
+
+    if (!files || files.length === 0) {
+      missingItems.push('- **Log files**: No files were attached. Please upload relevant log files (tbreport, pcap captures, screenshots) to help us diagnose the issue faster.');
+    } else if (!hasLogFiles) {
+      missingItems.push('- **Diagnostic logs**: No log/capture files detected. If possible, please attach a tbreport output or pcap capture related to the issue.');
+    }
+
+    if (missingItems.length > 0) {
+      const autoMessage = `Thank you for submitting your ticket. To help us resolve your issue as quickly as possible, we noticed the following information is missing:\n\n${missingItems.join('\n\n')}\n\nPlease reply to this ticket with the missing information, or use the "Add Files" button to upload log files.`;
+
+      // Add as a public auto-response from system
+      ticketService.addResponse(ticketId, 0, 'Support System', 'admin', autoMessage, false);
+
+      // Also add internal note for engineers
+      ticketService.addResponse(ticketId, 0, 'System', 'admin',
+        `[Auto-detection] Missing info detected: ${missingItems.length === 1 ? '1 item' : missingItems.length + ' items'}. Auto-reply sent to customer.`,
+        true
+      );
+
+      activityService.logActivity(ticketId, null, 'System', 'auto_response', 'Auto-reply sent for missing required information');
+    }
+  } catch (error) {
+    console.error('[Auto-detect] Failed to check missing info:', error);
   }
 }
 
@@ -369,7 +422,15 @@ async function triggerWrapperAnalysis(ticketId: number, productId: number, categ
 
 export function getTicket(req: AuthenticatedRequest, res: Response): void {
   const { id } = req.params;
-  const ticket = ticketService.getTicketById(parseInt(id));
+
+  // Support both numeric ID and ticket number (TKT-xxx)
+  let ticket;
+  if (/^\d+$/.test(id)) {
+    ticket = ticketService.getTicketById(parseInt(id));
+  } else {
+    ticket = ticketService.getTicketByNumber(id);
+  }
+
   if (!ticket) {
     res.status(404).json({ error: 'Ticket not found' });
     return;
@@ -381,7 +442,7 @@ export function getTicket(req: AuthenticatedRequest, res: Response): void {
     return;
   }
 
-  const slaStatus = slaService.getTicketSlaStatus(parseInt(id));
+  const slaStatus = slaService.getTicketSlaStatus(ticket.id);
   res.json({ ...ticket, slaStatus });
 }
 
@@ -409,10 +470,13 @@ export function trackTicket(req: AuthenticatedRequest, res: Response): void {
 
 export function listTickets(req: AuthenticatedRequest, res: Response): void {
   const filters: any = {
-    status: req.query.status as string,
-    priority: req.query.priority as string,
+    status: req.query.status as string || undefined,
+    excludeStatus: req.query.excludeStatus as string || undefined,
+    priority: req.query.priority as string || undefined,
     productId: req.query.productId ? parseInt(req.query.productId as string) : undefined,
     assignedEngineerId: req.query.engineerId ? parseInt(req.query.engineerId as string) : undefined,
+    customerSearch: req.query.customerSearch as string || undefined,
+    tag: req.query.tag as string || undefined,
     search: req.query.search as string || undefined,
     fromDate: req.query.fromDate as string || undefined,
     toDate: req.query.toDate as string || undefined,
@@ -420,9 +484,15 @@ export function listTickets(req: AuthenticatedRequest, res: Response): void {
     limit: req.query.limit ? parseInt(req.query.limit as string) : 20,
   };
 
-  // Non-admin users can only see their own tickets
+  // Non-admin users can only see their own tickets (or company tickets if enabled)
   if (req.user?.role !== 'admin') {
     filters.customerId = req.user?.userId;
+    // Check if user has company-wide visibility enabled
+    const db = getDb();
+    const customer = db.prepare('SELECT company_ticket_visibility, company FROM customers WHERE id = ?').get(req.user?.userId) as any;
+    if (customer?.company_ticket_visibility && customer?.company) {
+      filters.includeCompanyTickets = true;
+    }
   }
 
   const result = ticketService.listTickets(filters);
@@ -433,7 +503,7 @@ export function updateStatus(req: AuthenticatedRequest, res: Response): void {
   const { id } = req.params;
   const { status } = req.body;
 
-  const validStatuses = ['new', 'analyzing', 'assigned', 'in_progress', 'pending_info', 'resolved', 'closed'];
+  const validStatuses = ['new', 'analyzing', 'assigned', 'in_progress', 'pending_info', 'escalated_to_jira', 'resolved', 'closed'];
   if (!validStatuses.includes(status)) {
     res.status(400).json({ error: 'Invalid status' });
     return;
@@ -503,6 +573,57 @@ export function assignEngineer(req: AuthenticatedRequest, res: Response): void {
   }
 
   res.json({ message: 'Engineer assigned' });
+}
+
+export function addAttachments(req: AuthenticatedRequest, res: Response): void {
+  try {
+    const { id } = req.params;
+    let ticket;
+    if (/^\d+$/.test(id)) {
+      ticket = ticketService.getTicketById(parseInt(id));
+    } else {
+      ticket = ticketService.getTicketByNumber(id);
+    }
+
+    if (!ticket) {
+      res.status(404).json({ error: 'Ticket not found' });
+      return;
+    }
+
+    // Check access: admin can add to any, customer only to own tickets
+    if (req.user?.role !== 'admin' && ticket.customerId !== req.user?.userId) {
+      res.status(403).json({ error: 'Access denied' });
+      return;
+    }
+
+    const files = req.files as Express.Multer.File[] | undefined;
+    if (!files || files.length === 0) {
+      res.status(400).json({ error: 'No files provided' });
+      return;
+    }
+
+    const db = getDb();
+    const insertAttachment = db.prepare(
+      'INSERT INTO ticket_attachments (ticket_id, filename, original_name, mime_type, size, path) VALUES (?, ?, ?, ?, ?, ?)'
+    );
+
+    const added: any[] = [];
+    db.transaction(() => {
+      for (const file of files) {
+        insertAttachment.run(ticket!.id, file.filename, file.originalname, file.mimetype, file.size, file.path);
+        added.push({ filename: file.filename, originalName: file.originalname, size: file.size });
+      }
+    })();
+
+    // Log activity
+    const customer = db.prepare('SELECT name FROM customers WHERE id = ?').get(req.user!.userId) as any;
+    activityService.logActivity(ticket.id, req.user!.userId, customer?.name || 'Unknown', 'attachment_added', `Added ${files.length} file(s)`);
+
+    res.status(201).json({ message: `${files.length} file(s) uploaded`, attachments: added });
+  } catch (error: any) {
+    console.error('[Tickets] Add attachments error:', error);
+    res.status(500).json({ error: 'Failed to upload attachments' });
+  }
 }
 
 export function addResponse(req: AuthenticatedRequest, res: Response): void {
@@ -787,6 +908,337 @@ export function submitSatisfaction(req: AuthenticatedRequest, res: Response): vo
     console.error('[Tickets] Submit satisfaction error:', error);
     res.status(500).json({ error: 'Failed to submit satisfaction rating' });
   }
+}
+
+// ===== Time Entries =====
+
+export function getTimeEntries(req: AuthenticatedRequest, res: Response): void {
+  const db = getDb();
+  const { id } = req.params;
+  const entries = db.prepare(`
+    SELECT te.*, e.name as engineer_name
+    FROM time_entries te
+    LEFT JOIN engineers e ON te.engineer_id = e.id
+    WHERE te.ticket_id = ?
+    ORDER BY te.date DESC, te.created_at DESC
+  `).all(id);
+  res.json(entries);
+}
+
+export function addTimeEntry(req: AuthenticatedRequest, res: Response): void {
+  const db = getDb();
+  const { id } = req.params;
+  const { hours, description, isChargeable, engineerId, date } = req.body;
+
+  if (!hours || hours <= 0) { res.status(400).json({ error: 'Hours must be positive' }); return; }
+  if (!description?.trim()) { res.status(400).json({ error: 'Description is required' }); return; }
+
+  const customer = db.prepare('SELECT name FROM customers WHERE id = ?').get(req.user!.userId) as any;
+  const authorName = customer?.name || 'Unknown';
+
+  const result = db.prepare(
+    'INSERT INTO time_entries (ticket_id, engineer_id, author_id, author_name, hours, description, is_chargeable, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+  ).run(id, engineerId || null, req.user!.userId, authorName, hours, description.trim(), isChargeable !== false ? 1 : 0, date || new Date().toISOString().split('T')[0]);
+
+  activityService.logActivity(parseInt(id), req.user!.userId, authorName, 'time_logged', `Logged ${hours}h: ${description.trim()}`);
+
+  res.status(201).json({ id: result.lastInsertRowid, message: 'Time entry added' });
+}
+
+export function deleteTimeEntry(req: AuthenticatedRequest, res: Response): void {
+  const db = getDb();
+  const { entryId } = req.params;
+  db.prepare('DELETE FROM time_entries WHERE id = ?').run(entryId);
+  res.json({ message: 'Time entry deleted' });
+}
+
+// ===== AI Suggested Reply =====
+
+export async function suggestReply(req: AuthenticatedRequest, res: Response): Promise<void> {
+  try {
+    const { id } = req.params;
+    const ticket = ticketService.getTicketById(parseInt(id));
+    if (!ticket) { res.status(404).json({ error: 'Ticket not found' }); return; }
+
+    const db = getDb();
+    const responses = ticketService.getResponses(parseInt(id), true);
+
+    // Find similar resolved tickets
+    const similarTickets = db.prepare(`
+      SELECT t.subject, t.description, t.ai_analysis,
+             (SELECT GROUP_CONCAT(tr.message, '\n---\n') FROM ticket_responses tr WHERE tr.ticket_id = t.id AND tr.author_role = 'admin' AND tr.is_internal = 0 ORDER BY tr.created_at) as admin_responses
+      FROM tickets t
+      WHERE t.status IN ('resolved', 'closed')
+        AND t.product_id = ?
+        AND t.id != ?
+      ORDER BY t.resolved_at DESC
+      LIMIT 5
+    `).all(ticket.productId, ticket.id) as any[];
+
+    const conversationHistory = responses
+      .filter((r: any) => !r.is_internal)
+      .map((r: any) => `[${r.author_role}] ${r.message}`)
+      .join('\n\n');
+
+    const similarContext = similarTickets
+      .filter((t: any) => t.admin_responses)
+      .slice(0, 3)
+      .map((t: any) => `Subject: ${t.subject}\nResponse: ${t.admin_responses?.substring(0, 500)}`)
+      .join('\n---\n');
+
+    // Build a prompt for AI reply suggestion
+    const prompt = `You are a TelcoBridges support engineer. Suggest a helpful reply for this ticket.
+
+## Current Ticket
+- Product: ${ticket.product.name} (${ticket.product.model})
+- Category: ${ticket.category.name}
+- Subject: ${ticket.subject}
+- Description: ${ticket.description}
+
+## Conversation So Far
+${conversationHistory || 'No responses yet.'}
+
+${similarContext ? `## Similar Resolved Tickets (for reference)\n${similarContext}` : ''}
+
+${ticket.aiAnalysis ? `## AI Analysis\n${ticket.aiAnalysis}` : ''}
+
+Write a professional, helpful reply. Be concise and technical. Do not include greetings like "Dear customer" - get straight to the point.`;
+
+    // Use the configured Claude analysis mode to get suggestion
+    const analysisMode = getSetting('claude_analysis_mode') || 'disabled';
+
+    if (analysisMode === 'disabled') {
+      res.json({ suggestion: '', note: 'AI is disabled. Enable Claude AI in settings to get reply suggestions.' });
+      return;
+    }
+
+    // For simplicity, use wrapper or SSH service
+    if (analysisMode === 'wrapper') {
+      const { analyzeTicketViaWrapper } = await import('../services/claude-wrapper.service');
+      // We'll reuse the wrapper with a custom prompt
+      const result = await analyzeTicketViaWrapper({
+        ticketNumber: ticket.ticketNumber,
+        productName: ticket.product.name,
+        productModel: ticket.product.model,
+        categoryName: ticket.category.name,
+        subject: 'REPLY_SUGGESTION: ' + ticket.subject,
+        description: prompt,
+        answers: [],
+        attachments: [],
+        engineers: [],
+      });
+      res.json({ suggestion: result.rawOutput || result.analysis?.rootCauseHypothesis || 'Unable to generate suggestion.' });
+    } else {
+      // Fallback: return similar tickets' responses as suggestion
+      const fallbackSuggestion = similarTickets
+        .filter((t: any) => t.admin_responses)
+        .slice(0, 1)
+        .map((t: any) => t.admin_responses?.substring(0, 1000))
+        .join('') || 'No similar resolved tickets found to base a suggestion on. Please compose your reply manually.';
+      res.json({ suggestion: fallbackSuggestion, note: 'Based on similar resolved tickets.' });
+    }
+  } catch (error: any) {
+    console.error('[AI] Suggest reply error:', error);
+    res.json({ suggestion: '', note: 'Failed to generate suggestion. Please compose your reply manually.' });
+  }
+}
+
+// ===== Knowledge Base =====
+
+export function createKbArticle(req: AuthenticatedRequest, res: Response): void {
+  try {
+    const { id } = req.params;
+    const ticket = ticketService.getTicketById(parseInt(id));
+    if (!ticket) { res.status(404).json({ error: 'Ticket not found' }); return; }
+
+    const { title, content } = req.body;
+
+    const db = getDb();
+    const responses = ticketService.getResponses(parseInt(id), false);
+    const adminResponses = responses.filter((r: any) => r.author_role === 'admin');
+
+    const articleTitle = title || `${ticket.product.name}: ${ticket.subject}`;
+    const articleContent = content || `## Problem\n${ticket.description}\n\n## Solution\n${adminResponses.map((r: any) => r.message).join('\n\n')}`;
+
+    const tags = [ticket.product.name, ticket.category.name].join(',');
+
+    const result = db.prepare(
+      'INSERT INTO knowledge_base (ticket_id, title, content, product_id, category_id, tags, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    ).run(ticket.id, articleTitle, articleContent, ticket.productId, ticket.categoryId, tags, req.user!.userId);
+
+    activityService.logActivity(parseInt(id), req.user!.userId, 'Admin', 'kb_article_created', `Knowledge base article created: ${articleTitle}`);
+
+    res.status(201).json({ id: result.lastInsertRowid, message: 'Knowledge base article created' });
+  } catch (error: any) {
+    console.error('[KB] Create article error:', error);
+    res.status(500).json({ error: 'Failed to create KB article' });
+  }
+}
+
+// ===== CC Users =====
+
+export function getCcUsers(req: AuthenticatedRequest, res: Response): void {
+  const db = getDb();
+  const { id } = req.params;
+  const cc = db.prepare('SELECT * FROM ticket_cc WHERE ticket_id = ? ORDER BY created_at').all(id);
+  res.json(cc);
+}
+
+export function addCcUser(req: AuthenticatedRequest, res: Response): void {
+  const db = getDb();
+  const { id } = req.params;
+  const { email, name } = req.body;
+  if (!email?.trim()) { res.status(400).json({ error: 'Email is required' }); return; }
+  try {
+    db.prepare('INSERT OR IGNORE INTO ticket_cc (ticket_id, email, name) VALUES (?, ?, ?)').run(id, email.trim().toLowerCase(), name || null);
+    activityService.logActivity(parseInt(id), req.user!.userId, req.user!.email || 'Unknown', 'cc_added', `Added CC: ${email}`);
+    res.json({ message: 'CC user added' });
+  } catch { res.status(500).json({ error: 'Failed to add CC user' }); }
+}
+
+export function removeCcUser(req: AuthenticatedRequest, res: Response): void {
+  const db = getDb();
+  const { id, email } = req.params;
+  db.prepare('DELETE FROM ticket_cc WHERE ticket_id = ? AND email = ?').run(id, decodeURIComponent(email));
+  res.json({ message: 'CC user removed' });
+}
+
+// ===== Linked Tickets =====
+
+export function getLinkedTickets(req: AuthenticatedRequest, res: Response): void {
+  const db = getDb();
+  const { id } = req.params;
+  const links = db.prepare(`
+    SELECT tl.*,
+           t.ticket_number, t.subject, t.status, t.priority
+    FROM ticket_links tl
+    JOIN tickets t ON t.id = tl.linked_ticket_id
+    WHERE tl.ticket_id = ?
+    UNION
+    SELECT tl.id, tl.linked_ticket_id as ticket_id, tl.ticket_id as linked_ticket_id,
+           CASE tl.link_type WHEN 'parent' THEN 'child' WHEN 'child' THEN 'parent' ELSE tl.link_type END as link_type,
+           tl.created_by, tl.created_at,
+           t.ticket_number, t.subject, t.status, t.priority
+    FROM ticket_links tl
+    JOIN tickets t ON t.id = tl.ticket_id
+    WHERE tl.linked_ticket_id = ?
+    ORDER BY created_at DESC
+  `).all(id, id);
+  res.json(links);
+}
+
+export function linkTicket(req: AuthenticatedRequest, res: Response): void {
+  const db = getDb();
+  const { id } = req.params;
+  const { linkedTicketId, linkType } = req.body;
+
+  if (!linkedTicketId) { res.status(400).json({ error: 'linkedTicketId is required' }); return; }
+
+  // Resolve linkedTicketId - support ticket number
+  let resolvedId = linkedTicketId;
+  if (typeof linkedTicketId === 'string' && !/^\d+$/.test(linkedTicketId)) {
+    const ticket = db.prepare('SELECT id FROM tickets WHERE ticket_number = ?').get(linkedTicketId) as any;
+    if (!ticket) { res.status(404).json({ error: 'Linked ticket not found' }); return; }
+    resolvedId = ticket.id;
+  }
+
+  if (parseInt(id) === parseInt(resolvedId)) { res.status(400).json({ error: 'Cannot link ticket to itself' }); return; }
+
+  const validTypes = ['related', 'parent', 'child', 'duplicate'];
+  const type = validTypes.includes(linkType) ? linkType : 'related';
+
+  try {
+    db.prepare('INSERT OR IGNORE INTO ticket_links (ticket_id, linked_ticket_id, link_type, created_by) VALUES (?, ?, ?, ?)').run(id, resolvedId, type, req.user!.userId);
+    const linked = db.prepare('SELECT ticket_number FROM tickets WHERE id = ?').get(resolvedId) as any;
+    activityService.logActivity(parseInt(id), req.user!.userId, 'Admin', 'ticket_linked', `Linked to ${linked?.ticket_number || resolvedId} (${type})`);
+    res.json({ message: 'Tickets linked' });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to link tickets' });
+  }
+}
+
+export function unlinkTicket(req: AuthenticatedRequest, res: Response): void {
+  const db = getDb();
+  const { linkId } = req.params;
+  db.prepare('DELETE FROM ticket_links WHERE id = ?').run(linkId);
+  res.json({ message: 'Link removed' });
+}
+
+// ===== Jira Issue Key =====
+
+export function updateJiraKey(req: AuthenticatedRequest, res: Response): void {
+  const { id } = req.params;
+  const { jiraIssueKey } = req.body;
+  const db = getDb();
+  db.prepare("UPDATE tickets SET jira_issue_key = ?, updated_at = datetime('now') WHERE id = ?").run(jiraIssueKey || null, id);
+  activityService.logActivity(parseInt(id), req.user!.userId, 'Admin', 'jira_linked', jiraIssueKey ? `Linked to Jira: ${jiraIssueKey}` : 'Jira link removed');
+  res.json({ message: 'Jira issue key updated' });
+}
+
+// ===== Jira Escalation =====
+
+export async function escalateToJira(req: AuthenticatedRequest, res: Response): Promise<void> {
+  try {
+    const { id } = req.params;
+    let ticket;
+    if (/^\d+$/.test(id)) {
+      ticket = ticketService.getTicketById(parseInt(id));
+    } else {
+      ticket = ticketService.getTicketByNumber(id);
+    }
+
+    if (!ticket) {
+      res.status(404).json({ error: 'Ticket not found' });
+      return;
+    }
+
+    // Dynamically import to avoid circular deps
+    const { createJiraIssue } = await import('../services/jira.service');
+    const result = await createJiraIssue({
+      ticketNumber: ticket.ticketNumber,
+      subject: ticket.subject,
+      description: ticket.description,
+      priority: ticket.priority,
+      productName: ticket.product.name,
+      categoryName: ticket.category.name,
+      customerName: ticket.customer.name,
+      customerEmail: ticket.customer.email,
+    });
+
+    if (!result.success) {
+      res.status(400).json({ error: result.error });
+      return;
+    }
+
+    // Update ticket with Jira key and status
+    const db = getDb();
+    db.prepare("UPDATE tickets SET jira_issue_key = ?, status = 'escalated_to_jira', updated_at = datetime('now') WHERE id = ?").run(result.issueKey, ticket.id);
+
+    activityService.logActivity(ticket.id, req.user!.userId, 'Admin', 'escalated_to_jira', `Escalated to Jira: ${result.issueKey}`);
+
+    notificationService.createNotification(
+      ticket.customerId, ticket.id, 'status_change',
+      'Ticket escalated to engineering',
+      `Ticket ${ticket.ticketNumber} has been escalated to our engineering team (${result.issueKey}).`
+    );
+
+    res.json({ issueKey: result.issueKey, issueUrl: result.issueUrl, message: 'Ticket escalated to Jira' });
+  } catch (error: any) {
+    console.error('[Jira] Escalation error:', error);
+    res.status(500).json({ error: 'Failed to escalate to Jira' });
+  }
+}
+
+export async function getJiraStatus(req: AuthenticatedRequest, res: Response): Promise<void> {
+  const { id } = req.params;
+  const ticket = ticketService.getTicketById(parseInt(id));
+  if (!ticket || !ticket.jiraIssueKey) {
+    res.json(null);
+    return;
+  }
+  const { getJiraIssueStatus } = await import('../services/jira.service');
+  const status = await getJiraIssueStatus(ticket.jiraIssueKey);
+  res.json(status);
 }
 
 export function getSatisfaction(req: AuthenticatedRequest, res: Response): void {

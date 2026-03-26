@@ -8,6 +8,9 @@ CREATE TABLE IF NOT EXISTS customers (
     password_hash TEXT,
     role TEXT NOT NULL DEFAULT 'customer' CHECK(role IN ('customer', 'admin')),
     is_anonymous INTEGER NOT NULL DEFAULT 0,
+    company_ticket_visibility INTEGER NOT NULL DEFAULT 0,
+    environment_notes TEXT,
+    external_links TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -88,9 +91,10 @@ CREATE TABLE IF NOT EXISTS tickets (
     subject TEXT NOT NULL,
     description TEXT NOT NULL,
     product_key TEXT,
-    status TEXT NOT NULL DEFAULT 'new' CHECK(status IN ('new', 'analyzing', 'assigned', 'in_progress', 'pending_info', 'resolved', 'closed')),
+    status TEXT NOT NULL DEFAULT 'new' CHECK(status IN ('new', 'analyzing', 'assigned', 'in_progress', 'pending_info', 'escalated_to_jira', 'resolved', 'closed')),
     priority TEXT NOT NULL DEFAULT 'medium' CHECK(priority IN ('low', 'medium', 'high', 'critical')),
     assigned_engineer_id INTEGER REFERENCES engineers(id),
+    jira_issue_key TEXT,
     ai_analysis TEXT, -- JSON object
     ai_confidence REAL,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -133,7 +137,7 @@ CREATE TABLE IF NOT EXISTS notifications (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     customer_id INTEGER NOT NULL REFERENCES customers(id),
     ticket_id INTEGER NOT NULL REFERENCES tickets(id),
-    type TEXT NOT NULL CHECK(type IN ('status_change', 'assigned', 'response', 'resolved')),
+    type TEXT NOT NULL CHECK(type IN ('status_change', 'assigned', 'response', 'resolved', 'sla_breach', 'idle_ticket', 'reminder', 'version_update')),
     title TEXT NOT NULL,
     message TEXT NOT NULL,
     is_read INTEGER NOT NULL DEFAULT 0,
@@ -204,6 +208,63 @@ CREATE TABLE IF NOT EXISTS escalation_rules (
     is_active INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+CREATE TABLE IF NOT EXISTS time_entries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticket_id INTEGER NOT NULL REFERENCES tickets(id),
+    engineer_id INTEGER REFERENCES engineers(id),
+    author_id INTEGER REFERENCES customers(id),
+    author_name TEXT NOT NULL,
+    hours REAL NOT NULL,
+    description TEXT NOT NULL,
+    is_chargeable INTEGER NOT NULL DEFAULT 1,
+    date TEXT NOT NULL DEFAULT (date('now')),
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_time_entries_ticket ON time_entries(ticket_id);
+CREATE INDEX IF NOT EXISTS idx_time_entries_engineer ON time_entries(engineer_id);
+
+CREATE TABLE IF NOT EXISTS knowledge_base (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticket_id INTEGER REFERENCES tickets(id),
+    title TEXT NOT NULL,
+    content TEXT NOT NULL,
+    product_id INTEGER REFERENCES products(id),
+    category_id INTEGER REFERENCES product_categories(id),
+    tags TEXT,
+    created_by INTEGER REFERENCES customers(id),
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_kb_product ON knowledge_base(product_id);
+CREATE INDEX IF NOT EXISTS idx_kb_category ON knowledge_base(category_id);
+
+CREATE TABLE IF NOT EXISTS ticket_cc (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticket_id INTEGER NOT NULL REFERENCES tickets(id),
+    email TEXT NOT NULL,
+    name TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(ticket_id, email)
+);
+
+CREATE INDEX IF NOT EXISTS idx_ticket_cc_ticket ON ticket_cc(ticket_id);
+CREATE INDEX IF NOT EXISTS idx_ticket_cc_email ON ticket_cc(email);
+
+CREATE TABLE IF NOT EXISTS ticket_links (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticket_id INTEGER NOT NULL REFERENCES tickets(id),
+    linked_ticket_id INTEGER NOT NULL REFERENCES tickets(id),
+    link_type TEXT NOT NULL DEFAULT 'related' CHECK(link_type IN ('related', 'parent', 'child', 'duplicate')),
+    created_by INTEGER REFERENCES customers(id),
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(ticket_id, linked_ticket_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_ticket_links_ticket ON ticket_links(ticket_id);
+CREATE INDEX IF NOT EXISTS idx_ticket_links_linked ON ticket_links(linked_ticket_id);
 
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status);

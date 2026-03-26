@@ -61,15 +61,18 @@ export function createEngineer(req: Request, res: Response): void {
 
 export function updateEngineer(req: Request, res: Response): void {
   const db = getDb();
-  const { name, email, location, isActive, maxWorkload } = req.body;
+  const { name, email, location, isActive, maxWorkload, shiftStart, shiftEnd, timezone } = req.body;
   const { id } = req.params;
 
   db.prepare(`
     UPDATE engineers SET name = COALESCE(?, name), email = COALESCE(?, email),
     location = COALESCE(?, location), is_active = COALESCE(?, is_active),
-    max_workload = COALESCE(?, max_workload), updated_at = datetime('now')
+    max_workload = COALESCE(?, max_workload),
+    shift_start = COALESCE(?, shift_start), shift_end = COALESCE(?, shift_end),
+    timezone = COALESCE(?, timezone),
+    updated_at = datetime('now')
     WHERE id = ?
-  `).run(name, email, location, isActive !== undefined ? (isActive ? 1 : 0) : null, maxWorkload, id);
+  `).run(name, email, location, isActive !== undefined ? (isActive ? 1 : 0) : null, maxWorkload, shiftStart || null, shiftEnd || null, timezone || null, id);
 
   res.json({ message: 'Engineer updated' });
 }

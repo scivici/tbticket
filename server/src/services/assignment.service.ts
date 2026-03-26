@@ -23,7 +23,25 @@ export function scoreEngineers(productId: number, categoryId: number): EngineerS
     SELECT * FROM engineers WHERE is_active = 1 AND current_workload < max_workload
   `).all() as any[];
 
-  const scores: EngineerScore[] = engineers.map((engineer: any) => {
+  const scores: EngineerScore[] = engineers.filter((engineer: any) => {
+    // Shift-based filtering: if engineer has shift defined, check if currently in shift
+    if (engineer.shift_start && engineer.shift_end) {
+      const now = new Date();
+      const [startH, startM] = engineer.shift_start.split(':').map(Number);
+      const [endH, endM] = engineer.shift_end.split(':').map(Number);
+      const currentMinutes = now.getUTCHours() * 60 + now.getUTCMinutes();
+      const startMinutes = startH * 60 + (startM || 0);
+      const endMinutes = endH * 60 + (endM || 0);
+
+      // Handle overnight shifts (e.g., 22:00 - 06:00)
+      if (startMinutes < endMinutes) {
+        if (currentMinutes < startMinutes || currentMinutes > endMinutes) return false;
+      } else {
+        if (currentMinutes < startMinutes && currentMinutes > endMinutes) return false;
+      }
+    }
+    return true;
+  }).map((engineer: any) => {
     // Product/category expertise (0-5, weighted x3)
     const expertise = db.prepare(`
       SELECT MAX(expertise_level) as level

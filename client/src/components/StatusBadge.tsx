@@ -6,6 +6,7 @@ const statusColors: Record<string, string> = {
   assigned: 'bg-status-warn-bg text-status-warn-text',
   in_progress: 'bg-amber-100 text-amber-800',
   pending_info: 'bg-gray-200 text-gray-700',
+  escalated_to_jira: 'bg-orange-200 text-orange-800',
   resolved: 'bg-status-active-bg text-status-active-text',
   closed: 'bg-gray-300 text-gray-600',
 };
@@ -20,7 +21,7 @@ const priorityColors: Record<string, string> = {
 export function StatusBadge({ status }: { status: string }) {
   return (
     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColors[status] || 'bg-gray-200 text-gray-700'}`}>
-      {status.replace('_', ' ')}
+      {status.replace(/_/g, ' ')}
     </span>
   );
 }

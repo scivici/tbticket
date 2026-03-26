@@ -107,6 +107,7 @@ export function getTicketById(ticketId: number) {
     status: ticket.status,
     priority: ticket.priority,
     assignedEngineerId: ticket.assigned_engineer_id,
+    jiraIssueKey: ticket.jira_issue_key,
     aiAnalysis: ticket.ai_analysis,
     aiConfidence: ticket.ai_confidence,
     createdAt: ticket.created_at,
@@ -148,10 +149,14 @@ export function getTicketByNumber(ticketNumber: string) {
 
 export function listTickets(filters: {
   status?: string;
+  excludeStatus?: string;
   priority?: string;
   productId?: number;
   assignedEngineerId?: number;
   customerId?: number;
+  includeCompanyTickets?: boolean;
+  customerSearch?: string;
+  tag?: string;
   search?: string;
   fromDate?: string;
   toDate?: string;
@@ -166,6 +171,10 @@ export function listTickets(filters: {
     conditions.push('t.status = ?');
     params.push(filters.status);
   }
+  if (filters.excludeStatus) {
+    conditions.push('t.status != ?');
+    params.push(filters.excludeStatus);
+  }
   if (filters.priority) {
     conditions.push('t.priority = ?');
     params.push(filters.priority);
@@ -179,8 +188,23 @@ export function listTickets(filters: {
     params.push(filters.assignedEngineerId);
   }
   if (filters.customerId) {
-    conditions.push('t.customer_id = ?');
-    params.push(filters.customerId);
+    if (filters.includeCompanyTickets) {
+      // Include tickets from same company
+      conditions.push('(t.customer_id = ? OR c.company = (SELECT company FROM customers WHERE id = ? AND company IS NOT NULL AND company != \'\'))');
+      params.push(filters.customerId, filters.customerId);
+    } else {
+      conditions.push('t.customer_id = ?');
+      params.push(filters.customerId);
+    }
+  }
+  if (filters.customerSearch) {
+    conditions.push('(c.name LIKE ? OR c.email LIKE ? OR c.company LIKE ?)');
+    const term = `%${filters.customerSearch}%`;
+    params.push(term, term, term);
+  }
+  if (filters.tag) {
+    conditions.push('EXISTS (SELECT 1 FROM ticket_tags tt WHERE tt.ticket_id = t.id AND tt.tag = ?)');
+    params.push(filters.tag.toLowerCase());
   }
   if (filters.search) {
     conditions.push('(t.subject LIKE ? OR t.description LIKE ? OR t.ticket_number LIKE ?)');

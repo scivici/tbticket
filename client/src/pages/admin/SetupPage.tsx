@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { settings as settingsApi, adminUsers } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
-import { Settings, Key, Mail, MessageSquare, Globe, Shield, Save, TestTube, ExternalLink, Brain, Terminal, UserCog, Plus, Pencil, Trash2, X, Eye, EyeOff } from 'lucide-react';
+import { Settings, Key, Mail, MessageSquare, Globe, Shield, Save, TestTube, ExternalLink, Brain, Terminal, UserCog, Plus, Pencil, Trash2, X, Eye, EyeOff, Clock, Zap } from 'lucide-react';
 
-type Tab = 'claude' | 'license' | 'email' | 'webhooks' | 'general' | 'users';
+type Tab = 'claude' | 'license' | 'email' | 'webhooks' | 'general' | 'automation' | 'jira' | 'users';
 
 export default function SetupPage() {
   const [activeTab, setActiveTab] = useState<Tab>('claude');
@@ -75,6 +75,8 @@ export default function SetupPage() {
     { id: 'email', label: 'Email (SMTP)', icon: Mail },
     { id: 'webhooks', label: 'Webhooks', icon: MessageSquare },
     { id: 'general', label: 'General', icon: Globe },
+    { id: 'automation', label: 'Automation', icon: Clock },
+    { id: 'jira', label: 'Jira', icon: ExternalLink },
     { id: 'users', label: 'Admin Users', icon: UserCog },
   ];
 
@@ -693,6 +695,105 @@ export default function SetupPage() {
               className="tb-btn-success flex items-center gap-2"
             >
               <Save className="w-4 h-4" /> {saving ? 'Saving...' : 'Save General Settings'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Tab: Automation */}
+      {activeTab === 'automation' && (
+        <div className="tb-card p-6">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-1 flex items-center gap-2">
+            <Clock className="w-5 h-5" /> Lifecycle Automation
+          </h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+            Configure automatic ticket lifecycle management. The scheduler runs every 5 minutes.
+          </p>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Auto-close after inactivity (days)</label>
+              <input type="number" min="0" value={get('auto_close_days')} onChange={e => set('auto_close_days', e.target.value)}
+                className="tb-input w-32" placeholder="14" />
+              <p className="text-xs text-gray-500 mt-1">Resolved or pending tickets will be auto-closed after this many days. Set to 0 to disable.</p>
+            </div>
+            <div>
+              <label className="flex items-center gap-2 text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">
+                <input type="checkbox" checked={get('auto_state_transitions') !== 'false'}
+                  onChange={e => set('auto_state_transitions', e.target.checked ? 'true' : 'false')}
+                  className="rounded border-gray-300 dark:border-gray-600 text-accent-blue" />
+                Auto-transition ticket status
+              </label>
+              <p className="text-xs text-gray-500 ml-6">When a customer replies to a "pending info" ticket, automatically move it to "in progress".</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Idle ticket alert (hours)</label>
+              <input type="number" min="0" value={get('idle_ticket_alert_hours')} onChange={e => set('idle_ticket_alert_hours', e.target.value)}
+                className="tb-input w-32" placeholder="24" />
+              <p className="text-xs text-gray-500 mt-1">Alert admins when assigned tickets have no activity. Set to 0 to disable.</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Customer reminder (hours)</label>
+              <input type="number" min="0" value={get('customer_reminder_hours')} onChange={e => set('customer_reminder_hours', e.target.value)}
+                className="tb-input w-32" placeholder="48" />
+              <p className="text-xs text-gray-500 mt-1">Send reminder to customers with pending tickets. Set to 0 to disable.</p>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <button onClick={() => saveKeys(['auto_close_days', 'auto_state_transitions', 'idle_ticket_alert_hours', 'customer_reminder_hours'])}
+              disabled={saving} className="tb-btn-success flex items-center gap-2">
+              <Save className="w-4 h-4" /> {saving ? 'Saving...' : 'Save Automation Settings'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Tab: Jira */}
+      {activeTab === 'jira' && (
+        <div className="tb-card p-6">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-1 flex items-center gap-2">
+            <ExternalLink className="w-5 h-5" /> Jira Integration
+          </h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+            Connect to your Jira instance to create and track issues from tickets.
+          </p>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Jira Base URL</label>
+              <input type="url" value={get('jira_base_url')} onChange={e => set('jira_base_url', e.target.value)}
+                className="tb-input" placeholder="https://yourcompany.atlassian.net" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">API Email</label>
+              <input type="email" value={get('jira_api_email')} onChange={e => set('jira_api_email', e.target.value)}
+                className="tb-input" placeholder="you@company.com" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">API Token</label>
+              <input type="password" value={get('jira_api_token')} onChange={e => set('jira_api_token', e.target.value)}
+                className="tb-input" placeholder="Jira API token" />
+              <p className="text-xs text-gray-500 mt-1">Generate at: id.atlassian.com/manage-profile/security/api-tokens</p>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Default Project Key</label>
+                <input type="text" value={get('jira_project_key')} onChange={e => set('jira_project_key', e.target.value.toUpperCase())}
+                  className="tb-input font-mono" placeholder="SUP" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Default Issue Type</label>
+                <input type="text" value={get('jira_issue_type')} onChange={e => set('jira_issue_type', e.target.value)}
+                  className="tb-input" placeholder="Bug" />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <button onClick={() => saveKeys(['jira_base_url', 'jira_api_email', 'jira_api_token', 'jira_project_key', 'jira_issue_type'])}
+              disabled={saving} className="tb-btn-success flex items-center gap-2">
+              <Save className="w-4 h-4" /> {saving ? 'Saving...' : 'Save Jira Settings'}
             </button>
           </div>
         </div>

@@ -5,7 +5,8 @@ import { StatusBadge, PriorityBadge } from '../../components/StatusBadge';
 import {
   Brain, FileText, RefreshCw, MessageSquare, Send, Lock, Clock, ShieldAlert,
   Trash2, Tag, X, Plus, PlusCircle, ArrowRightCircle, UserCheck, AlertTriangle,
-  MessageSquarePlus, Image as ImageIcon, Star
+  MessageSquarePlus, Image as ImageIcon, Star, Upload, Paperclip, Link2, Users, ExternalLink,
+  Timer, Sparkles, BookOpen
 } from 'lucide-react';
 
 function timeAgo(dateStr: string) {
@@ -58,40 +59,90 @@ export default function TicketDetail() {
   // Satisfaction
   const [satisfaction, setSatisfaction] = useState<any>(null);
 
+  // File upload
+  const [uploadingFiles, setUploadingFiles] = useState(false);
+
+  // CC users
+  const [ccUsers, setCcUsers] = useState<any[]>([]);
+  const [newCcEmail, setNewCcEmail] = useState('');
+
+  // Linked tickets
+  const [linkedTickets, setLinkedTickets] = useState<any[]>([]);
+  const [linkInput, setLinkInput] = useState('');
+  const [linkType, setLinkType] = useState('related');
+
+  // Jira
+  const [jiraInput, setJiraInput] = useState('');
+  const [editingJira, setEditingJira] = useState(false);
+
+  // Time entries
+  const [timeEntries, setTimeEntries] = useState<any[]>([]);
+  const [showTimeForm, setShowTimeForm] = useState(false);
+  const [timeHours, setTimeHours] = useState('');
+  const [timeDesc, setTimeDesc] = useState('');
+  const [timeChargeable, setTimeChargeable] = useState(true);
+
+  // AI suggestion
+  const [aiSuggestion, setAiSuggestion] = useState('');
+  const [suggestingReply, setSuggestingReply] = useState(false);
+
+  // Jira live status
+  const [jiraStatus, setJiraStatus] = useState<any>(null);
+
+  // Support both numeric ID and ticket number (TKT-xxx)
+  const isNumeric = /^\d+$/.test(id!);
+
   const load = () => {
     setLoading(true);
-    Promise.all([
-      ticketsApi.get(parseInt(id!)),
-      engineersApi.list(),
-      ticketsApi.getResponses(parseInt(id!)),
-      ticketsApi.getTags(parseInt(id!)).catch(() => []),
-      ticketsApi.getActivities(parseInt(id!)).catch(() => []),
-      ticketsApi.getSatisfaction(parseInt(id!)).catch(() => null),
-    ])
-      .then(([t, e, r, tg, act, sat]) => {
-        setTicket(t); setEngineers(e); setResponses(r); setTags(tg); setActivities(act);
+    const getTicket = isNumeric ? ticketsApi.get(parseInt(id!)) : ticketsApi.getByNumber(id!);
+    getTicket.then((t: any) => {
+      setTicket(t);
+      setJiraInput(t.jiraIssueKey || '');
+      return Promise.all([
+        engineersApi.list(),
+        ticketsApi.getResponses(t.id),
+        ticketsApi.getTags(t.id).catch(() => []),
+        ticketsApi.getActivities(t.id).catch(() => []),
+        ticketsApi.getSatisfaction(t.id).catch(() => null),
+        ticketsApi.getCcUsers(t.id).catch(() => []),
+        ticketsApi.getLinkedTickets(t.id).catch(() => []),
+        ticketsApi.getTimeEntries(t.id).catch(() => []),
+      ]);
+    })
+      .then(([e, r, tg, act, sat, cc, links, te]) => {
+        setEngineers(e); setResponses(r); setTags(tg); setActivities(act);
         if (sat && sat.rating) setSatisfaction(sat);
+        setCcUsers(cc); setLinkedTickets(links); setTimeEntries(te);
       })
       .catch(console.error).finally(() => setLoading(false));
+    // Fetch Jira status separately (async, non-blocking)
+    getTicket.then((t: any) => {
+      if (t.jiraIssueKey) {
+        ticketsApi.getJiraStatus(t.id).then(setJiraStatus).catch(() => {});
+      }
+    });
   };
 
   const loadResponses = () => {
-    ticketsApi.getResponses(parseInt(id!)).then(setResponses).catch(console.error);
+    if (!ticket) return;
+    ticketsApi.getResponses(ticket.id).then(setResponses).catch(console.error);
   };
 
   const loadTags = () => {
-    ticketsApi.getTags(parseInt(id!)).then(setTags).catch(console.error);
+    if (!ticket) return;
+    ticketsApi.getTags(ticket.id).then(setTags).catch(console.error);
   };
 
   const loadActivities = () => {
-    ticketsApi.getActivities(parseInt(id!)).then(setActivities).catch(console.error);
+    if (!ticket) return;
+    ticketsApi.getActivities(ticket.id).then(setActivities).catch(console.error);
   };
 
   const handleSendResponse = async () => {
-    if (!responseMessage.trim()) return;
+    if (!responseMessage.trim() || !ticket) return;
     setSendingResponse(true);
     try {
-      await ticketsApi.addResponse(parseInt(id!), responseMessage.trim(), isInternal);
+      await ticketsApi.addResponse(ticket.id, responseMessage.trim(), isInternal);
       setResponseMessage('');
       setIsInternal(false);
       loadResponses();
@@ -113,34 +164,38 @@ export default function TicketDetail() {
   }, [showCanned]);
 
   const handleStatusChange = async (status: string) => {
+    if (!ticket) return;
     setActionLoading('status');
-    await ticketsApi.updateStatus(parseInt(id!), status).catch(console.error);
+    await ticketsApi.updateStatus(ticket.id, status).catch(console.error);
     load(); setActionLoading('');
   };
 
   const handlePriorityChange = async (priority: string) => {
+    if (!ticket) return;
     setActionLoading('priority');
-    await ticketsApi.updatePriority(parseInt(id!), priority).catch(console.error);
+    await ticketsApi.updatePriority(ticket.id, priority).catch(console.error);
     load(); setActionLoading('');
   };
 
   const handleAssign = async (engineerId: number) => {
+    if (!ticket) return;
     setActionLoading('assign');
-    await ticketsApi.assign(parseInt(id!), engineerId).catch(console.error);
+    await ticketsApi.assign(ticket.id, engineerId).catch(console.error);
     load(); setActionLoading('');
   };
 
   const handleReanalyze = async () => {
+    if (!ticket) return;
     setActionLoading('analyze');
-    await ticketsApi.analyze(parseInt(id!)).catch(console.error);
+    await ticketsApi.analyze(ticket.id).catch(console.error);
     setTimeout(load, 2000); setActionLoading('');
   };
 
   const handleDelete = async () => {
-    if (!window.confirm(`Delete ticket ${ticket.ticketNumber}? This cannot be undone.`)) return;
+    if (!ticket || !window.confirm(`Delete ticket ${ticket.ticketNumber}? This cannot be undone.`)) return;
     setActionLoading('delete');
     try {
-      await ticketsApi.delete(parseInt(id!));
+      await ticketsApi.delete(ticket.id);
       navigate('/admin/tickets');
     } catch (err) {
       console.error(err);
@@ -150,9 +205,9 @@ export default function TicketDetail() {
 
   const handleAddTag = async () => {
     const t = newTag.trim();
-    if (!t) return;
+    if (!t || !ticket) return;
     try {
-      await ticketsApi.addTag(parseInt(id!), t);
+      await ticketsApi.addTag(ticket.id, t);
       setNewTag('');
       loadTags();
       loadActivities();
@@ -160,8 +215,9 @@ export default function TicketDetail() {
   };
 
   const handleRemoveTag = async (tag: string) => {
+    if (!ticket) return;
     try {
-      await ticketsApi.removeTag(parseInt(id!), tag);
+      await ticketsApi.removeTag(ticket.id, tag);
       loadTags();
       loadActivities();
     } catch (err) { console.error(err); }
@@ -206,11 +262,15 @@ export default function TicketDetail() {
             </div>
           )}
 
-          {/* Attachments with Image Previews */}
-          {ticket.attachments?.length > 0 && (
-            <div className="tb-card p-6">
-              <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Attachments</h3>
-              <div className="space-y-3">
+          {/* Attachments with Image Previews + Upload */}
+          <div className="tb-card p-6">
+            <div className="flex items-center gap-2 mb-3">
+              <Paperclip className="w-5 h-5 text-accent-blue" />
+              <h3 className="font-semibold text-gray-900 dark:text-white">Attachments</h3>
+              <span className="ml-auto text-sm text-gray-500">{ticket.attachments?.length || 0} file{ticket.attachments?.length !== 1 ? 's' : ''}</span>
+            </div>
+            {ticket.attachments?.length > 0 && (
+              <div className="space-y-3 mb-4">
                 {ticket.attachments.map((att: any) => (
                   <div key={att.id}>
                     {isImageFile(att.original_name || att.filename) ? (
@@ -238,8 +298,37 @@ export default function TicketDetail() {
                   </div>
                 ))}
               </div>
+            )}
+            {/* Upload more files */}
+            <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
+              <label className={`inline-flex items-center gap-2 px-4 py-2 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium cursor-pointer transition-colors ${
+                uploadingFiles ? 'opacity-50 cursor-not-allowed' : 'text-gray-600 dark:text-gray-300 hover:border-accent-blue hover:text-accent-blue'
+              }`}>
+                <Upload className="w-4 h-4" />
+                {uploadingFiles ? 'Uploading...' : 'Add Files'}
+                <input
+                  type="file"
+                  multiple
+                  className="hidden"
+                  disabled={uploadingFiles}
+                  accept="image/*,.pdf,.txt,.csv,.log,.json,.zip,.pcap,.pcapng,.gz,.tgz"
+                  onChange={async (e) => {
+                    if (!e.target.files?.length || !ticket) return;
+                    setUploadingFiles(true);
+                    try {
+                      const formData = new FormData();
+                      for (const file of Array.from(e.target.files)) formData.append('files', file);
+                      await ticketsApi.addAttachments(ticket.id, formData);
+                      load();
+                    } catch (err) { console.error(err); }
+                    setUploadingFiles(false);
+                    e.target.value = '';
+                  }}
+                />
+              </label>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">PDF, images, text, log, JSON, PCAP, ZIP (max 10MB per file)</p>
             </div>
-          )}
+          </div>
 
           {aiAnalysis && (
             <div className="tb-card border-purple-500/30 p-6">
@@ -318,15 +407,16 @@ export default function TicketDetail() {
 
             {/* Response Form */}
             <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-              {/* Canned Responses Picker */}
-              <div className="relative mb-3">
-                <button
-                  onClick={() => setShowCanned(!showCanned)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:border-accent-blue hover:text-accent-blue transition-colors"
-                >
-                  <MessageSquarePlus className="w-4 h-4" />
-                  Canned Responses
-                </button>
+              {/* Response Tools */}
+              <div className="flex items-center gap-2 mb-3 flex-wrap">
+                <div className="relative">
+                  <button
+                    onClick={() => setShowCanned(!showCanned)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:border-accent-blue hover:text-accent-blue transition-colors"
+                  >
+                    <MessageSquarePlus className="w-4 h-4" />
+                    Canned Responses
+                  </button>
                 {showCanned && (
                   <div className="absolute z-10 mt-1 w-80 max-h-64 overflow-y-auto bg-white dark:bg-tb-card border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
                     {cannedList.length === 0 ? (
@@ -348,7 +438,45 @@ export default function TicketDetail() {
                     )}
                   </div>
                 )}
+                </div>
+                <button
+                  onClick={async () => {
+                    if (!ticket) return;
+                    setSuggestingReply(true);
+                    try {
+                      const result = await ticketsApi.suggestReply(ticket.id);
+                      if (result.suggestion) setResponseMessage(result.suggestion);
+                      if (result.note) setAiSuggestion(result.note);
+                    } catch (err) { console.error(err); }
+                    setSuggestingReply(false);
+                  }}
+                  disabled={suggestingReply}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-purple-400 border border-purple-400/30 rounded-lg hover:bg-purple-500/10 disabled:opacity-50 transition-colors"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  {suggestingReply ? 'Thinking...' : 'AI Suggest'}
+                </button>
+                {(ticket.status === 'resolved' || ticket.status === 'closed') && (
+                  <button
+                    onClick={async () => {
+                      if (!ticket) return;
+                      try {
+                        await ticketsApi.createKbArticle(ticket.id);
+                        alert('Knowledge base article created!');
+                        loadActivities();
+                      } catch (err) { console.error(err); }
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-green-500 border border-green-500/30 rounded-lg hover:bg-green-500/10 transition-colors"
+                  >
+                    <BookOpen className="w-4 h-4" />
+                    Save to KB
+                  </button>
+                )}
               </div>
+
+              {aiSuggestion && (
+                <p className="text-xs text-purple-400 mb-2">{aiSuggestion}</p>
+              )}
 
               <textarea
                 value={responseMessage}
@@ -407,6 +535,72 @@ export default function TicketDetail() {
               </div>
             </div>
           )}
+
+          {/* Time Entries */}
+          <div className="tb-card p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Timer className="w-5 h-5 text-accent-blue" />
+              <h3 className="font-semibold text-gray-900 dark:text-white">Time Tracking</h3>
+              <span className="ml-auto text-sm text-gray-500">
+                {timeEntries.reduce((sum: number, e: any) => sum + e.hours, 0).toFixed(1)}h total
+              </span>
+            </div>
+
+            {timeEntries.length > 0 && (
+              <div className="space-y-2 mb-4">
+                {timeEntries.map((entry: any) => (
+                  <div key={entry.id} className="flex items-center justify-between text-sm p-2 bg-gray-50 dark:bg-white/5 rounded">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-gray-700 dark:text-gray-200">{entry.hours}h</span>
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${entry.is_chargeable ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-400'}`}>
+                          {entry.is_chargeable ? 'Chargeable' : 'Non-chargeable'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-500 truncate">{entry.description}</p>
+                      <p className="text-xs text-gray-400">{entry.author_name} - {entry.date}</p>
+                    </div>
+                    <button onClick={async () => { if (!ticket) return; await ticketsApi.deleteTimeEntry(ticket.id, entry.id); ticketsApi.getTimeEntries(ticket.id).then(setTimeEntries); }}
+                      className="text-gray-400 hover:text-red-400 ml-2"><Trash2 className="w-3 h-3" /></button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {showTimeForm ? (
+              <div className="space-y-2 p-3 bg-gray-50 dark:bg-white/5 rounded-lg">
+                <div className="flex gap-2">
+                  <input type="number" step="0.25" min="0.25" value={timeHours} onChange={e => setTimeHours(e.target.value)}
+                    placeholder="Hours" className="tb-input w-20 text-sm" />
+                  <input type="text" value={timeDesc} onChange={e => setTimeDesc(e.target.value)}
+                    placeholder="What did you do?" className="tb-input flex-1 text-sm" />
+                </div>
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center gap-2 text-xs text-gray-500 cursor-pointer">
+                    <input type="checkbox" checked={timeChargeable} onChange={e => setTimeChargeable(e.target.checked)}
+                      className="rounded border-gray-300 dark:border-gray-600 text-accent-blue" />
+                    Chargeable
+                  </label>
+                  <div className="flex gap-2">
+                    <button onClick={() => setShowTimeForm(false)} className="text-xs text-gray-500 hover:text-gray-700">Cancel</button>
+                    <button onClick={async () => {
+                      if (!timeHours || !timeDesc.trim() || !ticket) return;
+                      await ticketsApi.addTimeEntry(ticket.id, { hours: parseFloat(timeHours), description: timeDesc, isChargeable: timeChargeable });
+                      setTimeHours(''); setTimeDesc(''); setShowTimeForm(false);
+                      ticketsApi.getTimeEntries(ticket.id).then(setTimeEntries);
+                      loadActivities();
+                    }} disabled={!timeHours || !timeDesc.trim()}
+                      className="px-3 py-1 text-xs font-medium bg-accent-blue text-white rounded hover:bg-accent-blue/80 disabled:opacity-50">Add</button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <button onClick={() => setShowTimeForm(true)}
+                className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium text-accent-blue border border-dashed border-accent-blue/30 rounded-lg hover:bg-accent-blue/5 transition-colors">
+                <Plus className="w-4 h-4" /> Log Time
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Sidebar */}
@@ -419,6 +613,43 @@ export default function TicketDetail() {
               <div><p className="text-gray-500">Customer</p><p className="font-medium text-gray-700 dark:text-gray-200">{ticket.customer.name}</p><p className="text-gray-500">{ticket.customer.email}</p></div>
               <div><p className="text-gray-500">Assigned Engineer</p><p className="font-medium text-gray-700 dark:text-gray-200">{ticket.assignedEngineer?.name || 'Unassigned'}</p></div>
               <div><p className="text-gray-500">Created</p><p className="font-medium text-gray-700 dark:text-gray-200">{new Date(ticket.createdAt).toLocaleString()}</p></div>
+              {ticket.resolvedAt && (
+                <div><p className="text-gray-500">Resolved</p><p className="font-medium text-gray-700 dark:text-gray-200">{new Date(ticket.resolvedAt).toLocaleString()}</p></div>
+              )}
+              {/* Time since last response */}
+              {responses.length > 0 && (
+                <>
+                  <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+                    <p className="text-gray-500">Last Response</p>
+                    <p className="font-medium text-gray-700 dark:text-gray-200">
+                      {timeAgo(responses[responses.length - 1].created_at)}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      by {responses[responses.length - 1].author_name} ({responses[responses.length - 1].author_role})
+                    </p>
+                  </div>
+                  {(() => {
+                    const lastCustomerResponse = [...responses].reverse().find((r: any) => r.author_role === 'customer');
+                    const lastAdminResponse = [...responses].reverse().find((r: any) => r.author_role === 'admin' && !r.is_internal);
+                    return (
+                      <>
+                        {lastCustomerResponse && (
+                          <div>
+                            <p className="text-gray-500">Last Customer Reply</p>
+                            <p className="font-medium text-gray-700 dark:text-gray-200">{timeAgo(lastCustomerResponse.created_at)}</p>
+                          </div>
+                        )}
+                        {lastAdminResponse && (
+                          <div>
+                            <p className="text-gray-500">Last Admin Reply</p>
+                            <p className="font-medium text-gray-700 dark:text-gray-200">{timeAgo(lastAdminResponse.created_at)}</p>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
+                </>
+              )}
             </div>
           </div>
 
@@ -458,13 +689,131 @@ export default function TicketDetail() {
             </div>
           </div>
 
+          {/* CC Users Card */}
+          <div className="tb-card p-6">
+            <div className="flex items-center gap-2 mb-3">
+              <Users className="w-4 h-4 text-accent-blue" />
+              <h3 className="font-semibold text-gray-900 dark:text-white">CC</h3>
+            </div>
+            <div className="space-y-1.5 mb-3">
+              {ccUsers.length === 0 ? (
+                <p className="text-sm text-gray-500 dark:text-gray-400">No CC users</p>
+              ) : (
+                ccUsers.map((cc: any) => (
+                  <div key={cc.id} className="flex items-center justify-between text-xs">
+                    <span className="text-gray-700 dark:text-gray-200 truncate" title={cc.email}>{cc.name || cc.email}</span>
+                    <button onClick={async () => { if (!ticket) return; await ticketsApi.removeCcUser(ticket.id, cc.email); ticketsApi.getCcUsers(ticket.id).then(setCcUsers); }}
+                      className="text-gray-400 hover:text-red-400 ml-1"><X className="w-3 h-3" /></button>
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="flex gap-2">
+              <input type="email" value={newCcEmail} onChange={e => setNewCcEmail(e.target.value)}
+                onKeyDown={async e => { if (e.key === 'Enter' && newCcEmail.trim() && ticket) { await ticketsApi.addCcUser(ticket.id, newCcEmail.trim()); setNewCcEmail(''); ticketsApi.getCcUsers(ticket.id).then(setCcUsers); } }}
+                placeholder="Add CC email..." className="tb-input flex-1 text-sm" />
+              <button onClick={async () => { if (!newCcEmail.trim() || !ticket) return; await ticketsApi.addCcUser(ticket.id, newCcEmail.trim()); setNewCcEmail(''); ticketsApi.getCcUsers(ticket.id).then(setCcUsers); }}
+                disabled={!newCcEmail.trim()} className="p-2 text-accent-blue hover:bg-accent-blue/10 rounded-lg disabled:opacity-50 transition-colors">
+                <Plus className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Linked Tickets Card */}
+          <div className="tb-card p-6">
+            <div className="flex items-center gap-2 mb-3">
+              <Link2 className="w-4 h-4 text-accent-blue" />
+              <h3 className="font-semibold text-gray-900 dark:text-white">Linked Tickets</h3>
+            </div>
+            <div className="space-y-2 mb-3">
+              {linkedTickets.length === 0 ? (
+                <p className="text-sm text-gray-500 dark:text-gray-400">No linked tickets</p>
+              ) : (
+                linkedTickets.map((link: any) => (
+                  <div key={link.id} className="flex items-center justify-between text-xs p-2 bg-gray-50 dark:bg-white/5 rounded">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="px-1.5 py-0.5 bg-gray-200 dark:bg-gray-600 rounded text-[10px] font-medium uppercase">{link.link_type}</span>
+                      <a href={`/admin/tickets/${link.linked_ticket_id}`} className="text-accent-blue hover:underline truncate font-mono">{link.ticket_number}</a>
+                      <StatusBadge status={link.status} />
+                    </div>
+                    <button onClick={async () => { if (!ticket) return; await ticketsApi.unlinkTicket(ticket.id, link.id); ticketsApi.getLinkedTickets(ticket.id).then(setLinkedTickets); }}
+                      className="text-gray-400 hover:text-red-400 ml-1 flex-shrink-0"><X className="w-3 h-3" /></button>
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="space-y-2">
+              <div className="flex gap-2">
+                <input type="text" value={linkInput} onChange={e => setLinkInput(e.target.value)}
+                  placeholder="Ticket # or ID..." className="tb-input flex-1 text-sm" />
+                <select value={linkType} onChange={e => setLinkType(e.target.value)} className="tb-select text-xs w-24">
+                  <option value="related">Related</option>
+                  <option value="parent">Parent</option>
+                  <option value="child">Child</option>
+                  <option value="duplicate">Duplicate</option>
+                </select>
+              </div>
+              <button onClick={async () => {
+                if (!linkInput.trim() || !ticket) return;
+                await ticketsApi.linkTicket(ticket.id, linkInput.trim(), linkType);
+                setLinkInput('');
+                ticketsApi.getLinkedTickets(ticket.id).then(setLinkedTickets);
+                loadActivities();
+              }} disabled={!linkInput.trim()}
+                className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium text-accent-blue border border-accent-blue/30 rounded-lg hover:bg-accent-blue/10 disabled:opacity-50 transition-colors">
+                <Link2 className="w-3.5 h-3.5" /> Link Ticket
+              </button>
+            </div>
+          </div>
+
+          {/* Jira Issue Card */}
+          <div className="tb-card p-6">
+            <div className="flex items-center gap-2 mb-3">
+              <ExternalLink className="w-4 h-4 text-accent-blue" />
+              <h3 className="font-semibold text-gray-900 dark:text-white">Jira Issue</h3>
+            </div>
+            {!editingJira && ticket.jiraIssueKey ? (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <a href={jiraStatus?.url || '#'} target="_blank" rel="noreferrer"
+                    className="text-sm font-mono text-accent-blue hover:underline">{ticket.jiraIssueKey}</a>
+                  <button onClick={() => setEditingJira(true)} className="text-xs text-gray-500 hover:text-accent-blue">Edit</button>
+                </div>
+                {jiraStatus && (
+                  <div className="text-xs space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-500">Status:</span>
+                      <span className="px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded font-medium">{jiraStatus.status}</span>
+                    </div>
+                    {jiraStatus.summary && (
+                      <p className="text-gray-500 truncate" title={jiraStatus.summary}>{jiraStatus.summary}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <input type="text" value={jiraInput} onChange={e => setJiraInput(e.target.value.toUpperCase())}
+                  placeholder="e.g., PROJ-123" className="tb-input flex-1 text-sm font-mono" />
+                <button onClick={async () => {
+                  if (!ticket) return;
+                  await ticketsApi.updateJiraKey(ticket.id, jiraInput.trim());
+                  setEditingJira(false);
+                  load();
+                }} className="px-3 py-1.5 text-sm font-medium bg-accent-blue text-white rounded-lg hover:bg-accent-blue/80 transition-colors">
+                  Save
+                </button>
+              </div>
+            )}
+          </div>
+
           <div className="tb-card p-6">
             <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Actions</h3>
             <div className="space-y-3">
               <div>
                 <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Change Status</label>
                 <select value={ticket.status} onChange={e => handleStatusChange(e.target.value)} disabled={!!actionLoading} className="tb-select w-full">
-                  {['new', 'analyzing', 'assigned', 'in_progress', 'pending_info', 'resolved', 'closed'].map(s => (
+                  {['new', 'analyzing', 'assigned', 'in_progress', 'pending_info', 'escalated_to_jira', 'resolved', 'closed'].map(s => (
                     <option key={s} value={s}>{s.replace('_', ' ')}</option>
                   ))}
                 </select>
@@ -489,6 +838,22 @@ export default function TicketDetail() {
                 <RefreshCw className={`w-4 h-4 ${actionLoading === 'analyze' ? 'animate-spin' : ''}`} />
                 Re-analyze with AI
               </button>
+              {ticket.status !== 'escalated_to_jira' && !ticket.jiraIssueKey && (
+                <button onClick={async () => {
+                  if (!ticket || !window.confirm('Escalate this ticket to Jira? This will create a Jira issue and change the status.')) return;
+                  setActionLoading('jira');
+                  try {
+                    const result = await ticketsApi.escalateToJira(ticket.id);
+                    alert(`Jira issue created: ${result.issueKey}`);
+                    load();
+                  } catch (err: any) { alert(err.message); }
+                  setActionLoading('');
+                }} disabled={!!actionLoading}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-orange-500/20 text-orange-400 rounded-lg text-sm font-medium hover:bg-orange-500/30 disabled:opacity-50 transition-colors">
+                  <ExternalLink className="w-4 h-4" />
+                  {actionLoading === 'jira' ? 'Creating...' : 'Escalate to Jira'}
+                </button>
+              )}
               <button onClick={handleDelete} disabled={!!actionLoading}
                 className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-500/20 text-red-500 rounded-lg text-sm font-medium hover:bg-red-500/30 disabled:opacity-50 transition-colors">
                 <Trash2 className="w-4 h-4" />

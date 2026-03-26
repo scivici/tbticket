@@ -9,7 +9,7 @@ const router = Router();
 router.get('/track/:ticketNumber', ticketsController.trackTicket);
 
 // Authenticated or anonymous (with optional auth)
-router.post('/', optionalAuth, upload.array('files', 5), ticketsController.createTicket);
+router.post('/', optionalAuth, upload.array('files', 10), ticketsController.createTicket);
 
 // Authenticated
 router.get('/', authenticate, ticketsController.listTickets);
@@ -20,6 +20,9 @@ router.post('/bulk/assign', authenticate, requireAdmin, ticketsController.bulkAs
 router.post('/bulk/delete', authenticate, requireAdmin, ticketsController.bulkDelete);
 
 router.get('/:id', authenticate, ticketsController.getTicket);
+
+// Authenticated - attachments
+router.post('/:id/attachments', authenticate, upload.array('files', 10), ticketsController.addAttachments);
 
 // Authenticated - responses
 router.get('/:id/responses', authenticate, ticketsController.getResponses);
@@ -33,6 +36,27 @@ router.get('/:id/tags', authenticate, ticketsController.getTags);
 router.post('/:id/tags', authenticate, requireAdmin, ticketsController.addTag);
 router.delete('/:id/tags/:tag', authenticate, requireAdmin, ticketsController.removeTag);
 
+// Authenticated - CC users
+router.get('/:id/cc', authenticate, ticketsController.getCcUsers);
+router.post('/:id/cc', authenticate, ticketsController.addCcUser);
+router.delete('/:id/cc/:email', authenticate, ticketsController.removeCcUser);
+
+// Authenticated - linked tickets
+router.get('/:id/links', authenticate, ticketsController.getLinkedTickets);
+router.post('/:id/links', authenticate, requireAdmin, ticketsController.linkTicket);
+router.delete('/:id/links/:linkId', authenticate, requireAdmin, ticketsController.unlinkTicket);
+
+// Time entries
+router.get('/:id/time-entries', authenticate, ticketsController.getTimeEntries);
+router.post('/:id/time-entries', authenticate, requireAdmin, ticketsController.addTimeEntry);
+router.delete('/:id/time-entries/:entryId', authenticate, requireAdmin, ticketsController.deleteTimeEntry);
+
+// AI suggested reply
+router.post('/:id/suggest-reply', authenticate, requireAdmin, ticketsController.suggestReply);
+
+// Convert to KB article
+router.post('/:id/create-kb-article', authenticate, requireAdmin, ticketsController.createKbArticle);
+
 // Customer submits satisfaction (authenticated, before admin-only routes)
 router.post('/:id/satisfaction', authenticate, ticketsController.submitSatisfaction);
 router.get('/:id/satisfaction', authenticate, ticketsController.getSatisfaction);
@@ -41,6 +65,9 @@ router.get('/:id/satisfaction', authenticate, ticketsController.getSatisfaction)
 router.patch('/:id/status', authenticate, requireAdmin, ticketsController.updateStatus);
 router.patch('/:id/assign', authenticate, requireAdmin, ticketsController.assignEngineer);
 router.patch('/:id/priority', authenticate, requireAdmin, ticketsController.updatePriority);
+router.patch('/:id/jira', authenticate, requireAdmin, ticketsController.updateJiraKey);
+router.post('/:id/escalate-jira', authenticate, requireAdmin, ticketsController.escalateToJira);
+router.get('/:id/jira-status', authenticate, requireAdmin, ticketsController.getJiraStatus);
 router.post('/:id/analyze', authenticate, requireAdmin, ticketsController.reanalyzeTicket);
 router.delete('/:id', authenticate, requireAdmin, ticketsController.deleteTicket);
 

@@ -6,8 +6,8 @@ export const config = {
   jwtExpiresIn: '24h',
   dbPath: process.env.DB_PATH || path.join(__dirname, '..', 'data', 'tickets.db'),
   uploadDir: process.env.UPLOAD_DIR || path.join(__dirname, '..', 'uploads'),
-  maxFileSize: 10 * 1024 * 1024, // 10MB
-  maxFiles: 5,
+  maxFileSize: 100 * 1024 * 1024, // 100MB per file
+  maxFiles: 10,
   claudeServerUrl: process.env.CLAUDE_SERVER_URL || 'http://claude-support-2.telcobridges.lan',
   claudeUser: process.env.CLAUDE_USER || 'support',
   claudePass: process.env.CLAUDE_PASS || 'support',

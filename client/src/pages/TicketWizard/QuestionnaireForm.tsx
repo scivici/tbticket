@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { products as productsApi, settings as settingsApi } from '../../api/client';
 import { WizardData } from './WizardContainer';
-import { Key, AlertTriangle, ExternalLink, Loader2 } from 'lucide-react';
+import { Key, AlertTriangle, ExternalLink, Loader2, Info } from 'lucide-react';
 
 interface Props {
   data: WizardData;
@@ -11,7 +11,7 @@ interface Props {
 }
 
 // Product Key / Serial Number config per product
-function getProductKeyConfig(product: any): { label: string; placeholder: string; pattern: RegExp; hint: string } | null {
+function getProductKeyConfig(product: any): { label: string; placeholder: string; pattern: RegExp; hint: string; helpText?: string } | null {
   if (!product) return null;
   const name = (product.name || '').toLowerCase();
 
@@ -21,6 +21,7 @@ function getProductKeyConfig(product: any): { label: string; placeholder: string
       placeholder: 'VTB-XXXX-XXXX',
       pattern: /^VTB-[A-Za-z0-9]{4}-[A-Za-z0-9]{4}$/,
       hint: 'Format: VTB-XXXX-XXXX (e.g., VTB-1A2V-3C4D)',
+      helpText: 'You can find your Product Key in the ProSBC web interface under System > License, or in the license file provided at purchase.',
     };
   }
 
@@ -30,6 +31,7 @@ function getProductKeyConfig(product: any): { label: string; placeholder: string
       placeholder: 'TB0XXXXX',
       pattern: /^TB0\d{5}$/,
       hint: 'Format: TB0 followed by 5 digits (e.g., TB021234)',
+      helpText: 'The Serial Number is printed on the label on the back/bottom of your unit. It starts with "TB0" followed by 5 digits.',
     };
   }
 
@@ -136,6 +138,12 @@ export default function QuestionnaireForm({ data, onUpdate, onNext, onPrev }: Pr
             className={`tb-input font-mono tracking-wider ${errors.productKey ? 'border-red-500' : ''}`}
           />
           <p className="text-xs text-gray-500 mt-1">{keyConfig.hint}</p>
+          {keyConfig.helpText && (
+            <div className="mt-2 flex items-start gap-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded text-xs text-blue-700 dark:text-blue-300">
+              <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+              <span>{keyConfig.helpText}</span>
+            </div>
+          )}
           {errors.productKey && <p className="text-red-400 text-xs mt-1 font-medium">{errors.productKey}</p>}
         </div>
       )}

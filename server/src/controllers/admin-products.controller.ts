@@ -20,7 +20,7 @@ export function createProduct(req: Request, res: Response): void {
 export function updateProduct(req: Request, res: Response): void {
   const db = getDb();
   const { id } = req.params;
-  const { name, model, description, imageUrl } = req.body;
+  const { name, model, description, imageUrl, requiredFields } = req.body;
 
   const existing = db.prepare('SELECT id FROM products WHERE id = ?').get(id);
   if (!existing) {
@@ -30,9 +30,10 @@ export function updateProduct(req: Request, res: Response): void {
 
   db.prepare(`
     UPDATE products SET name = COALESCE(?, name), model = COALESCE(?, model),
-    description = COALESCE(?, description), image_url = COALESCE(?, image_url)
+    description = COALESCE(?, description), image_url = COALESCE(?, image_url),
+    required_fields = COALESCE(?, required_fields)
     WHERE id = ?
-  `).run(name, model, description, imageUrl, id);
+  `).run(name, model, description, imageUrl, requiredFields ? JSON.stringify(requiredFields) : null, id);
 
   res.json({ message: 'Product updated' });
 }

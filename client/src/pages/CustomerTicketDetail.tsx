@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { tickets as ticketsApi } from '../api/client';
 import { StatusBadge, PriorityBadge } from '../components/StatusBadge';
 import { useAuth } from '../context/AuthContext';
-import { MessageSquare, Send, Clock, FileText, ArrowLeft, Star } from 'lucide-react';
+import { MessageSquare, Send, Clock, FileText, ArrowLeft, Star, Upload, Paperclip } from 'lucide-react';
 
 export default function CustomerTicketDetail() {
   const { id } = useParams();
@@ -14,6 +14,7 @@ export default function CustomerTicketDetail() {
   const [responseMessage, setResponseMessage] = useState('');
   const [sendingResponse, setSendingResponse] = useState(false);
   const [error, setError] = useState('');
+  const [uploadingFiles, setUploadingFiles] = useState(false);
 
   // Satisfaction
   const [satisfaction, setSatisfaction] = useState<any>(null);
@@ -33,12 +34,12 @@ export default function CustomerTicketDetail() {
   };
 
   const handleSubmitSatisfaction = async () => {
-    if (satRating === 0) return;
+    if (satRating === 0 || !ticket) return;
     setSatSubmitting(true);
     try {
-      await ticketsApi.submitSatisfaction(parseInt(id!), satRating, satComment.trim() || undefined);
+      await ticketsApi.submitSatisfaction(ticket.id, satRating, satComment.trim() || undefined);
       setSatSubmitted(true);
-      loadSatisfaction(parseInt(id!));
+      loadSatisfaction(ticket.id);
     } catch (err) {
       console.error(err);
     } finally {
@@ -46,31 +47,41 @@ export default function CustomerTicketDetail() {
     }
   };
 
+  // Support both numeric ID and ticket number (TKT-xxx)
+  const ticketIdOrNumber = id!;
+  const isNumeric = /^\d+$/.test(ticketIdOrNumber);
+
   const load = () => {
     setLoading(true);
-    Promise.all([ticketsApi.get(parseInt(id!)), ticketsApi.getResponses(parseInt(id!))])
-      .then(([t, r]) => { setTicket(t); setResponses(r); })
+    const getTicket = isNumeric ? ticketsApi.get(parseInt(ticketIdOrNumber)) : ticketsApi.getByNumber(ticketIdOrNumber);
+    getTicket
+      .then((t: any) => {
+        setTicket(t);
+        return ticketsApi.getResponses(t.id);
+      })
+      .then((r: any) => setResponses(r))
       .catch(err => { console.error(err); setError('Failed to load ticket'); })
       .finally(() => setLoading(false));
   };
 
   const loadResponses = () => {
-    ticketsApi.getResponses(parseInt(id!)).then(setResponses).catch(console.error);
+    if (!ticket) return;
+    ticketsApi.getResponses(ticket.id).then(setResponses).catch(console.error);
   };
 
   useEffect(() => { load(); }, [id]);
 
   useEffect(() => {
     if (ticket && (ticket.status === 'resolved' || ticket.status === 'closed')) {
-      loadSatisfaction(parseInt(id!));
+      loadSatisfaction(ticket.id);
     }
-  }, [ticket?.status, id]);
+  }, [ticket?.status]);
 
   const handleSendResponse = async () => {
-    if (!responseMessage.trim()) return;
+    if (!responseMessage.trim() || !ticket) return;
     setSendingResponse(true);
     try {
-      await ticketsApi.addResponse(parseInt(id!), responseMessage.trim());
+      await ticketsApi.addResponse(ticket.id, responseMessage.trim());
       setResponseMessage('');
       loadResponses();
     } catch (err) {
@@ -130,10 +141,14 @@ export default function CustomerTicketDetail() {
             </div>
           )}
 
-          {ticket.attachments?.length > 0 && (
-            <div className="tb-card p-6">
-              <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Attachments</h3>
-              <div className="space-y-2">
+          <div className="tb-card p-6">
+            <div className="flex items-center gap-2 mb-3">
+              <Paperclip className="w-5 h-5 text-accent-blue" />
+              <h3 className="font-semibold text-gray-900 dark:text-white">Attachments</h3>
+              <span className="ml-auto text-sm text-gray-500">{ticket.attachments?.length || 0} file{ticket.attachments?.length !== 1 ? 's' : ''}</span>
+            </div>
+            {ticket.attachments?.length > 0 && (
+              <div className="space-y-2 mb-4">
                 {ticket.attachments.map((att: any) => (
                   <a key={att.id} href={`/uploads/${att.filename}`} target="_blank" rel="noreferrer"
                     className="flex items-center gap-2 text-accent-blue hover:underline text-sm">
@@ -142,8 +157,37 @@ export default function CustomerTicketDetail() {
                   </a>
                 ))}
               </div>
+            )}
+            {/* Upload more files */}
+            <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
+              <label className={`inline-flex items-center gap-2 px-4 py-2 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium cursor-pointer transition-colors ${
+                uploadingFiles ? 'opacity-50 cursor-not-allowed' : 'text-gray-600 dark:text-gray-300 hover:border-accent-blue hover:text-accent-blue'
+              }`}>
+                <Upload className="w-4 h-4" />
+                {uploadingFiles ? 'Uploading...' : 'Add Files'}
+                <input
+                  type="file"
+                  multiple
+                  className="hidden"
+                  disabled={uploadingFiles}
+                  accept="image/*,.pdf,.txt,.csv,.log,.json,.zip,.pcap,.pcapng,.gz,.tgz"
+                  onChange={async (e) => {
+                    if (!e.target.files?.length || !ticket) return;
+                    setUploadingFiles(true);
+                    try {
+                      const formData = new FormData();
+                      for (const file of Array.from(e.target.files)) formData.append('files', file);
+                      await ticketsApi.addAttachments(ticket.id, formData);
+                      load();
+                    } catch (err) { console.error(err); }
+                    setUploadingFiles(false);
+                    e.target.value = '';
+                  }}
+                />
+              </label>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">PDF, images, text, log, JSON, PCAP, ZIP (max 10MB per file)</p>
             </div>
-          )}
+          </div>
 
           {/* Responses Section */}
           <div className="tb-card p-6">

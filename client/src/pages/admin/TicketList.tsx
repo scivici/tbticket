@@ -1,18 +1,24 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { tickets as ticketsApi, engineers as engineersApi } from '../../api/client';
+import { tickets as ticketsApi, engineers as engineersApi, products as productsApi } from '../../api/client';
 import { StatusBadge, PriorityBadge } from '../../components/StatusBadge';
-import { RefreshCw, Download, Trash2, CheckSquare } from 'lucide-react';
+import { RefreshCw, Download, Trash2, CheckSquare, Search, Filter, X } from 'lucide-react';
+
+const STATUS_OPTIONS = ['new', 'analyzing', 'assigned', 'in_progress', 'pending_info', 'escalated_to_jira', 'resolved', 'closed'];
 
 export default function TicketList() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState<Record<string, string>>({});
+  const [filters, setFilters] = useState<Record<string, string>>({ excludeStatus: 'closed' });
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [engineers, setEngineers] = useState<any[]>([]);
+  const [productsList, setProductsList] = useState<any[]>([]);
   const [bulkStatus, setBulkStatus] = useState('');
   const [bulkEngineer, setBulkEngineer] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+  const [searchText, setSearchText] = useState('');
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const load = () => {
     setLoading(true);
@@ -21,11 +27,27 @@ export default function TicketList() {
     Promise.all([
       ticketsApi.list(params),
       engineersApi.list(),
-    ]).then(([d, e]) => { setData(d); setEngineers(e); })
+      productsApi.list(),
+    ]).then(([d, e, p]) => { setData(d); setEngineers(e); setProductsList(p); })
       .catch(console.error).finally(() => setLoading(false));
   };
 
   useEffect(() => { load(); }, [filters]);
+
+  // Debounced search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setFilters(f => ({ ...f, search: searchText || '' }));
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchText]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setFilters(f => ({ ...f, customerSearch: customerSearch || '' }));
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [customerSearch]);
 
   const toggleSelect = (id: number) => {
     setSelected(prev => {
@@ -86,11 +108,19 @@ export default function TicketList() {
     } catch (err) { console.error(err); }
   };
 
+  const clearFilters = () => {
+    setFilters({ excludeStatus: 'closed' });
+    setSearchText('');
+    setCustomerSearch('');
+  };
+
+  const activeFilterCount = Object.entries(filters).filter(([k, v]) => v && k !== 'excludeStatus' && k !== 'search' && k !== 'customerSearch').length;
+
   const exportCSV = () => {
     if (!data?.tickets?.length) return;
-    const headers = ['Ticket Number', 'Subject', 'Product', 'Status', 'Priority', 'Engineer', 'AI Confidence', 'Created'];
+    const headers = ['Ticket Number', 'Subject', 'Product', 'Customer', 'Status', 'Priority', 'Engineer', 'AI Confidence', 'Created'];
     const rows = data.tickets.map((t: any) => [
-      t.ticketNumber, t.subject, t.productName, t.status, t.priority,
+      t.ticketNumber, t.subject, t.productName, t.customerName || '', t.status, t.priority,
       t.engineerName || '', t.aiConfidence != null ? (t.aiConfidence * 100).toFixed(0) + '%' : '',
       new Date(t.createdAt).toLocaleDateString()
     ]);
@@ -119,17 +149,130 @@ export default function TicketList() {
         </div>
       </div>
 
-      <div className="flex gap-3 mb-6">
-        <select value={filters.status || ''} onChange={e => setFilters(f => ({ ...f, status: e.target.value }))} className="tb-select">
-          <option value="">All Statuses</option>
-          {['new', 'analyzing', 'assigned', 'in_progress', 'pending_info', 'resolved', 'closed'].map(s => (
-            <option key={s} value={s}>{s.replace('_', ' ')}</option>
-          ))}
-        </select>
-        <select value={filters.priority || ''} onChange={e => setFilters(f => ({ ...f, priority: e.target.value }))} className="tb-select">
-          <option value="">All Priorities</option>
-          {['low', 'medium', 'high', 'critical'].map(p => <option key={p} value={p}>{p}</option>)}
-        </select>
+      {/* Search & Filter Bar */}
+      <div className="space-y-3 mb-6">
+        <div className="flex gap-3">
+          {/* Search input */}
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              value={searchText}
+              onChange={e => setSearchText(e.target.value)}
+              placeholder="Search tickets (subject, description, ticket number)..."
+              className="tb-input w-full pl-10"
+            />
+          </div>
+
+          {/* Status filter */}
+          <select
+            value={filters.status ? filters.status : (filters.excludeStatus === 'closed' ? '_not_closed' : '')}
+            onChange={e => {
+              const val = e.target.value;
+              if (val === '_not_closed') {
+                setFilters(f => { const { status, ...rest } = f; return { ...rest, excludeStatus: 'closed' }; });
+              } else if (val === '') {
+                setFilters(f => { const { status, excludeStatus, ...rest } = f; return rest; });
+              } else {
+                setFilters(f => { const { excludeStatus, ...rest } = f; return { ...rest, status: val }; });
+              }
+            }}
+            className="tb-select"
+          >
+            <option value="">All Statuses</option>
+            <option value="_not_closed">All Except Closed</option>
+            {STATUS_OPTIONS.map(s => (
+              <option key={s} value={s}>{s.replace('_', ' ')}</option>
+            ))}
+          </select>
+
+          {/* Priority filter */}
+          <select value={filters.priority || ''} onChange={e => setFilters(f => ({ ...f, priority: e.target.value }))} className="tb-select">
+            <option value="">All Priorities</option>
+            {['low', 'medium', 'high', 'critical'].map(p => <option key={p} value={p}>{p}</option>)}
+          </select>
+
+          {/* Advanced toggle */}
+          <button
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium border rounded-lg transition-colors ${
+              showAdvanced || activeFilterCount > 0
+                ? 'border-accent-blue text-accent-blue bg-accent-blue/5'
+                : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-accent-blue hover:text-accent-blue'
+            }`}
+          >
+            <Filter className="w-4 h-4" />
+            Filters
+            {activeFilterCount > 0 && (
+              <span className="ml-1 px-1.5 py-0.5 text-xs bg-accent-blue text-white rounded-full">{activeFilterCount}</span>
+            )}
+          </button>
+        </div>
+
+        {/* Advanced Filters */}
+        {showAdvanced && (
+          <div className="flex flex-wrap gap-3 p-4 bg-gray-50 dark:bg-white/5 rounded-lg border border-gray-200 dark:border-gray-700">
+            {/* Customer search */}
+            <div className="flex-1 min-w-[200px]">
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Customer / Company</label>
+              <input
+                type="text"
+                value={customerSearch}
+                onChange={e => setCustomerSearch(e.target.value)}
+                placeholder="Search by name, email, company..."
+                className="tb-input w-full text-sm"
+              />
+            </div>
+
+            {/* Engineer filter */}
+            <div className="min-w-[180px]">
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Assigned Engineer</label>
+              <select value={filters.engineerId || ''} onChange={e => setFilters(f => ({ ...f, engineerId: e.target.value }))} className="tb-select w-full text-sm">
+                <option value="">All Engineers</option>
+                {engineers.map((e: any) => <option key={e.id} value={e.id}>{e.name}</option>)}
+              </select>
+            </div>
+
+            {/* Product filter */}
+            <div className="min-w-[180px]">
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Product</label>
+              <select value={filters.productId || ''} onChange={e => setFilters(f => ({ ...f, productId: e.target.value }))} className="tb-select w-full text-sm">
+                <option value="">All Products</option>
+                {productsList.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </div>
+
+            {/* Tag filter */}
+            <div className="min-w-[150px]">
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Tag</label>
+              <input
+                type="text"
+                value={filters.tag || ''}
+                onChange={e => setFilters(f => ({ ...f, tag: e.target.value }))}
+                placeholder="Filter by tag..."
+                className="tb-input w-full text-sm"
+              />
+            </div>
+
+            {/* Date range */}
+            <div className="min-w-[150px]">
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">From Date</label>
+              <input type="date" value={filters.fromDate || ''} onChange={e => setFilters(f => ({ ...f, fromDate: e.target.value }))} className="tb-input w-full text-sm" />
+            </div>
+            <div className="min-w-[150px]">
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">To Date</label>
+              <input type="date" value={filters.toDate || ''} onChange={e => setFilters(f => ({ ...f, toDate: e.target.value }))} className="tb-input w-full text-sm" />
+            </div>
+
+            {/* Clear button */}
+            <div className="flex items-end">
+              <button onClick={clearFilters} className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-500 hover:text-red-500 transition-colors">
+                <X className="w-4 h-4" />
+                Clear All
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Bulk Action Bar */}
@@ -142,7 +285,7 @@ export default function TicketList() {
           <div className="flex items-center gap-2 ml-4">
             <select value={bulkStatus} onChange={e => setBulkStatus(e.target.value)} className="tb-select text-sm">
               <option value="">Change Status...</option>
-              {['new', 'analyzing', 'assigned', 'in_progress', 'pending_info', 'resolved', 'closed'].map(s => (
+              {STATUS_OPTIONS.map(s => (
                 <option key={s} value={s}>{s.replace('_', ' ')}</option>
               ))}
             </select>
@@ -185,6 +328,7 @@ export default function TicketList() {
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Ticket</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Subject</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Customer</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Product</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Priority</th>
@@ -195,7 +339,9 @@ export default function TicketList() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-              {data?.tickets?.map((t: any) => (
+              {data?.tickets?.length === 0 ? (
+                <tr><td colSpan={11} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">No tickets found matching your filters.</td></tr>
+              ) : data?.tickets?.map((t: any) => (
                 <tr key={t.id} className={`hover:bg-black/5 dark:hover:bg-white/5 ${selected.has(t.id) ? 'bg-accent-blue/5' : ''}`}>
                   <td className="px-4 py-3">
                     <input type="checkbox"
@@ -208,6 +354,9 @@ export default function TicketList() {
                     <Link to={`/admin/tickets/${t.id}`} className="text-sm font-mono text-accent-blue hover:underline">{t.ticketNumber}</Link>
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-200 max-w-xs truncate">{t.subject}</td>
+                  <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+                    <div className="truncate max-w-[120px]" title={`${t.customerName} (${t.customerEmail})`}>{t.customerName}</div>
+                  </td>
                   <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{t.productName}</td>
                   <td className="px-4 py-3"><StatusBadge status={t.status} /></td>
                   <td className="px-4 py-3"><PriorityBadge priority={t.priority} /></td>
@@ -231,8 +380,26 @@ export default function TicketList() {
             </tbody>
           </table>
           {data && (
-            <div className="px-4 py-3 bg-black/5 dark:bg-white/5 text-sm text-gray-500">
-              Showing {data.tickets.length} of {data.total} tickets (Page {data.page}/{data.totalPages})
+            <div className="px-4 py-3 bg-black/5 dark:bg-white/5 flex items-center justify-between text-sm text-gray-500">
+              <span>Showing {data.tickets.length} of {data.total} tickets (Page {data.page}/{data.totalPages})</span>
+              {data.totalPages > 1 && (
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setFilters(f => ({ ...f, page: String(Math.max(1, data.page - 1)) }))}
+                    disabled={data.page <= 1}
+                    className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm hover:bg-gray-100 dark:hover:bg-white/10 disabled:opacity-50 transition-colors"
+                  >
+                    Previous
+                  </button>
+                  <button
+                    onClick={() => setFilters(f => ({ ...f, page: String(Math.min(data.totalPages, data.page + 1)) }))}
+                    disabled={data.page >= data.totalPages}
+                    className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm hover:bg-gray-100 dark:hover:bg-white/10 disabled:opacity-50 transition-colors"
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

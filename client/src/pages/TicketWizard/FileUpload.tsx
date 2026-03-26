@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import { WizardData } from './WizardContainer';
-import { Upload, X, FileText, Image } from 'lucide-react';
+import { Upload, X, FileText, Image, Info, AlertTriangle } from 'lucide-react';
 
 interface Props {
   data: WizardData;
@@ -9,18 +9,19 @@ interface Props {
   onPrev: () => void;
 }
 
-const MAX_SIZE = 10 * 1024 * 1024;
-const MAX_FILES = 5;
+const MAX_SIZE = 100 * 1024 * 1024; // 100MB
+const MAX_FILES = 10;
 
 export default function FileUpload({ data, onUpdate, onNext, onPrev }: Props) {
   const [dragActive, setDragActive] = useState(false);
   const [error, setError] = useState('');
+  const [showNoFilesWarning, setShowNoFilesWarning] = useState(false);
 
   const addFiles = useCallback((newFiles: FileList | File[]) => {
     setError('');
     const arr = Array.from(newFiles);
     if (data.files.length + arr.length > MAX_FILES) { setError(`Maximum ${MAX_FILES} files allowed`); return; }
-    for (const file of arr) { if (file.size > MAX_SIZE) { setError(`"${file.name}" exceeds 10MB limit`); return; } }
+    for (const file of arr) { if (file.size > MAX_SIZE) { setError(`"${file.name}" exceeds 100MB limit`); return; } }
     onUpdate({ files: [...data.files, ...arr] });
   }, [data.files, onUpdate]);
 
@@ -37,10 +38,42 @@ export default function FileUpload({ data, onUpdate, onNext, onPrev }: Props) {
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
 
+  const productName = (data.product?.name || '').toLowerCase();
+
   return (
     <div>
-      <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Attach Files (Optional)</h2>
-      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Upload screenshots, logs, or SIP traces. Max 10MB per file, up to 5 files.</p>
+      <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Attach Files</h2>
+      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Upload screenshots, logs, or SIP traces. Max 100MB per file, up to 10 files.</p>
+
+      {/* Log collection help */}
+      <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+        <div className="flex items-start gap-2">
+          <Info className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
+          <div className="text-sm text-blue-700 dark:text-blue-300">
+            <p className="font-medium mb-1">Attaching logs helps us resolve your issue faster.</p>
+            <ul className="list-disc ml-4 space-y-1 text-xs">
+              {(productName.includes('tmg') || productName.includes('tsg')) && (
+                <>
+                  <li><strong>tbreport</strong> &mdash; Run <code className="px-1 py-0.5 bg-blue-100 dark:bg-blue-800 rounded">tbreport</code> from the unit CLI. This collects system logs, configuration, and diagnostic data into a single archive.</li>
+                  <li><strong>PCAP trace</strong> &mdash; Use <code className="px-1 py-0.5 bg-blue-100 dark:bg-blue-800 rounded">tcpdump</code> or the web interface to capture network traffic relevant to the issue.</li>
+                </>
+              )}
+              {productName.includes('prosbc') && (
+                <>
+                  <li><strong>Diagnostic bundle</strong> &mdash; Go to <em>System &gt; Diagnostics &gt; Download Report</em> in the ProSBC web interface.</li>
+                  <li><strong>SIP/PCAP trace</strong> &mdash; Enable SIP trace capture under <em>Troubleshooting &gt; Packet Capture</em> and download the .pcap file.</li>
+                </>
+              )}
+              {!productName.includes('tmg') && !productName.includes('tsg') && !productName.includes('prosbc') && (
+                <>
+                  <li><strong>Log files</strong> &mdash; Collect any relevant log files from the system.</li>
+                  <li><strong>Screenshots</strong> &mdash; Capture screenshots showing the issue or error messages.</li>
+                </>
+              )}
+            </ul>
+          </div>
+        </div>
+      </div>
 
       <div onDragOver={e => { e.preventDefault(); setDragActive(true); }} onDragLeave={() => setDragActive(false)} onDrop={handleDrop}
         className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors ${
@@ -77,9 +110,42 @@ export default function FileUpload({ data, onUpdate, onNext, onPrev }: Props) {
         </div>
       )}
 
+      {/* Warning when no files attached */}
+      {showNoFilesWarning && data.files.length === 0 && (
+        <div className="mt-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-700 rounded-lg">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="w-5 h-5 text-yellow-500 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">No files attached</p>
+              <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-1">
+                Attaching log files (tbreport, pcap, screenshots) significantly speeds up issue resolution.
+                Are you sure you want to continue without attaching any files?
+              </p>
+              <button
+                onClick={onNext}
+                className="mt-2 px-4 py-1.5 text-xs font-medium bg-yellow-100 dark:bg-yellow-800 text-yellow-800 dark:text-yellow-200 rounded hover:bg-yellow-200 dark:hover:bg-yellow-700 transition-colors"
+              >
+                Continue without files
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex justify-between mt-6">
         <button onClick={onPrev} className="tb-btn-secondary">Back</button>
-        <button onClick={onNext} className="tb-btn-primary px-6">Next</button>
+        <button
+          onClick={() => {
+            if (data.files.length === 0 && !showNoFilesWarning) {
+              setShowNoFilesWarning(true);
+              return;
+            }
+            onNext();
+          }}
+          className="tb-btn-primary px-6"
+        >
+          Next
+        </button>
       </div>
     </div>
   );

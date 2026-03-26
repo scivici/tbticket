@@ -64,7 +64,7 @@ export default function MyTickets() {
             className="tb-select"
           >
             <option value="">All Statuses</option>
-            {['new', 'analyzing', 'assigned', 'in_progress', 'pending_info', 'resolved', 'closed'].map(s => (
+            {['new', 'analyzing', 'assigned', 'in_progress', 'pending_info', 'escalated_to_jira', 'resolved', 'closed'].map(s => (
               <option key={s} value={s}>{s.replace('_', ' ')}</option>
             ))}
           </select>

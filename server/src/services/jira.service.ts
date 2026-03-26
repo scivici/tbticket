@@ -1,0 +1,149 @@
+import { getSetting } from './settings.service';
+
+interface JiraIssueData {
+  ticketNumber: string;
+  subject: string;
+  description: string;
+  priority: string;
+  productName: string;
+  categoryName: string;
+  customerName: string;
+  customerEmail: string;
+}
+
+interface JiraResult {
+  success: boolean;
+  issueKey?: string;
+  issueUrl?: string;
+  error?: string;
+}
+
+const PRIORITY_MAP: Record<string, string> = {
+  critical: 'Highest',
+  high: 'High',
+  medium: 'Medium',
+  low: 'Low',
+};
+
+export async function createJiraIssue(data: JiraIssueData): Promise<JiraResult> {
+  const baseUrl = getSetting('jira_base_url');
+  const email = getSetting('jira_api_email');
+  const token = getSetting('jira_api_token');
+  const projectKey = getSetting('jira_project_key');
+  const issueType = getSetting('jira_issue_type') || 'Bug';
+
+  if (!baseUrl || !email || !token || !projectKey) {
+    return { success: false, error: 'Jira integration not configured. Please set Jira settings in Setup.' };
+  }
+
+  const url = `${baseUrl.replace(/\/$/, '')}/rest/api/3/issue`;
+  const auth = Buffer.from(`${email}:${token}`).toString('base64');
+
+  const body = {
+    fields: {
+      project: { key: projectKey },
+      summary: `[${data.ticketNumber}] ${data.subject}`,
+      description: {
+        type: 'doc',
+        version: 1,
+        content: [
+          {
+            type: 'paragraph',
+            content: [
+              { type: 'text', text: `Ticket: ${data.ticketNumber}` },
+            ],
+          },
+          {
+            type: 'paragraph',
+            content: [
+              { type: 'text', text: `Product: ${data.productName} / ${data.categoryName}` },
+            ],
+          },
+          {
+            type: 'paragraph',
+            content: [
+              { type: 'text', text: `Customer: ${data.customerName} (${data.customerEmail})` },
+            ],
+          },
+          {
+            type: 'rule',
+          },
+          {
+            type: 'paragraph',
+            content: [
+              { type: 'text', text: data.description },
+            ],
+          },
+        ],
+      },
+      issuetype: { name: issueType },
+      priority: { name: PRIORITY_MAP[data.priority] || 'Medium' },
+      labels: ['support-ticket', data.ticketNumber],
+    },
+  };
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Basic ${auth}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      console.error('[Jira] Create issue failed:', response.status, errorBody);
+      return { success: false, error: `Jira API error (${response.status}): ${errorBody.substring(0, 200)}` };
+    }
+
+    const result = await response.json();
+    const issueKey = result.key;
+    const issueUrl = `${baseUrl.replace(/\/$/, '')}/browse/${issueKey}`;
+
+    console.log(`[Jira] Created issue ${issueKey} for ticket ${data.ticketNumber}`);
+    return { success: true, issueKey, issueUrl };
+  } catch (error: any) {
+    console.error('[Jira] Error creating issue:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+export function isJiraConfigured(): boolean {
+  const baseUrl = getSetting('jira_base_url');
+  const token = getSetting('jira_api_token');
+  return !!(baseUrl && token);
+}
+
+export async function getJiraIssueStatus(issueKey: string): Promise<{ status: string; summary: string; url: string } | null> {
+  const baseUrl = getSetting('jira_base_url');
+  const email = getSetting('jira_api_email');
+  const token = getSetting('jira_api_token');
+
+  if (!baseUrl || !email || !token) return null;
+
+  const url = `${baseUrl.replace(/\/$/, '')}/rest/api/3/issue/${issueKey}?fields=status,summary`;
+  const auth = Buffer.from(`${email}:${token}`).toString('base64');
+
+  try {
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Basic ${auth}`,
+        'Accept': 'application/json',
+      },
+    });
+
+    if (!response.ok) return null;
+
+    const data = await response.json();
+    return {
+      status: data.fields?.status?.name || 'Unknown',
+      summary: data.fields?.summary || '',
+      url: `${baseUrl.replace(/\/$/, '')}/browse/${issueKey}`,
+    };
+  } catch {
+    return null;
+  }
+}
