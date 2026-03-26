@@ -57,6 +57,9 @@ router.post('/:id/suggest-reply', authenticate, requireAdmin, ticketsController.
 // Convert to KB article
 router.post('/:id/create-kb-article', authenticate, requireAdmin, ticketsController.createKbArticle);
 
+// AI extract data from attachment
+router.post('/:id/extract-data/:attachmentId', authenticate, requireAdmin, ticketsController.extractAttachmentData);
+
 // Customer submits satisfaction (authenticated, before admin-only routes)
 router.post('/:id/satisfaction', authenticate, ticketsController.submitSatisfaction);
 router.get('/:id/satisfaction', authenticate, ticketsController.getSatisfaction);

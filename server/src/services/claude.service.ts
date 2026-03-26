@@ -108,12 +108,21 @@ Analyze this ticket and respond with a JSON object (no markdown, just pure JSON)
 7. **reasoning**: Why you chose this engineer (consider skills, expertise, workload, and location)
 8. **suggestedSkills**: Array of skill names most relevant to this issue
 9. **estimatedComplexity**: One of "low", "medium", "high"
+10. **shouldEscalateToJira**: true/false - whether this issue should be escalated to Jira for the engineering/development team
+11. **escalationReason**: If shouldEscalateToJira is true, explain why (e.g., "Likely a software bug requiring code fix", "Feature request", "Hardware defect requiring RMA")
+12. **suggestedAction**: One of "support_can_resolve", "needs_jira_escalation", "needs_working_session", "needs_rma" - the recommended next action
 
 Consider these factors for engineer selection:
 - Product and category expertise (highest weight)
 - Relevant technical skills
 - Current workload (prefer less loaded engineers)
-- Availability (must be under max workload)`;
+- Availability (must be under max workload)
+
+Escalate to Jira when:
+- The issue appears to be a software bug or regression
+- A code fix or firmware update is needed
+- The issue cannot be resolved through configuration or troubleshooting
+- It's a feature request or enhancement`;
 }
 
 function buildMessageContent(input: ClaudeAnalysisInput): any[] {

@@ -11,6 +11,7 @@ import MyTickets from './pages/MyTickets';
 import CustomerTicketDetail from './pages/CustomerTicketDetail';
 import ProfilePage from './pages/ProfilePage';
 import WizardContainer from './pages/TicketWizard/WizardContainer';
+import ReleaseNotes from './pages/ReleaseNotes';
 import Dashboard from './pages/admin/Dashboard';
 import TicketList from './pages/admin/TicketList';
 import TicketDetail from './pages/admin/TicketDetail';
@@ -42,6 +43,7 @@ export default function App() {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/submit" element={<WizardContainer />} />
         <Route path="/track" element={<TicketTracker />} />
+        <Route path="/release-notes" element={<ReleaseNotes />} />
         <Route path="/my-tickets" element={<MyTickets />} />
         <Route path="/my-tickets/:id" element={<CustomerTicketDetail />} />
         <Route path="/profile" element={<ProfilePage />} />

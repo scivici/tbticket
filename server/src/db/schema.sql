@@ -257,7 +257,7 @@ CREATE TABLE IF NOT EXISTS ticket_links (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     ticket_id INTEGER NOT NULL REFERENCES tickets(id),
     linked_ticket_id INTEGER NOT NULL REFERENCES tickets(id),
-    link_type TEXT NOT NULL DEFAULT 'related' CHECK(link_type IN ('related', 'parent', 'child', 'duplicate')),
+    link_type TEXT NOT NULL DEFAULT 'related' CHECK(link_type IN ('related', 'parent', 'child', 'duplicate', 'references')),
     created_by INTEGER REFERENCES customers(id),
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     UNIQUE(ticket_id, linked_ticket_id)

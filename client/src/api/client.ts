@@ -52,6 +52,7 @@ export const products = {
   list: () => request<any[]>('/products'),
   categories: (productId: number) => request<any[]>(`/products/${productId}/categories`),
   questions: (categoryId: number) => request<any[]>(`/products/categories/${categoryId}/questions`),
+  releaseNotes: () => request<any[]>('/products/release-notes'),
 };
 
 // Tickets
@@ -120,6 +121,8 @@ export const tickets = {
   createKbArticle: (id: number, data?: { title?: string; content?: string }) =>
     request<any>(`/tickets/${id}/create-kb-article`, { method: 'POST', body: JSON.stringify(data || {}) }),
 
+  extractAttachmentData: (id: number, attachmentId: number) =>
+    request<any>(`/tickets/${id}/extract-data/${attachmentId}`, { method: 'POST' }),
   getActivities: (id: number) => request<any[]>(`/tickets/${id}/activities`),
   getTags: (id: number) => request<string[]>(`/tickets/${id}/tags`),
   addTag: (id: number, tag: string) =>
@@ -173,6 +176,16 @@ export const admin = {
     return request<any>(`/admin/sla-compliance?${params}`);
   },
   psHoursReport: () => request<any[]>('/admin/ps-hours'),
+  logRepository: (search?: string, mime?: string) => {
+    const params = new URLSearchParams();
+    if (search) params.set('search', search);
+    if (mime) params.set('mime', mime);
+    return request<any[]>(`/admin/log-repository?${params}`);
+  },
+  releaseNotes: () => request<any[]>('/admin/release-notes'),
+  createReleaseNote: (data: { productId: number; version: string; title: string; content: string }) =>
+    request<any>('/admin/release-notes', { method: 'POST', body: JSON.stringify(data) }),
+  deleteReleaseNote: (id: number) => request<any>(`/admin/release-notes/${id}`, { method: 'DELETE' }),
   notifyVersionUpdate: (productId: number, version: string, releaseNotes?: string) =>
     request<any>('/admin/notify-version-update', { method: 'POST', body: JSON.stringify({ productId, version, releaseNotes }) }),
   knowledgeBase: () => request<any[]>('/admin/knowledge-base'),

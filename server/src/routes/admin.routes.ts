@@ -8,6 +8,7 @@ import { AuthenticatedRequest } from '../types';
 import { getDb } from '../db/connection';
 import * as notificationService from '../services/notification.service';
 import * as emailService from '../services/email.service';
+import { upload } from '../middleware/upload';
 
 const router = Router();
 
@@ -164,6 +165,34 @@ router.get('/time-report', authenticate, requireAdmin, (req: any, res: Response)
   res.json({ customerReport, engineerReport, overall: overall || {} });
 });
 
+// Customer diagrams/snapshots
+router.get('/customers/:id/diagrams', authenticate, requireAdmin, (req: any, res: Response) => {
+  const db = getDb();
+  const diagrams = db.prepare(`
+    SELECT * FROM customer_diagrams WHERE customer_id = ? ORDER BY created_at DESC
+  `).all(req.params.id);
+  res.json(diagrams);
+});
+
+router.post('/customers/:id/diagrams', authenticate, requireAdmin, upload.single('file'), (req: any, res: Response) => {
+  const db = getDb();
+  const file = req.file as Express.Multer.File;
+  if (!file) { res.status(400).json({ error: 'No file provided' }); return; }
+
+  const label = req.body.label || file.originalname;
+  const result = db.prepare(
+    'INSERT INTO customer_diagrams (customer_id, filename, original_name, mime_type, size, path, label) VALUES (?, ?, ?, ?, ?, ?, ?)'
+  ).run(req.params.id, file.filename, file.originalname, file.mimetype, file.size, file.path, label);
+
+  res.status(201).json({ id: result.lastInsertRowid, message: 'Diagram uploaded' });
+});
+
+router.delete('/customers/:id/diagrams/:diagramId', authenticate, requireAdmin, (req: any, res: Response) => {
+  const db = getDb();
+  db.prepare('DELETE FROM customer_diagrams WHERE id = ? AND customer_id = ?').run(req.params.diagramId, req.params.id);
+  res.json({ message: 'Diagram deleted' });
+});
+
 // Professional service hours remaining per customer
 router.get('/ps-hours', authenticate, requireAdmin, (_req: any, res: Response) => {
   const db = getDb();
@@ -249,6 +278,80 @@ router.get('/sla-compliance', authenticate, requireAdmin, (req: any, res: Respon
     resolutionOnTime, resolutionBreach,
     byPriority,
   });
+});
+
+// Log repository - browse all uploaded files across tickets
+router.get('/log-repository', authenticate, requireAdmin, (req: any, res: Response) => {
+  const db = getDb();
+  const search = req.query.search as string || '';
+  const mimeFilter = req.query.mime as string || '';
+
+  let where = '';
+  const params: any[] = [];
+
+  if (search) {
+    where += " AND (ta.original_name LIKE ? OR t.ticket_number LIKE ? OR t.subject LIKE ?)";
+    const term = `%${search}%`;
+    params.push(term, term, term);
+  }
+  if (mimeFilter) {
+    where += " AND ta.mime_type LIKE ?";
+    params.push(`%${mimeFilter}%`);
+  }
+
+  const files = db.prepare(`
+    SELECT ta.id, ta.filename, ta.original_name, ta.mime_type, ta.size, ta.created_at,
+           t.id as ticket_id, t.ticket_number, t.subject,
+           p.name as product_name,
+           c.name as customer_name
+    FROM ticket_attachments ta
+    JOIN tickets t ON ta.ticket_id = t.id
+    JOIN products p ON t.product_id = p.id
+    JOIN customers c ON t.customer_id = c.id
+    WHERE 1=1 ${where}
+    ORDER BY ta.created_at DESC
+    LIMIT 200
+  `).all(...params);
+
+  res.json(files);
+});
+
+// Release notes CRUD
+router.get('/release-notes', authenticate, requireAdmin, (_req: any, res: Response) => {
+  const db = getDb();
+  const notes = db.prepare(`
+    SELECT rn.*, p.name as product_name
+    FROM release_notes rn
+    JOIN products p ON rn.product_id = p.id
+    ORDER BY rn.created_at DESC
+  `).all();
+  res.json(notes);
+});
+
+router.post('/release-notes', authenticate, requireAdmin, (req: any, res: Response) => {
+  const db = getDb();
+  const { productId, version, title, content, published } = req.body;
+  if (!productId || !version || !title) { res.status(400).json({ error: 'productId, version, and title required' }); return; }
+  const result = db.prepare(
+    'INSERT INTO release_notes (product_id, version, title, content, published, created_by) VALUES (?, ?, ?, ?, ?, ?)'
+  ).run(productId, version, title, content || '', published !== false ? 1 : 0, req.user.userId);
+  res.status(201).json({ id: result.lastInsertRowid, message: 'Release note created' });
+});
+
+router.patch('/release-notes/:id', authenticate, requireAdmin, (req: any, res: Response) => {
+  const db = getDb();
+  const { version, title, content, published } = req.body;
+  db.prepare(`
+    UPDATE release_notes SET version = COALESCE(?, version), title = COALESCE(?, title),
+    content = COALESCE(?, content), published = COALESCE(?, published) WHERE id = ?
+  `).run(version, title, content, published !== undefined ? (published ? 1 : 0) : null, req.params.id);
+  res.json({ message: 'Release note updated' });
+});
+
+router.delete('/release-notes/:id', authenticate, requireAdmin, (req: any, res: Response) => {
+  const db = getDb();
+  db.prepare('DELETE FROM release_notes WHERE id = ?').run(req.params.id);
+  res.json({ message: 'Release note deleted' });
 });
 
 // Version update notification to customers

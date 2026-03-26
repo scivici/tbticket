@@ -156,6 +156,14 @@ export default function TicketDetail() {
 
   useEffect(() => { load(); }, [id]);
 
+  // Scroll to anchored response if URL has hash
+  useEffect(() => {
+    if (!loading && window.location.hash) {
+      const el = document.querySelector(window.location.hash);
+      if (el) { setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'center' }), 300); }
+    }
+  }, [loading]);
+
   // Lazy-load canned responses on first open
   useEffect(() => {
     if (showCanned && cannedList.length === 0) {
@@ -356,6 +364,19 @@ export default function TicketDetail() {
                   </div>
                 )}
                 <div><p className="text-gray-500">Estimated Complexity</p><p className="font-medium text-gray-700 dark:text-gray-200 capitalize">{aiAnalysis.estimatedComplexity}</p></div>
+                {aiAnalysis.suggestedAction && (
+                  <div><p className="text-gray-500">Suggested Action</p><p className="font-medium text-gray-700 dark:text-gray-200 capitalize">{aiAnalysis.suggestedAction.replace(/_/g, ' ')}</p></div>
+                )}
+                {aiAnalysis.shouldEscalateToJira && (
+                  <div className="p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg">
+                    <p className="text-sm font-medium text-orange-700 dark:text-orange-300 flex items-center gap-1.5">
+                      <ExternalLink className="w-4 h-4" /> AI recommends Jira escalation
+                    </p>
+                    {aiAnalysis.escalationReason && (
+                      <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">{aiAnalysis.escalationReason}</p>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -373,7 +394,7 @@ export default function TicketDetail() {
             ) : (
               <div className="space-y-4">
                 {responses.map((r: any) => (
-                  <div key={r.id} className={`p-4 rounded-lg ${
+                  <div key={r.id} id={`response-${r.id}`} className={`p-4 rounded-lg scroll-mt-20 ${
                     r.is_internal
                       ? 'border-2 border-dashed border-yellow-500/30 bg-yellow-50 dark:bg-yellow-900/10'
                       : r.author_role === 'admin'
@@ -397,6 +418,12 @@ export default function TicketDetail() {
                       <span className="ml-auto flex items-center gap-1 text-xs text-gray-500">
                         <Clock className="w-3 h-3" />
                         {new Date(r.created_at).toLocaleString()}
+                        <button onClick={() => {
+                          const url = `${window.location.origin}${window.location.pathname}#response-${r.id}`;
+                          navigator.clipboard.writeText(url);
+                        }} title="Copy link to this response" className="ml-1 text-gray-400 hover:text-accent-blue">
+                          <Link2 className="w-3 h-3" />
+                        </button>
                       </span>
                     </div>
                     <p className="text-gray-700 dark:text-gray-300 text-sm whitespace-pre-wrap">{r.message}</p>
@@ -746,11 +773,12 @@ export default function TicketDetail() {
               <div className="flex gap-2">
                 <input type="text" value={linkInput} onChange={e => setLinkInput(e.target.value)}
                   placeholder="Ticket # or ID..." className="tb-input flex-1 text-sm" />
-                <select value={linkType} onChange={e => setLinkType(e.target.value)} className="tb-select text-xs w-24">
+                <select value={linkType} onChange={e => setLinkType(e.target.value)} className="tb-select text-xs w-28">
                   <option value="related">Related</option>
                   <option value="parent">Parent</option>
                   <option value="child">Child</option>
                   <option value="duplicate">Duplicate</option>
+                  <option value="references">References</option>
                 </select>
               </div>
               <button onClick={async () => {

@@ -674,6 +674,21 @@ export function addResponse(req: AuthenticatedRequest, res: Response): void {
       ).catch(() => {});
     }
 
+    // Handle @mentions - notify mentioned engineers/admins
+    const mentions = message.trim().match(/@(\w+(?:\s\w+)?)/g);
+    if (mentions) {
+      const db2 = getDb();
+      for (const mention of mentions) {
+        const name = mention.substring(1).trim(); // Remove @
+        // Search engineers and admins by name
+        const engineer = db2.prepare("SELECT id, name FROM engineers WHERE LOWER(name) LIKE LOWER(?)").get(`%${name}%`) as any;
+        const admin = db2.prepare("SELECT id, name FROM customers WHERE role = 'admin' AND LOWER(name) LIKE LOWER(?)").get(`%${name}%`) as any;
+        if (admin) {
+          notificationService.createNotification(admin.id, ticketId, 'response', `You were mentioned in ${ticket.ticketNumber}`, `${authorName} mentioned you: "${message.trim().substring(0, 100)}..."`);
+        }
+      }
+    }
+
     res.status(201).json({ id: responseId, message: 'Response added' });
   } catch (error: any) {
     console.error('[Tickets] Add response error:', error);
@@ -907,6 +922,53 @@ export function submitSatisfaction(req: AuthenticatedRequest, res: Response): vo
   } catch (error: any) {
     console.error('[Tickets] Submit satisfaction error:', error);
     res.status(500).json({ error: 'Failed to submit satisfaction rating' });
+  }
+}
+
+// ===== AI Data Extraction from Attachment =====
+
+export async function extractAttachmentData(req: AuthenticatedRequest, res: Response): Promise<void> {
+  try {
+    const { id, attachmentId } = req.params;
+    const db = getDb();
+    const attachment = db.prepare('SELECT * FROM ticket_attachments WHERE id = ? AND ticket_id = ?').get(attachmentId, id) as any;
+
+    if (!attachment) { res.status(404).json({ error: 'Attachment not found' }); return; }
+
+    const fs = await import('fs');
+    if (!fs.existsSync(attachment.path)) { res.status(404).json({ error: 'File not found on disk' }); return; }
+
+    // Read file content (text-based files only)
+    const textExtensions = ['.log', '.txt', '.cfg', '.conf', '.json', '.xml', '.csv', '.yaml', '.yml', '.ini', '.sip', '.sdp'];
+    const ext = attachment.original_name.toLowerCase().substring(attachment.original_name.lastIndexOf('.'));
+    const isText = attachment.mime_type.startsWith('text/') || attachment.mime_type === 'application/json' || textExtensions.includes(ext);
+
+    if (!isText) {
+      res.json({ extracted: null, note: 'Only text-based files can be analyzed. Binary files (pcap, zip, images) require manual review.' });
+      return;
+    }
+
+    const content = fs.readFileSync(attachment.path, 'utf-8');
+    const truncated = content.length > 15000 ? content.substring(0, 15000) + '\n... [truncated]' : content;
+
+    // Extract structured info
+    const lines = content.split('\n');
+    const extracted = {
+      fileName: attachment.original_name,
+      fileSize: attachment.size,
+      lineCount: lines.length,
+      errors: lines.filter(l => /error|fail|fatal|exception|panic/i.test(l)).slice(0, 20).map(l => l.trim()),
+      warnings: lines.filter(l => /warn|warning/i.test(l)).slice(0, 10).map(l => l.trim()),
+      ipAddresses: [...new Set(content.match(/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g) || [])],
+      timestamps: [...new Set((content.match(/\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}/g) || []).slice(0, 5))],
+      sipMethods: [...new Set(content.match(/\b(INVITE|ACK|BYE|CANCEL|REGISTER|OPTIONS|PRACK|SUBSCRIBE|NOTIFY|PUBLISH|INFO|REFER|MESSAGE|UPDATE)\b/g) || [])],
+      preview: truncated.substring(0, 2000),
+    };
+
+    res.json({ extracted });
+  } catch (error: any) {
+    console.error('[AI] Extract data error:', error);
+    res.status(500).json({ error: 'Failed to extract data' });
   }
 }
 
@@ -1144,7 +1206,7 @@ export function linkTicket(req: AuthenticatedRequest, res: Response): void {
 
   if (parseInt(id) === parseInt(resolvedId)) { res.status(400).json({ error: 'Cannot link ticket to itself' }); return; }
 
-  const validTypes = ['related', 'parent', 'child', 'duplicate'];
+  const validTypes = ['related', 'parent', 'child', 'duplicate', 'references'];
   const type = validTypes.includes(linkType) ? linkType : 'related';
 
   try {

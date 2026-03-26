@@ -391,6 +391,53 @@ export function runMigrations(): void {
     console.log('[DB] knowledge_base table created successfully.');
   }
 
+  // Migration: add customer_diagrams table
+  const customerDiagramsTableExists = db.prepare(
+    "SELECT name FROM sqlite_master WHERE type='table' AND name='customer_diagrams'"
+  ).get();
+
+  if (!customerDiagramsTableExists) {
+    console.log('[DB] Running customer_diagrams migration...');
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS customer_diagrams (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          customer_id INTEGER NOT NULL REFERENCES customers(id),
+          filename TEXT NOT NULL,
+          original_name TEXT NOT NULL,
+          mime_type TEXT NOT NULL,
+          size INTEGER NOT NULL,
+          path TEXT NOT NULL,
+          label TEXT,
+          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_customer_diagrams_customer ON customer_diagrams(customer_id);
+    `);
+    console.log('[DB] customer_diagrams table created successfully.');
+  }
+
+  // Migration: add release_notes table
+  const releaseNotesTableExists = db.prepare(
+    "SELECT name FROM sqlite_master WHERE type='table' AND name='release_notes'"
+  ).get();
+
+  if (!releaseNotesTableExists) {
+    console.log('[DB] Running release_notes migration...');
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS release_notes (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          product_id INTEGER NOT NULL REFERENCES products(id),
+          version TEXT NOT NULL,
+          title TEXT NOT NULL,
+          content TEXT NOT NULL,
+          published INTEGER NOT NULL DEFAULT 1,
+          created_by INTEGER REFERENCES customers(id),
+          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_release_notes_product ON release_notes(product_id);
+    `);
+    console.log('[DB] release_notes table created successfully.');
+  }
+
   // Migration: add required_fields config to products
   const hasRequiredFields = db.prepare("PRAGMA table_info(products)").all().find((c: any) => c.name === 'required_fields');
   if (!hasRequiredFields) {
