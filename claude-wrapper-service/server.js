@@ -271,6 +271,10 @@ app.delete('/tickets/:ticketNumber', authenticate, (req, res) => {
 // --- Helper: Run Claude Code CLI ---
 function runClaude(prompt, cwd) {
   return new Promise((resolve) => {
+    // Write prompt to file to avoid shell escaping issues with multiline text
+    const promptFile = path.join(cwd, '_prompt.txt');
+    fs.writeFileSync(promptFile, prompt);
+
     const args = [
       '-p', prompt,
       '--allowedTools', ALLOWED_TOOLS,
@@ -283,6 +287,9 @@ function runClaude(prompt, cwd) {
       maxBuffer: 10 * 1024 * 1024, // 10MB output buffer
       env: { ...process.env, CLAUDE_DISABLE_TELEMETRY: '1' },
     }, (error, stdout, stderr) => {
+      // Clean up prompt file
+      try { fs.unlinkSync(promptFile); } catch { /* ignore */ }
+
       if (error) {
         resolve({
           success: false,
@@ -299,6 +306,9 @@ function runClaude(prompt, cwd) {
         });
       }
     });
+
+    // Close stdin immediately to prevent "no stdin data" warning
+    proc.stdin.end();
   });
 }
 
