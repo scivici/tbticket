@@ -9,6 +9,7 @@
  */
 
 import fs from 'fs';
+import path from 'path';
 import { getSettings } from './settings.service';
 import { config } from '../config';
 import type { ClaudeAnalysisResult } from './claude.service';
@@ -26,6 +27,16 @@ function getWrapperConfig(): WrapperConfig {
     authToken: s['claude_wrapper_auth_token'] || 'tb-claude-wrapper-secret',
     timeout: parseInt(s['claude_wrapper_timeout'] || '310000'), // slightly above CLI timeout
   };
+}
+
+/**
+ * Convert container file path to host path for shared filesystem access.
+ * Container: /app/server/uploads/uuid.ext → Host: /home/support/incoming/uploads/uuid.ext
+ */
+function toHostPath(containerPath: string): string | null {
+  if (!config.uploadHostPath) return null;
+  const filename = path.basename(containerPath);
+  return path.posix.join(config.uploadHostPath, filename);
 }
 
 interface WrapperInput {
@@ -57,35 +68,66 @@ export async function analyzeTicketViaWrapper(input: WrapperInput): Promise<Wrap
   }
 
   try {
-    // Encode attachments as base64
-    const encodedAttachments = [];
-    for (const att of input.attachments) {
-      try {
-        if (fs.existsSync(att.localPath)) {
-          const fileBuffer = fs.readFileSync(att.localPath);
-          encodedAttachments.push({
-            filename: att.originalName,
-            content: fileBuffer.toString('base64'),
-          });
-          console.log(`[Wrapper] Encoding attachment: ${att.originalName} (${(fileBuffer.length / 1024).toFixed(1)}KB)`);
-        }
-      } catch (err) {
-        console.warn(`[Wrapper] Could not read attachment ${att.originalName}:`, err);
-      }
-    }
+    const useSharedFs = !!config.uploadHostPath;
+    let payload: any;
 
-    const payload = {
-      ticketNumber: input.ticketNumber,
-      subject: input.subject,
-      description: input.description,
-      productName: input.productName,
-      productModel: input.productModel,
-      categoryName: input.categoryName,
-      productKey: input.productKey,
-      answers: input.answers,
-      engineers: input.engineers,
-      attachments: encodedAttachments,
-    };
+    if (useSharedFs) {
+      // Shared filesystem mode: send file paths instead of base64 content
+      const filePaths = [];
+      for (const att of input.attachments) {
+        const hostPath = toHostPath(att.localPath);
+        if (hostPath) {
+          filePaths.push({ filename: att.originalName, hostPath });
+          console.log(`[Wrapper] Shared path: ${att.originalName} → ${hostPath}`);
+        }
+      }
+
+      payload = {
+        ticketNumber: input.ticketNumber,
+        subject: input.subject,
+        description: input.description,
+        productName: input.productName,
+        productModel: input.productModel,
+        categoryName: input.categoryName,
+        productKey: input.productKey,
+        answers: input.answers,
+        engineers: input.engineers,
+        attachments: [],       // empty — no base64 transfer
+        filePaths,             // host paths for shared filesystem
+      };
+      console.log(`[Wrapper] Using shared filesystem mode (${filePaths.length} files via path reference)`);
+    } else {
+      // Legacy mode: base64 encode attachments over HTTP
+      const encodedAttachments = [];
+      for (const att of input.attachments) {
+        try {
+          if (fs.existsSync(att.localPath)) {
+            const fileBuffer = fs.readFileSync(att.localPath);
+            encodedAttachments.push({
+              filename: att.originalName,
+              content: fileBuffer.toString('base64'),
+            });
+            console.log(`[Wrapper] Encoding attachment: ${att.originalName} (${(fileBuffer.length / 1024).toFixed(1)}KB)`);
+          }
+        } catch (err) {
+          console.warn(`[Wrapper] Could not read attachment ${att.originalName}:`, err);
+        }
+      }
+
+      payload = {
+        ticketNumber: input.ticketNumber,
+        subject: input.subject,
+        description: input.description,
+        productName: input.productName,
+        productModel: input.productModel,
+        categoryName: input.categoryName,
+        productKey: input.productKey,
+        answers: input.answers,
+        engineers: input.engineers,
+        attachments: encodedAttachments,
+      };
+      console.log(`[Wrapper] Using legacy base64 mode (${encodedAttachments.length} files encoded)`);
+    }
 
     const endpoint = `${wrapperConfig.url}/analyze`;
     console.log(`[Wrapper] Sending analysis request to ${endpoint} for ticket ${input.ticketNumber}...`);

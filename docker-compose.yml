@@ -24,9 +24,10 @@ services:
       - TEAMS_WEBHOOK_URL=${TEAMS_WEBHOOK_URL:-}
       - DB_PATH=/app/server/data/tickets.db
       - UPLOAD_DIR=/app/server/uploads
+      - UPLOAD_HOST_PATH=/home/support/incoming/uploads
     volumes:
       - ticket_data:/app/server/data
-      - ticket_uploads:/app/server/uploads
+      - /home/support/incoming/uploads:/app/server/uploads
     restart: unless-stopped
     dns:
       - 10.0.0.1
@@ -36,4 +37,3 @@ services:
 
 volumes:
   ticket_data:
-  ticket_uploads:

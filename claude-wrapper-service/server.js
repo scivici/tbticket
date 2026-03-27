@@ -72,6 +72,8 @@ app.post('/analyze', authenticate, async (req, res) => {
     attachments = []    // Array of { filename, content (base64) }
   } = req.body;
 
+  const filePaths = req.body.filePaths || [];  // Shared filesystem mode
+
   if (!ticketNumber || !subject) {
     return res.status(400).json({ error: 'ticketNumber and subject are required' });
   }
@@ -80,16 +82,42 @@ app.post('/analyze', authenticate, async (req, res) => {
   console.log(`[Analyze] Ticket ${ticketNumber} — ${subject}`);
 
   try {
-    // Step 1: Save attachments to disk
+    // Step 1: Prepare attachments
     fs.mkdirSync(ticketDir, { recursive: true });
 
     const savedFiles = [];
-    for (const att of attachments) {
-      if (att.filename && att.content) {
-        const filePath = path.join(ticketDir, att.filename);
-        fs.writeFileSync(filePath, Buffer.from(att.content, 'base64'));
-        savedFiles.push(att.filename);
-        console.log(`[Analyze] Saved attachment: ${att.filename}`);
+
+    if (filePaths.length > 0) {
+      // Shared filesystem mode: symlink existing files into ticket directory
+      for (const fp of filePaths) {
+        if (fp.hostPath && fp.filename && fs.existsSync(fp.hostPath)) {
+          const linkPath = path.join(ticketDir, fp.filename);
+          // Remove existing symlink/file if present
+          try { fs.unlinkSync(linkPath); } catch { /* doesn't exist */ }
+          try {
+            fs.symlinkSync(fp.hostPath, linkPath);
+            savedFiles.push(fp.filename);
+            console.log(`[Analyze] Linked: ${fp.filename} → ${fp.hostPath}`);
+          } catch (linkErr) {
+            // Fallback to copy if symlink fails (e.g. cross-device)
+            fs.copyFileSync(fp.hostPath, linkPath);
+            savedFiles.push(fp.filename);
+            console.log(`[Analyze] Copied (symlink failed): ${fp.filename} from ${fp.hostPath}`);
+          }
+        } else if (fp.hostPath) {
+          console.warn(`[Analyze] Shared file not found: ${fp.hostPath}`);
+        }
+      }
+      console.log(`[Analyze] Shared filesystem mode: ${savedFiles.length} files linked`);
+    } else {
+      // Legacy base64 mode: decode and write attachments to disk
+      for (const att of attachments) {
+        if (att.filename && att.content) {
+          const filePath = path.join(ticketDir, att.filename);
+          fs.writeFileSync(filePath, Buffer.from(att.content, 'base64'));
+          savedFiles.push(att.filename);
+          console.log(`[Analyze] Saved attachment: ${att.filename}`);
+        }
       }
     }
 
