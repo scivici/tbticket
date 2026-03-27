@@ -27,7 +27,7 @@ const PORT = process.env.WRAPPER_PORT || 4002;
 const TICKETS_DIR = process.env.TICKETS_DIR || '/home/support/incoming/tickets';
 const CLAUDE_BIN = process.env.CLAUDE_BIN || 'claude';
 const CLAUDE_PROJECT_DIR = process.env.CLAUDE_PROJECT_DIR || '/opt/claude-support/repos/tb';
-const ALLOWED_TOOLS = process.env.ALLOWED_TOOLS || 'Read,Grep,Glob,Bash(grep:*),Bash(cat:*),Bash(head:*),Bash(tail:*),Bash(wc:*),Bash(file:*),Bash(strings:*),Bash(hexdump:*)';
+const ALLOWED_TOOLS = process.env.ALLOWED_TOOLS || 'Read,Grep,Glob,Bash(grep:*),Bash(cat:*),Bash(head:*),Bash(tail:*),Bash(wc:*),Bash(file:*),Bash(strings:*),Bash(hexdump:*),Bash(tar:*),Bash(gdb:*),Bash(addr2line:*),Bash(objdump:*),Bash(readelf:*),Bash(nm:*),Bash(sort:*),Bash(sed:*),Bash(awk:*),Bash(ls:*),Bash(find:*),Bash(mkdir:*),Bash(cp:*)';
 const AUTH_TOKEN = process.env.AUTH_TOKEN || 'tb-claude-wrapper-secret'; // Change in production
 const ANALYSIS_TIMEOUT = parseInt(process.env.ANALYSIS_TIMEOUT || '300000'); // 5 min
 
@@ -161,6 +161,8 @@ The ticket context and attached files are located at: ${ticketDir}
 
 1. Read ${ticketDir}/_ticket_context.md for full ticket details.
 2. If there are attached files (logs, configs, pcap exports, screenshots) in ${ticketDir}/, read and analyze them.
+   - For .tar.gz or .tgz archives: extract to /tmp/${ticketNumber}/ using tar, then analyze the extracted contents.
+   - For tbreport archives: extract and look for crash logs, core dumps, config files, and system info.
 3. Use your knowledge from CLAUDE.md, bmad_docs/, source code, and all available resources for detailed analysis.
 
 Provide your analysis as a JSON object with these fields:
