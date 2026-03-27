@@ -44,7 +44,6 @@ function getClaudeConfig() {
     authType: s['claude_auth_type'] || 'basic',
     authValue: s['claude_auth_value'] || `${config.claudeUser}:${config.claudePass}`,
     model: s['claude_model'] || config.claudeModel,
-    maxTokens: parseInt(s['claude_max_tokens'] || '2000'),
     autoAssignThreshold: parseFloat(s['claude_auto_assign_threshold'] || String(config.autoAssignThreshold)),
   };
 }
@@ -279,7 +278,6 @@ export async function analyzeTicket(ticketId: number): Promise<ClaudeAnalysisRes
       body: JSON.stringify({
         model: claudeConfig.model,
         messages: [{ role: 'user', content: messageContent }],
-        max_tokens: claudeConfig.maxTokens,
       }),
     });
 

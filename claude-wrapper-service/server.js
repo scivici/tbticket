@@ -4,11 +4,17 @@
  * Runs on the Claude Code server (claude-support-2.telcobridges.lan:4002)
  * Accepts ticket analysis requests via HTTP and invokes Claude Code CLI.
  *
- * Claude Code runs with full access to:
- *   - Source code repository
- *   - bmad_docs/ documentation
- *   - gdb, addr2line, and other analysis tools
- *   - Uploaded ticket attachments
+ * Claude Code runs from the toolpack repository with full access to:
+ *   - CLAUDE.md project configuration and rules
+ *   - bmad_docs/ documentation (project-context, log-analysis, component inventories)
+ *   - Read-only toolpack source code repository (updated daily from trunk)
+ *   - Analysis tools: gdb, addr2line, objdump, readelf, nm, strings, etc.
+ *   - Uploaded ticket attachments via shared filesystem
+ *
+ * Environment aligns with the support team CLAUDE.md:
+ *   - Uploaded files at /home/support/incoming/
+ *   - Archive extraction to /tmp/
+ *   - Read-only shell commands (no network tools, no sudo, no write tools)
  *
  * Deploy: Copy this folder to the Claude server, npm install, npm start
  */
@@ -27,9 +33,35 @@ const PORT = process.env.WRAPPER_PORT || 4002;
 const TICKETS_DIR = process.env.TICKETS_DIR || '/home/support/incoming/tickets';
 const CLAUDE_BIN = process.env.CLAUDE_BIN || 'claude';
 const CLAUDE_PROJECT_DIR = process.env.CLAUDE_PROJECT_DIR || '/opt/claude-support/repos/tb';
-const ALLOWED_TOOLS = process.env.ALLOWED_TOOLS || 'Read,Grep,Glob,Bash(grep:*),Bash(cat:*),Bash(head:*),Bash(tail:*),Bash(wc:*),Bash(file:*),Bash(strings:*),Bash(hexdump:*),Bash(tar:*),Bash(gdb:*),Bash(addr2line:*),Bash(objdump:*),Bash(readelf:*),Bash(nm:*),Bash(sort:*),Bash(sed:*),Bash(awk:*),Bash(ls:*),Bash(find:*),Bash(mkdir:*),Bash(cp:*)';
 const AUTH_TOKEN = process.env.AUTH_TOKEN || 'tb-claude-wrapper-secret'; // Change in production
-const ANALYSIS_TIMEOUT = parseInt(process.env.ANALYSIS_TIMEOUT || '300000'); // 5 min
+const ANALYSIS_TIMEOUT = parseInt(process.env.ANALYSIS_TIMEOUT || '600000'); // 10 min (complex analyses can take time)
+
+// Allowed tools aligned with support team CLAUDE.md
+// Read-only shell commands: gdb, cat, grep, ls, tar, strings, file, sort, sed, awk,
+// readelf, objdump, addr2line, nm, etc.
+// Blocked: network tools (curl, wget, ssh), shell escapes (bash, sh), package management (yum, rpm, pip)
+// Blocked: Write, Edit, NotebookEdit (read-only environment)
+const ALLOWED_TOOLS = process.env.ALLOWED_TOOLS || [
+  'Read', 'Grep', 'Glob',
+  // File inspection
+  'Bash(cat:*)', 'Bash(head:*)', 'Bash(tail:*)', 'Bash(wc:*)',
+  'Bash(file:*)', 'Bash(strings:*)', 'Bash(hexdump:*)', 'Bash(od:*)',
+  // Search and text processing
+  'Bash(grep:*)', 'Bash(sort:*)', 'Bash(sed:*)', 'Bash(awk:*)',
+  'Bash(uniq:*)', 'Bash(cut:*)', 'Bash(tr:*)', 'Bash(diff:*)',
+  // Directory and file listing
+  'Bash(ls:*)', 'Bash(find:*)', 'Bash(du:*)', 'Bash(stat:*)',
+  // Archive extraction (to /tmp)
+  'Bash(tar:*)', 'Bash(gunzip:*)', 'Bash(zcat:*)',
+  // Filesystem operations (for /tmp extraction)
+  'Bash(mkdir:*)', 'Bash(cp:*)', 'Bash(rm:*)',
+  // Binary analysis and debugging
+  'Bash(gdb:*)', 'Bash(addr2line:*)', 'Bash(objdump:*)',
+  'Bash(readelf:*)', 'Bash(nm:*)',
+  // Log analysis helpers
+  'Bash(date:*)', 'Bash(basename:*)', 'Bash(dirname:*)',
+  'Bash(tee:*)', 'Bash(xargs:*)',
+].join(',');
 
 // --- File upload for attachments ---
 const storage = multer.diskStorage({
@@ -42,7 +74,7 @@ const storage = multer.diskStorage({
     cb(null, file.originalname);
   }
 });
-const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } });
+const upload = multer({ storage, limits: { fileSize: 100 * 1024 * 1024 } }); // 100MB
 
 // --- Auth middleware ---
 function authenticate(req, res, next) {
@@ -80,6 +112,7 @@ app.post('/analyze', authenticate, async (req, res) => {
   }
 
   const ticketDir = path.join(TICKETS_DIR, ticketNumber);
+  const tmpDir = `/tmp/${ticketNumber}`;
   console.log(`[Analyze] Ticket ${ticketNumber} — ${subject}`);
 
   try {
@@ -122,14 +155,14 @@ app.post('/analyze', authenticate, async (req, res) => {
       }
     }
 
-    // Step 2: Write ticket context file (Claude can read this)
+    // Step 2: Write ticket context file
     const contextFile = path.join(ticketDir, '_ticket_context.md');
     const answersText = answers.map(a => `**Q:** ${a.question}\n**A:** ${a.answer}`).join('\n\n');
     const engineersText = engineers.map(e =>
       `- **${e.name}** (ID: ${e.id}): Skills [${e.skills}], Expertise [${e.expertise}], Workload: ${e.workload}`
     ).join('\n');
     const filesText = savedFiles.length > 0
-      ? `## Attached Files (in this directory)\n${savedFiles.map(f => `- ${f}`).join('\n')}\n\nPlease read and analyze these files.`
+      ? `## Attached Files\nFiles are located at: ${ticketDir}/\n${savedFiles.map(f => `- ${ticketDir}/${f}`).join('\n')}`
       : 'No attachments.';
 
     const contextContent = `# Support Ticket: ${ticketNumber}
@@ -156,29 +189,49 @@ ${engineersText || 'No engineers available.'}
     fs.writeFileSync(contextFile, contextContent);
 
     // Step 3: Build the Claude CLI prompt
-    const prompt = `You are analyzing a TelcoBridges technical support ticket.
-The ticket context and attached files are located at: ${ticketDir}
+    // This prompt works in conjunction with the project CLAUDE.md which provides
+    // detailed rules about the environment, available resources, and analysis approach.
+    const prompt = `You are performing automated first-line triage for a TelcoBridges support ticket.
 
-1. Read ${ticketDir}/_ticket_context.md for full ticket details.
-2. If there are attached files (logs, configs, pcap exports, screenshots) in ${ticketDir}/, read and analyze them.
-   - For .tar.gz or .tgz archives: extract to /tmp/${ticketNumber}/ using tar, then analyze the extracted contents.
-   - For tbreport archives: extract and look for crash logs, core dumps, config files, and system info.
-3. Use your knowledge from CLAUDE.md, bmad_docs/, source code, and all available resources for detailed analysis.
+## Ticket Information
+Read the full ticket context at: ${ticketDir}/_ticket_context.md
 
-Provide your analysis as a JSON object with these fields:
-- classification: Brief technical classification of the issue
-- severity: "low" | "medium" | "high" | "critical"
-- rootCauseHypothesis: Your best assessment of the root cause
-- recommendedEngineerId: ID number of the best-suited engineer (from the engineer list)
-- recommendedEngineerName: Name of the recommended engineer
-- confidence: 0.0 to 1.0 confidence in your recommendation
-- reasoning: Why you chose this engineer and your technical reasoning
-- suggestedSkills: Array of relevant skill names
-- estimatedComplexity: "low" | "medium" | "high"
-- suggestedActions: Array of recommended troubleshooting steps
-- fullReport: A detailed technical analysis report (can be multi-paragraph)
+## Analysis Instructions
 
-Respond with ONLY the JSON object, no markdown fences, no extra text.`;
+1. **Read the ticket context** at ${ticketDir}/_ticket_context.md
+2. **Analyze all attached files** in ${ticketDir}/
+   - For .tar.gz, .tgz, or tbreport archives: extract to ${tmpDir}/ using \`mkdir -p ${tmpDir} && tar xzf <file> -C ${tmpDir}\`, then analyze the extracted contents
+   - For log files: identify errors (TBLV0), warnings (TBLV1), crashes, and call flow issues using the log format from bmad_docs/log-analysis.md
+   - For core dumps: use gdb for backtrace analysis, check registers, disassemble crash point
+   - For config files: check for misconfigurations, deprecated settings, incompatible combinations
+3. **Consult the knowledge base**: read bmad_docs/project-context.md and relevant component docs to ground your analysis in the actual codebase architecture
+4. **Identify the target system** based on the product and symptoms:
+   - ISDN, CAS, GR-303, H.248, streamserver, TDM, SS7, trunks → TMG
+   - tbrouter, tbsip, DPDK, SRTP, software transcoding → SBC
+   - Unknown → assume SBC
+5. **Select the best engineer** based on skills, product expertise, and current workload from the engineer list
+
+## Honesty Rules
+- If you cannot determine the root cause, say so clearly
+- Separate observations (what the logs show) from inferences (what you think happened)
+- Do not fabricate missing evidence — note gaps in available information
+- If the issue requires development team escalation, say so in suggestedActions
+
+## Required Output
+Respond with ONLY a JSON object (no markdown fences, no extra text):
+{
+  "classification": "Brief technical classification of the issue",
+  "severity": "low|medium|high|critical",
+  "rootCauseHypothesis": "Your best assessment based on evidence. If uncertain, state what is known and what is not.",
+  "recommendedEngineerId": <engineer ID number>,
+  "recommendedEngineerName": "<engineer name>",
+  "confidence": <0.0 to 1.0>,
+  "reasoning": "Why you chose this engineer and your technical reasoning",
+  "suggestedSkills": ["skill1", "skill2"],
+  "estimatedComplexity": "low|medium|high",
+  "suggestedActions": ["step 1", "step 2", "..."],
+  "fullReport": "Detailed multi-paragraph technical analysis report including: what was found in logs/files, relevant code/architecture context from bmad_docs, root cause analysis, and recommended next steps."
+}`;
 
     // Step 4: Execute Claude Code CLI (from project dir so CLAUDE.md is loaded)
     console.log(`[Analyze] Running Claude Code CLI for ${ticketNumber} (cwd: ${CLAUDE_PROJECT_DIR})...`);
@@ -189,6 +242,14 @@ Respond with ONLY the JSON object, no markdown fences, no extra text.`;
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
     console.log(`[Analyze] Claude finished in ${elapsed}s for ${ticketNumber}`);
 
+    // Step 5: Cleanup /tmp extraction directory
+    try {
+      if (fs.existsSync(tmpDir)) {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+        console.log(`[Analyze] Cleaned up ${tmpDir}`);
+      }
+    } catch { /* ignore cleanup errors */ }
+
     if (!result.success) {
       console.error(`[Analyze] CLI failed: ${result.error}`);
       return res.status(500).json({
@@ -198,7 +259,7 @@ Respond with ONLY the JSON object, no markdown fences, no extra text.`;
       });
     }
 
-    // Step 5: Parse response
+    // Step 6: Parse response
     const parsed = parseClaudeOutput(result.output);
 
     if (parsed) {
@@ -274,10 +335,6 @@ app.delete('/tickets/:ticketNumber', authenticate, (req, res) => {
 // --- Helper: Run Claude Code CLI ---
 function runClaude(prompt, cwd) {
   return new Promise((resolve) => {
-    // Write prompt to file to avoid shell escaping issues with multiline text
-    const promptFile = path.join(cwd, '_prompt.txt');
-    fs.writeFileSync(promptFile, prompt);
-
     const args = [
       '-p', prompt,
       '--allowedTools', ALLOWED_TOOLS,
@@ -287,12 +344,9 @@ function runClaude(prompt, cwd) {
     const proc = execFile(CLAUDE_BIN, args, {
       cwd,
       timeout: ANALYSIS_TIMEOUT,
-      maxBuffer: 10 * 1024 * 1024, // 10MB output buffer
+      maxBuffer: 50 * 1024 * 1024, // 50MB output buffer
       env: { ...process.env, CLAUDE_DISABLE_TELEMETRY: '1' },
     }, (error, stdout, stderr) => {
-      // Clean up prompt file
-      try { fs.unlinkSync(promptFile); } catch { /* ignore */ }
-
       if (error) {
         resolve({
           success: false,
@@ -358,7 +412,6 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`Tickets dir:  ${TICKETS_DIR}`);
   console.log(`Project dir:  ${CLAUDE_PROJECT_DIR}`);
   console.log(`Claude bin:   ${CLAUDE_BIN}`);
-  console.log(`Allowed tools: ${ALLOWED_TOOLS}`);
   console.log(`Timeout:      ${ANALYSIS_TIMEOUT / 1000}s`);
   console.log(`========================================\n`);
 });
