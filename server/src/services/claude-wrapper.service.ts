@@ -25,7 +25,7 @@ function getWrapperConfig(): WrapperConfig {
   return {
     url: s['claude_wrapper_url'] || 'http://claude-support-2.telcobridges.lan:4002',
     authToken: s['claude_wrapper_auth_token'] || 'tb-claude-wrapper-secret',
-    timeout: parseInt(s['claude_wrapper_timeout'] || '310000'), // slightly above CLI timeout
+    timeout: parseInt(s['claude_wrapper_timeout'] || '660000'), // slightly above CLI 10 min timeout
   };
 }
 
