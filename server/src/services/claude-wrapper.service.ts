@@ -25,7 +25,7 @@ function getWrapperConfig(): WrapperConfig {
   return {
     url: s['claude_wrapper_url'] || 'http://claude-support-2.telcobridges.lan:4002',
     authToken: s['claude_wrapper_auth_token'] || 'tb-claude-wrapper-secret',
-    timeout: parseInt(s['claude_wrapper_timeout'] || '660000'), // slightly above CLI 10 min timeout
+    timeout: parseInt(s['claude_wrapper_timeout'] || '0'), // 0 = no timeout (analyses can take 30+ min)
   };
 }
 
@@ -133,7 +133,9 @@ export async function analyzeTicketViaWrapper(input: WrapperInput): Promise<Wrap
     console.log(`[Wrapper] Sending analysis request to ${endpoint} for ticket ${input.ticketNumber}...`);
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), wrapperConfig.timeout);
+    const timeoutId = wrapperConfig.timeout > 0
+      ? setTimeout(() => controller.abort(), wrapperConfig.timeout)
+      : null;
 
     const response = await fetch(endpoint, {
       method: 'POST',
@@ -142,10 +144,10 @@ export async function analyzeTicketViaWrapper(input: WrapperInput): Promise<Wrap
         'x-auth-token': wrapperConfig.authToken,
       },
       body: JSON.stringify(payload),
-      signal: controller.signal,
+      signal: wrapperConfig.timeout > 0 ? controller.signal : undefined,
     });
 
-    clearTimeout(timeoutId);
+    if (timeoutId) clearTimeout(timeoutId);
 
     if (!response.ok) {
       const errorText = await response.text();

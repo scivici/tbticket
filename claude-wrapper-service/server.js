@@ -34,7 +34,7 @@ const TICKETS_DIR = process.env.TICKETS_DIR || '/home/support/incoming/tickets';
 const CLAUDE_BIN = process.env.CLAUDE_BIN || 'claude';
 const CLAUDE_PROJECT_DIR = process.env.CLAUDE_PROJECT_DIR || '/opt/claude-support/repos/tb';
 const AUTH_TOKEN = process.env.AUTH_TOKEN || 'tb-claude-wrapper-secret'; // Change in production
-const ANALYSIS_TIMEOUT = parseInt(process.env.ANALYSIS_TIMEOUT || '600000'); // 10 min (complex analyses can take time)
+const ANALYSIS_TIMEOUT = parseInt(process.env.ANALYSIS_TIMEOUT || '0'); // 0 = no timeout (complex analyses can take 30+ min)
 
 // Allowed tools aligned with support team CLAUDE.md
 // Read-only shell commands: gdb, cat, grep, ls, tar, strings, file, sort, sed, awk,
