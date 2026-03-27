@@ -59,29 +59,27 @@ Cleanup ticket files after analysis.
 ### `GET /health`
 Health check.
 
-## systemd Service (Optional)
+## Install as systemd Service
 
-```ini
-# /etc/systemd/system/claude-wrapper.service
-[Unit]
-Description=Claude Analysis Wrapper
-After=network.target
-
-[Service]
-Type=simple
-User=support
-WorkingDirectory=/opt/claude-wrapper
-ExecStart=/usr/bin/node server.js
-Environment=AUTH_TOKEN=your-secret-token
-Environment=WRAPPER_PORT=4002
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-```
+A service file is included in this directory. To install:
 
 ```bash
+# Copy service file
+sudo cp claude-wrapper.service /etc/systemd/system/
+
+# Enable and start
+sudo systemctl daemon-reload
 sudo systemctl enable claude-wrapper
 sudo systemctl start claude-wrapper
+
+# Check status
+sudo systemctl status claude-wrapper
+
+# View logs
+sudo journalctl -u claude-wrapper -f
+```
+
+To restart after updates:
+```bash
+sudo systemctl restart claude-wrapper
 ```
