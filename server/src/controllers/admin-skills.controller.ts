@@ -1,14 +1,12 @@
 import { Request, Response } from 'express';
-import { getDb } from '../db/connection';
+import { query, queryOne, queryAll, transaction, clientQuery } from '../db/connection';
 
-export function listSkills(_req: Request, res: Response): void {
-  const db = getDb();
-  const skills = db.prepare('SELECT * FROM skills ORDER BY name').all();
+export async function listSkills(_req: Request, res: Response): Promise<void> {
+  const skills = await queryAll<any>('SELECT * FROM skills ORDER BY name');
   res.json(skills);
 }
 
-export function createSkill(req: Request, res: Response): void {
-  const db = getDb();
+export async function createSkill(req: Request, res: Response): Promise<void> {
   const { name, description } = req.body;
 
   if (!name) {
@@ -16,47 +14,44 @@ export function createSkill(req: Request, res: Response): void {
     return;
   }
 
-  const result = db.prepare(
-    'INSERT INTO skills (name, description) VALUES (?, ?)'
-  ).run(name, description || null);
+  const result = await query(
+    'INSERT INTO skills (name, description) VALUES (?, ?) RETURNING id',
+    [name, description || null]
+  );
 
-  res.status(201).json({ id: result.lastInsertRowid, message: 'Skill created' });
+  res.status(201).json({ id: result.rows[0].id, message: 'Skill created' });
 }
 
-export function updateSkill(req: Request, res: Response): void {
-  const db = getDb();
+export async function updateSkill(req: Request, res: Response): Promise<void> {
   const { id } = req.params;
   const { name, description } = req.body;
 
-  const existing = db.prepare('SELECT id FROM skills WHERE id = ?').get(id);
+  const existing = await queryOne<any>('SELECT id FROM skills WHERE id = ?', [id]);
   if (!existing) {
     res.status(404).json({ error: 'Skill not found' });
     return;
   }
 
-  db.prepare(`
+  await query(`
     UPDATE skills SET name = COALESCE(?, name), description = COALESCE(?, description)
     WHERE id = ?
-  `).run(name, description, id);
+  `, [name, description, id]);
 
   res.json({ message: 'Skill updated' });
 }
 
-export function deleteSkill(req: Request, res: Response): void {
-  const db = getDb();
+export async function deleteSkill(req: Request, res: Response): Promise<void> {
   const { id } = req.params;
 
-  const existing = db.prepare('SELECT id FROM skills WHERE id = ?').get(id);
+  const existing = await queryOne<any>('SELECT id FROM skills WHERE id = ?', [id]);
   if (!existing) {
     res.status(404).json({ error: 'Skill not found' });
     return;
   }
 
-  db.transaction(() => {
-    // Remove skill from all engineers first
-    db.prepare('DELETE FROM engineer_skills WHERE skill_id = ?').run(id);
-    // Delete the skill
-    db.prepare('DELETE FROM skills WHERE id = ?').run(id);
-  })();
+  await transaction(async (client) => {
+    await clientQuery(client, 'DELETE FROM engineer_skills WHERE skill_id = ?', [id]);
+    await clientQuery(client, 'DELETE FROM skills WHERE id = ?', [id]);
+  });
   res.json({ message: 'Skill deleted' });
 }

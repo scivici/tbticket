@@ -1,4 +1,4 @@
-import { getDb } from '../db/connection';
+import { queryAll } from '../db/connection';
 
 export interface RecurringPattern {
   customerId: number;
@@ -14,26 +14,24 @@ export interface RecurringPattern {
   ticketNumbers: string[];
 }
 
-export function detectRecurringTickets(minCount: number = 2, daysBack: number = 90): RecurringPattern[] {
-  const db = getDb();
-
-  const patterns = db.prepare(`
+export async function detectRecurringTickets(minCount: number = 2, daysBack: number = 90): Promise<RecurringPattern[]> {
+  const patterns = await queryAll<any>(`
     SELECT
       c.id as customer_id, c.name as customer_name, c.email as customer_email, c.company,
       p.id as product_id, p.name as product_name,
       pc.id as category_id, pc.name as category_name,
       COUNT(*) as ticket_count,
       MAX(t.created_at) as last_ticket_at,
-      GROUP_CONCAT(t.ticket_number, ',') as ticket_numbers
+      STRING_AGG(t.ticket_number, ',') as ticket_numbers
     FROM tickets t
     JOIN customers c ON t.customer_id = c.id
     JOIN products p ON t.product_id = p.id
     JOIN product_categories pc ON t.category_id = pc.id
-    WHERE t.created_at >= date('now', '-' || ? || ' days')
-    GROUP BY c.id, p.id, pc.id
+    WHERE t.created_at >= CURRENT_DATE - (? || ' days')::INTERVAL
+    GROUP BY c.id, c.name, c.email, c.company, p.id, p.name, pc.id, pc.name
     HAVING COUNT(*) >= ?
     ORDER BY ticket_count DESC
-  `).all(daysBack, minCount) as any[];
+  `, [daysBack, minCount]);
 
   return patterns.map(p => ({
     customerId: p.customer_id,

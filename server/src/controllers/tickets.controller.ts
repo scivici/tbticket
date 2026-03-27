@@ -11,12 +11,12 @@ import * as notificationService from '../services/notification.service';
 import * as emailService from '../services/email.service';
 import * as webhookService from '../services/webhook.service';
 import * as slaService from '../services/sla.service';
-import { getDb } from '../db/connection';
+import { query, queryOne, queryAll, transaction, clientQuery } from '../db/connection';
 import * as activityService from '../services/activity.service';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
-export function createTicket(req: AuthenticatedRequest, res: Response): void {
+export async function createTicket(req: AuthenticatedRequest, res: Response): Promise<void> {
   try {
     let customerId = req.user?.userId;
 
@@ -27,13 +27,13 @@ export function createTicket(req: AuthenticatedRequest, res: Response): void {
         res.status(400).json({ error: 'Email is required for anonymous submissions' });
         return;
       }
-      const db = getDb();
-      let customer = db.prepare('SELECT id FROM customers WHERE email = ?').get(email) as any;
+      let customer = await queryOne<any>('SELECT id FROM customers WHERE email = ?', [email]);
       if (!customer) {
-        const result = db.prepare(
-          'INSERT INTO customers (email, name, is_anonymous) VALUES (?, ?, 1)'
-        ).run(email, name || 'Anonymous');
-        customerId = result.lastInsertRowid as number;
+        const result = await query(
+          'INSERT INTO customers (email, name, is_anonymous) VALUES (?, ?, TRUE) RETURNING id',
+          [email, name || 'Anonymous']
+        );
+        customerId = result.rows[0].id;
       } else {
         customerId = customer.id;
       }
@@ -54,7 +54,7 @@ export function createTicket(req: AuthenticatedRequest, res: Response): void {
 
     const files = req.files as Express.Multer.File[] | undefined;
 
-    const result = ticketService.createTicket({
+    const result = await ticketService.createTicket({
       customerId: customerId!,
       productId: parseInt(productId),
       categoryId: parseInt(categoryId),
@@ -66,13 +66,12 @@ export function createTicket(req: AuthenticatedRequest, res: Response): void {
     });
 
     // Trigger async AI analysis
-    ticketService.updateTicketStatus(result.ticketId, 'analyzing');
+    await ticketService.updateTicketStatus(result.ticketId, 'analyzing');
     triggerAnalysis(result.ticketId, parseInt(productId), parseInt(categoryId));
 
     // Log activity
-    const db3 = getDb();
-    const custName = db3.prepare('SELECT name FROM customers WHERE id = ?').get(customerId) as any;
-    activityService.logActivity(result.ticketId, customerId!, custName?.name || 'Unknown', 'created', 'Ticket created');
+    const custName = await queryOne<any>('SELECT name FROM customers WHERE id = ?', [customerId]);
+    await activityService.logActivity(result.ticketId, customerId!, custName?.name || 'Unknown', 'created', 'Ticket created');
 
     // Auto-detect missing required info and add auto-response
     checkMissingInfo(result.ticketId, parseInt(productId), productKey, files);
@@ -92,9 +91,8 @@ export function createTicket(req: AuthenticatedRequest, res: Response): void {
       ).catch(() => {});
     }
     // Webhook notifications
-    const db2 = getDb();
-    const cust = db2.prepare('SELECT name FROM customers WHERE id = ?').get(customerId) as any;
-    const prod = db2.prepare('SELECT name FROM products WHERE id = ?').get(parseInt(productId)) as any;
+    const cust = await queryOne<any>('SELECT name FROM customers WHERE id = ?', [customerId]);
+    const prod = await queryOne<any>('SELECT name FROM products WHERE id = ?', [parseInt(productId)]);
     webhookService.notifyNewTicket(result.ticketNumber, prod?.name || productId, subject, cust?.name || 'Unknown');
   } catch (error: any) {
     console.error('[Tickets] Create error:', error);
@@ -102,10 +100,9 @@ export function createTicket(req: AuthenticatedRequest, res: Response): void {
   }
 }
 
-function checkMissingInfo(ticketId: number, productId: number, productKey: string | undefined, files: Express.Multer.File[] | undefined) {
+async function checkMissingInfo(ticketId: number, productId: number, productKey: string | undefined, files: Express.Multer.File[] | undefined) {
   try {
-    const db = getDb();
-    const product = db.prepare('SELECT name FROM products WHERE id = ?').get(productId) as any;
+    const product = await queryOne<any>('SELECT name FROM products WHERE id = ?', [productId]);
     if (!product) return;
 
     const productName = (product.name || '').toLowerCase();
@@ -137,15 +134,15 @@ function checkMissingInfo(ticketId: number, productId: number, productKey: strin
       const autoMessage = `Thank you for submitting your ticket. To help us resolve your issue as quickly as possible, we noticed the following information is missing:\n\n${missingItems.join('\n\n')}\n\nPlease reply to this ticket with the missing information, or use the "Add Files" button to upload log files.`;
 
       // Add as a public auto-response from system
-      ticketService.addResponse(ticketId, 0, 'Support System', 'admin', autoMessage, false);
+      await ticketService.addResponse(ticketId, 0, 'Support System', 'admin', autoMessage, false);
 
       // Also add internal note for engineers
-      ticketService.addResponse(ticketId, 0, 'System', 'admin',
+      await ticketService.addResponse(ticketId, 0, 'System', 'admin',
         `[Auto-detection] Missing info detected: ${missingItems.length === 1 ? '1 item' : missingItems.length + ' items'}. Auto-reply sent to customer.`,
         true
       );
 
-      activityService.logActivity(ticketId, null, 'System', 'auto_response', 'Auto-reply sent for missing required information');
+      await activityService.logActivity(ticketId, null, 'System', 'auto_response', 'Auto-reply sent for missing required information');
     }
   } catch (error) {
     console.error('[Auto-detect] Failed to check missing info:', error);
@@ -154,9 +151,9 @@ function checkMissingInfo(ticketId: number, productId: number, productKey: strin
 
 async function triggerAnalysis(ticketId: number, productId: number, categoryId: number) {
   try {
-    const analysisMode = getSetting('claude_analysis_mode') || 'ssh';
+    const analysisMode = await getSetting('claude_analysis_mode') || 'ssh';
 
-    // Wrapper mode: HTTP → Claude Code CLI with full server access (recommended)
+    // Wrapper mode: HTTP -> Claude Code CLI with full server access (recommended)
     if (analysisMode === 'wrapper') {
       await triggerWrapperAnalysis(ticketId, productId, categoryId);
       return;
@@ -172,19 +169,19 @@ async function triggerAnalysis(ticketId: number, productId: number, categoryId: 
     const analysis = await analyzeTicket(ticketId);
 
     if (analysis) {
-      ticketService.updateAiAnalysis(ticketId, JSON.stringify(analysis), analysis.confidence);
+      await ticketService.updateAiAnalysis(ticketId, JSON.stringify(analysis), analysis.confidence);
 
-      if (analysis.confidence >= getAutoAssignThreshold()) {
-        ticketService.assignTicket(ticketId, analysis.recommendedEngineerId);
+      if (analysis.confidence >= await getAutoAssignThreshold()) {
+        await ticketService.assignTicket(ticketId, analysis.recommendedEngineerId);
         console.log(`[AI] Auto-assigned ticket ${ticketId} to engineer ${analysis.recommendedEngineerName} (confidence: ${analysis.confidence})`);
       } else {
-        ticketService.updateTicketStatus(ticketId, 'new');
+        await ticketService.updateTicketStatus(ticketId, 'new');
         console.log(`[AI] Ticket ${ticketId} flagged for manual review (confidence: ${analysis.confidence})`);
       }
     } else {
       // Fallback to scoring algorithm
       console.log(`[AI] Claude unavailable, using fallback scoring for ticket ${ticketId}`);
-      const best = getBestEngineer(productId, categoryId);
+      const best = await getBestEngineer(productId, categoryId);
       if (best) {
         const fallbackAnalysis = {
           classification: 'Auto-classified by fallback algorithm',
@@ -197,39 +194,39 @@ async function triggerAnalysis(ticketId: number, productId: number, categoryId: 
           suggestedSkills: [],
           estimatedComplexity: 'medium',
         };
-        ticketService.updateAiAnalysis(ticketId, JSON.stringify(fallbackAnalysis), 0.5);
-        ticketService.updateTicketStatus(ticketId, 'new'); // Flag for manual review since fallback
+        await ticketService.updateAiAnalysis(ticketId, JSON.stringify(fallbackAnalysis), 0.5);
+        await ticketService.updateTicketStatus(ticketId, 'new'); // Flag for manual review since fallback
       } else {
-        ticketService.updateTicketStatus(ticketId, 'new');
+        await ticketService.updateTicketStatus(ticketId, 'new');
       }
     }
   } catch (error) {
     console.error(`[AI] Analysis failed for ticket ${ticketId}:`, error);
-    ticketService.updateTicketStatus(ticketId, 'new');
+    await ticketService.updateTicketStatus(ticketId, 'new');
   }
 }
 
 async function triggerSshAnalysis(ticketId: number) {
-  const db = getDb();
-  const ticket = ticketService.getTicketById(ticketId);
+  const ticket = await ticketService.getTicketById(ticketId);
   if (!ticket) return;
 
   // Gather engineer info
-  const engineers = db.prepare('SELECT * FROM engineers WHERE is_active = 1 AND current_workload < max_workload').all() as any[];
-  const engineerList = engineers.map((e: any) => {
-    const skills = db.prepare('SELECT s.name, es.proficiency FROM engineer_skills es JOIN skills s ON es.skill_id = s.id WHERE es.engineer_id = ?').all(e.id) as any[];
-    const expertise = db.prepare('SELECT p.name as pname, COALESCE(pc.name, \'General\') as cname, epe.expertise_level FROM engineer_product_expertise epe JOIN products p ON epe.product_id = p.id LEFT JOIN product_categories pc ON epe.category_id = pc.id WHERE epe.engineer_id = ?').all(e.id) as any[];
-    return {
+  const engineers = await queryAll<any>('SELECT * FROM engineers WHERE is_active = TRUE AND current_workload < max_workload');
+  const engineerList = [];
+  for (const e of engineers) {
+    const skills = await queryAll<any>('SELECT s.name, es.proficiency FROM engineer_skills es JOIN skills s ON es.skill_id = s.id WHERE es.engineer_id = ?', [e.id]);
+    const expertise = await queryAll<any>('SELECT p.name as pname, COALESCE(pc.name, \'General\') as cname, epe.expertise_level FROM engineer_product_expertise epe JOIN products p ON epe.product_id = p.id LEFT JOIN product_categories pc ON epe.category_id = pc.id WHERE epe.engineer_id = ?', [e.id]);
+    engineerList.push({
       id: e.id,
       name: e.name,
       skills: skills.map((s: any) => `${s.name}(${s.proficiency}/5)`).join(', '),
       expertise: expertise.map((ex: any) => `${ex.pname}/${ex.cname}(${ex.expertise_level}/5)`).join(', '),
       workload: `${e.current_workload}/${e.max_workload}`,
-    };
-  });
+    });
+  }
 
   // Gather attachments with local paths
-  const attachments = db.prepare('SELECT * FROM ticket_attachments WHERE ticket_id = ?').all(ticketId) as any[];
+  const attachments = await queryAll<any>('SELECT * FROM ticket_attachments WHERE ticket_id = ?', [ticketId]);
 
   try {
     const result = await claudeSshService.analyzeTicketViaSsh({
@@ -271,13 +268,13 @@ async function triggerSshAnalysis(ticketId: number) {
           fullReport: fullReport, // Include full Claude report
         };
         const confidence = analysisJson.confidence || 0.5;
-        ticketService.updateAiAnalysis(ticketId, JSON.stringify(analysis), confidence);
+        await ticketService.updateAiAnalysis(ticketId, JSON.stringify(analysis), confidence);
 
-        if (confidence >= getAutoAssignThreshold() && analysisJson.recommendedEngineerId) {
-          ticketService.assignTicket(ticketId, analysisJson.recommendedEngineerId);
+        if (confidence >= await getAutoAssignThreshold() && analysisJson.recommendedEngineerId) {
+          await ticketService.assignTicket(ticketId, analysisJson.recommendedEngineerId);
           console.log(`[SSH-AI] Auto-assigned ticket ${ticketId} to ${analysisJson.recommendedEngineerName} (confidence: ${confidence})`);
         } else {
-          ticketService.updateTicketStatus(ticketId, 'new');
+          await ticketService.updateTicketStatus(ticketId, 'new');
           console.log(`[SSH-AI] Ticket ${ticketId} flagged for manual review (confidence: ${confidence})`);
         }
       } else {
@@ -289,18 +286,18 @@ async function triggerSshAnalysis(ticketId: number) {
           fullReport: fullReport,
           confidence: 0.5,
         };
-        ticketService.updateAiAnalysis(ticketId, JSON.stringify(fallback), 0.5);
-        ticketService.updateTicketStatus(ticketId, 'new');
+        await ticketService.updateAiAnalysis(ticketId, JSON.stringify(fallback), 0.5);
+        await ticketService.updateTicketStatus(ticketId, 'new');
       }
 
       // Log activity
-      activityService.logActivity(ticketId, null, 'Claude AI', 'ai_analysis', 'AI analysis completed via SSH');
+      await activityService.logActivity(ticketId, null, 'Claude AI', 'ai_analysis', 'AI analysis completed via SSH');
     } else {
       console.error(`[SSH-AI] Analysis failed for ticket ${ticketId}: ${result.error}`);
       // Fallback to scoring
-      const best = getBestEngineer(ticket.productId, ticket.categoryId);
+      const best = await getBestEngineer(ticket.productId, ticket.categoryId);
       if (best) {
-        ticketService.updateAiAnalysis(ticketId, JSON.stringify({
+        await ticketService.updateAiAnalysis(ticketId, JSON.stringify({
           classification: 'SSH analysis failed, using fallback',
           severity: 'medium',
           rootCauseHypothesis: 'Manual investigation needed',
@@ -312,35 +309,35 @@ async function triggerSshAnalysis(ticketId: number) {
           estimatedComplexity: 'medium',
         }), 0.3);
       }
-      ticketService.updateTicketStatus(ticketId, 'new');
+      await ticketService.updateTicketStatus(ticketId, 'new');
     }
   } catch (error: any) {
     console.error(`[SSH-AI] Error for ticket ${ticketId}:`, error);
-    ticketService.updateTicketStatus(ticketId, 'new');
+    await ticketService.updateTicketStatus(ticketId, 'new');
   }
 }
 
 async function triggerWrapperAnalysis(ticketId: number, productId: number, categoryId: number) {
-  const db = getDb();
-  const ticket = ticketService.getTicketById(ticketId);
+  const ticket = await ticketService.getTicketById(ticketId);
   if (!ticket) return;
 
   // Gather engineer info
-  const engineers = db.prepare('SELECT * FROM engineers WHERE is_active = 1 AND current_workload < max_workload').all() as any[];
-  const engineerList = engineers.map((e: any) => {
-    const skills = db.prepare('SELECT s.name, es.proficiency FROM engineer_skills es JOIN skills s ON es.skill_id = s.id WHERE es.engineer_id = ?').all(e.id) as any[];
-    const expertise = db.prepare('SELECT p.name as pname, COALESCE(pc.name, \'General\') as cname, epe.expertise_level FROM engineer_product_expertise epe JOIN products p ON epe.product_id = p.id LEFT JOIN product_categories pc ON epe.category_id = pc.id WHERE epe.engineer_id = ?').all(e.id) as any[];
-    return {
+  const engineers = await queryAll<any>('SELECT * FROM engineers WHERE is_active = TRUE AND current_workload < max_workload');
+  const engineerList = [];
+  for (const e of engineers) {
+    const skills = await queryAll<any>('SELECT s.name, es.proficiency FROM engineer_skills es JOIN skills s ON es.skill_id = s.id WHERE es.engineer_id = ?', [e.id]);
+    const expertise = await queryAll<any>('SELECT p.name as pname, COALESCE(pc.name, \'General\') as cname, epe.expertise_level FROM engineer_product_expertise epe JOIN products p ON epe.product_id = p.id LEFT JOIN product_categories pc ON epe.category_id = pc.id WHERE epe.engineer_id = ?', [e.id]);
+    engineerList.push({
       id: e.id,
       name: e.name,
       skills: skills.map((s: any) => `${s.name}(${s.proficiency}/5)`).join(', '),
       expertise: expertise.map((ex: any) => `${ex.pname}/${ex.cname}(${ex.expertise_level}/5)`).join(', '),
       workload: `${e.current_workload}/${e.max_workload}`,
-    };
-  });
+    });
+  }
 
   // Gather attachments
-  const attachments = db.prepare('SELECT * FROM ticket_attachments WHERE ticket_id = ?').all(ticketId) as any[];
+  const attachments = await queryAll<any>('SELECT * FROM ticket_attachments WHERE ticket_id = ?', [ticketId]);
 
   try {
     const result = await claudeWrapperService.analyzeTicketViaWrapper({
@@ -368,17 +365,17 @@ async function triggerWrapperAnalysis(ticketId: number, productId: number, categ
         executionTimeSeconds: result.executionTimeSeconds,
       };
       const confidence = result.analysis.confidence || 0.5;
-      ticketService.updateAiAnalysis(ticketId, JSON.stringify(analysis), confidence);
+      await ticketService.updateAiAnalysis(ticketId, JSON.stringify(analysis), confidence);
 
-      if (confidence >= getAutoAssignThreshold() && result.analysis.recommendedEngineerId) {
-        ticketService.assignTicket(ticketId, result.analysis.recommendedEngineerId);
+      if (confidence >= await getAutoAssignThreshold() && result.analysis.recommendedEngineerId) {
+        await ticketService.assignTicket(ticketId, result.analysis.recommendedEngineerId);
         console.log(`[Wrapper-AI] Auto-assigned ticket ${ticketId} to ${result.analysis.recommendedEngineerName} (confidence: ${confidence})`);
       } else {
-        ticketService.updateTicketStatus(ticketId, 'new');
+        await ticketService.updateTicketStatus(ticketId, 'new');
         console.log(`[Wrapper-AI] Ticket ${ticketId} flagged for manual review (confidence: ${confidence})`);
       }
 
-      activityService.logActivity(ticketId, null, 'Claude AI', 'ai_analysis', `AI analysis completed via wrapper service (${result.executionTimeSeconds}s)`);
+      await activityService.logActivity(ticketId, null, 'Claude AI', 'ai_analysis', `AI analysis completed via wrapper service (${result.executionTimeSeconds}s)`);
     } else if (result.success && result.rawOutput) {
       // Got raw output but no structured analysis
       const fallback = {
@@ -389,15 +386,15 @@ async function triggerWrapperAnalysis(ticketId: number, productId: number, categ
         confidence: 0.5,
         analysisMode: 'wrapper',
       };
-      ticketService.updateAiAnalysis(ticketId, JSON.stringify(fallback), 0.5);
-      ticketService.updateTicketStatus(ticketId, 'new');
-      activityService.logActivity(ticketId, null, 'Claude AI', 'ai_analysis', 'AI analysis completed (unstructured report)');
+      await ticketService.updateAiAnalysis(ticketId, JSON.stringify(fallback), 0.5);
+      await ticketService.updateTicketStatus(ticketId, 'new');
+      await activityService.logActivity(ticketId, null, 'Claude AI', 'ai_analysis', 'AI analysis completed (unstructured report)');
     } else {
       // Wrapper failed, fallback to scoring
       console.error(`[Wrapper-AI] Analysis failed for ticket ${ticketId}: ${result.error}`);
-      const best = getBestEngineer(productId, categoryId);
+      const best = await getBestEngineer(productId, categoryId);
       if (best) {
-        ticketService.updateAiAnalysis(ticketId, JSON.stringify({
+        await ticketService.updateAiAnalysis(ticketId, JSON.stringify({
           classification: 'Wrapper analysis failed, using fallback',
           severity: 'medium',
           rootCauseHypothesis: 'Manual investigation needed',
@@ -409,26 +406,26 @@ async function triggerWrapperAnalysis(ticketId: number, productId: number, categ
           estimatedComplexity: 'medium',
         }), 0.3);
       }
-      ticketService.updateTicketStatus(ticketId, 'new');
+      await ticketService.updateTicketStatus(ticketId, 'new');
     }
 
     // Optionally cleanup files on the wrapper server
     claudeWrapperService.cleanupWrapperFiles(ticket.ticketNumber).catch(() => {});
   } catch (error: any) {
     console.error(`[Wrapper-AI] Error for ticket ${ticketId}:`, error);
-    ticketService.updateTicketStatus(ticketId, 'new');
+    await ticketService.updateTicketStatus(ticketId, 'new');
   }
 }
 
-export function getTicket(req: AuthenticatedRequest, res: Response): void {
+export async function getTicket(req: AuthenticatedRequest, res: Response): Promise<void> {
   const { id } = req.params;
 
   // Support both numeric ID and ticket number (TKT-xxx)
   let ticket;
   if (/^\d+$/.test(id)) {
-    ticket = ticketService.getTicketById(parseInt(id));
+    ticket = await ticketService.getTicketById(parseInt(id));
   } else {
-    ticket = ticketService.getTicketByNumber(id);
+    ticket = await ticketService.getTicketByNumber(id);
   }
 
   if (!ticket) {
@@ -442,13 +439,13 @@ export function getTicket(req: AuthenticatedRequest, res: Response): void {
     return;
   }
 
-  const slaStatus = slaService.getTicketSlaStatus(ticket.id);
+  const slaStatus = await slaService.getTicketSlaStatus(ticket.id);
   res.json({ ...ticket, slaStatus });
 }
 
-export function trackTicket(req: AuthenticatedRequest, res: Response): void {
+export async function trackTicket(req: AuthenticatedRequest, res: Response): Promise<void> {
   const { ticketNumber } = req.params;
-  const ticket = ticketService.getTicketByNumber(ticketNumber);
+  const ticket = await ticketService.getTicketByNumber(ticketNumber);
   if (!ticket) {
     res.status(404).json({ error: 'Ticket not found' });
     return;
@@ -468,7 +465,7 @@ export function trackTicket(req: AuthenticatedRequest, res: Response): void {
   });
 }
 
-export function listTickets(req: AuthenticatedRequest, res: Response): void {
+export async function listTickets(req: AuthenticatedRequest, res: Response): Promise<void> {
   const filters: any = {
     status: req.query.status as string || undefined,
     excludeStatus: req.query.excludeStatus as string || undefined,
@@ -488,18 +485,17 @@ export function listTickets(req: AuthenticatedRequest, res: Response): void {
   if (req.user?.role !== 'admin') {
     filters.customerId = req.user?.userId;
     // Check if user has company-wide visibility enabled
-    const db = getDb();
-    const customer = db.prepare('SELECT company_ticket_visibility, company FROM customers WHERE id = ?').get(req.user?.userId) as any;
+    const customer = await queryOne<any>('SELECT company_ticket_visibility, company FROM customers WHERE id = ?', [req.user?.userId]);
     if (customer?.company_ticket_visibility && customer?.company) {
       filters.includeCompanyTickets = true;
     }
   }
 
-  const result = ticketService.listTickets(filters);
+  const result = await ticketService.listTickets(filters);
   res.json(result);
 }
 
-export function updateStatus(req: AuthenticatedRequest, res: Response): void {
+export async function updateStatus(req: AuthenticatedRequest, res: Response): Promise<void> {
   const { id } = req.params;
   const { status } = req.body;
 
@@ -509,14 +505,13 @@ export function updateStatus(req: AuthenticatedRequest, res: Response): void {
     return;
   }
 
-  ticketService.updateTicketStatus(parseInt(id), status);
+  await ticketService.updateTicketStatus(parseInt(id), status);
 
   // Log activity
-  const dbStatus = getDb();
-  const userForStatus = dbStatus.prepare('SELECT name FROM customers WHERE id = ?').get(req.user!.userId) as any;
-  activityService.logActivity(parseInt(id), req.user!.userId, userForStatus?.name || 'Unknown', 'status_changed', `Status changed to ${status}`);
+  const userForStatus = await queryOne<any>('SELECT name FROM customers WHERE id = ?', [req.user!.userId]);
+  await activityService.logActivity(parseInt(id), req.user!.userId, userForStatus?.name || 'Unknown', 'status_changed', `Status changed to ${status}`);
 
-  const ticket = ticketService.getTicketById(parseInt(id));
+  const ticket = await ticketService.getTicketById(parseInt(id));
   if (ticket) {
     const statusLabels: Record<string, string> = {
       assigned: 'Your ticket has been assigned to an engineer',
@@ -526,7 +521,7 @@ export function updateStatus(req: AuthenticatedRequest, res: Response): void {
       closed: 'Your ticket has been closed',
     };
     if (statusLabels[status]) {
-      notificationService.createNotification(
+      await notificationService.createNotification(
         ticket.customerId, parseInt(id),
         status === 'resolved' ? 'resolved' : 'status_change',
         statusLabels[status],
@@ -535,7 +530,7 @@ export function updateStatus(req: AuthenticatedRequest, res: Response): void {
       emailService.sendTicketStatusEmail(ticket.customer.email, ticket.ticketNumber, status).catch(() => {});
     }
     if (status === 'resolved') {
-      notificationService.createNotification(
+      await notificationService.createNotification(
         ticket.customerId, parseInt(id), 'resolved',
         'Please rate your support experience',
         `Ticket ${ticket.ticketNumber} has been resolved. We'd love your feedback!`
@@ -546,7 +541,7 @@ export function updateStatus(req: AuthenticatedRequest, res: Response): void {
   res.json({ message: 'Status updated' });
 }
 
-export function assignEngineer(req: AuthenticatedRequest, res: Response): void {
+export async function assignEngineer(req: AuthenticatedRequest, res: Response): Promise<void> {
   const { id } = req.params;
   const { engineerId } = req.body;
 
@@ -555,17 +550,16 @@ export function assignEngineer(req: AuthenticatedRequest, res: Response): void {
     return;
   }
 
-  ticketService.assignTicket(parseInt(id), engineerId);
+  await ticketService.assignTicket(parseInt(id), engineerId);
 
   // Log activity
-  const dbAssign = getDb();
-  const userForAssign = dbAssign.prepare('SELECT name FROM customers WHERE id = ?').get(req.user!.userId) as any;
-  activityService.logActivity(parseInt(id), req.user!.userId, userForAssign?.name || 'Unknown', 'assigned', `Assigned to engineer #${engineerId}`);
+  const userForAssign = await queryOne<any>('SELECT name FROM customers WHERE id = ?', [req.user!.userId]);
+  await activityService.logActivity(parseInt(id), req.user!.userId, userForAssign?.name || 'Unknown', 'assigned', `Assigned to engineer #${engineerId}`);
 
-  const ticket = ticketService.getTicketById(parseInt(id));
+  const ticket = await ticketService.getTicketById(parseInt(id));
   if (ticket) {
     const engineer = ticket.assignedEngineer;
-    notificationService.createNotification(
+    await notificationService.createNotification(
       ticket.customerId, parseInt(id), 'assigned',
       'Engineer assigned to your ticket',
       `${engineer?.name || 'An engineer'} has been assigned to ticket ${ticket.ticketNumber}`
@@ -575,14 +569,14 @@ export function assignEngineer(req: AuthenticatedRequest, res: Response): void {
   res.json({ message: 'Engineer assigned' });
 }
 
-export function addAttachments(req: AuthenticatedRequest, res: Response): void {
+export async function addAttachments(req: AuthenticatedRequest, res: Response): Promise<void> {
   try {
     const { id } = req.params;
     let ticket;
     if (/^\d+$/.test(id)) {
-      ticket = ticketService.getTicketById(parseInt(id));
+      ticket = await ticketService.getTicketById(parseInt(id));
     } else {
-      ticket = ticketService.getTicketByNumber(id);
+      ticket = await ticketService.getTicketByNumber(id);
     }
 
     if (!ticket) {
@@ -602,22 +596,20 @@ export function addAttachments(req: AuthenticatedRequest, res: Response): void {
       return;
     }
 
-    const db = getDb();
-    const insertAttachment = db.prepare(
-      'INSERT INTO ticket_attachments (ticket_id, filename, original_name, mime_type, size, path) VALUES (?, ?, ?, ?, ?, ?)'
-    );
-
     const added: any[] = [];
-    db.transaction(() => {
+    await transaction(async (client) => {
       for (const file of files) {
-        insertAttachment.run(ticket!.id, file.filename, file.originalname, file.mimetype, file.size, file.path);
+        await clientQuery(client,
+          'INSERT INTO ticket_attachments (ticket_id, filename, original_name, mime_type, size, path) VALUES (?, ?, ?, ?, ?, ?)',
+          [ticket!.id, file.filename, file.originalname, file.mimetype, file.size, file.path]
+        );
         added.push({ filename: file.filename, originalName: file.originalname, size: file.size });
       }
-    })();
+    });
 
     // Log activity
-    const customer = db.prepare('SELECT name FROM customers WHERE id = ?').get(req.user!.userId) as any;
-    activityService.logActivity(ticket.id, req.user!.userId, customer?.name || 'Unknown', 'attachment_added', `Added ${files.length} file(s)`);
+    const customer = await queryOne<any>('SELECT name FROM customers WHERE id = ?', [req.user!.userId]);
+    await activityService.logActivity(ticket.id, req.user!.userId, customer?.name || 'Unknown', 'attachment_added', `Added ${files.length} file(s)`);
 
     res.status(201).json({ message: `${files.length} file(s) uploaded`, attachments: added });
   } catch (error: any) {
@@ -626,11 +618,11 @@ export function addAttachments(req: AuthenticatedRequest, res: Response): void {
   }
 }
 
-export function addResponse(req: AuthenticatedRequest, res: Response): void {
+export async function addResponse(req: AuthenticatedRequest, res: Response): Promise<void> {
   try {
     const { id } = req.params;
     const ticketId = parseInt(id);
-    const ticket = ticketService.getTicketById(ticketId);
+    const ticket = await ticketService.getTicketById(ticketId);
 
     if (!ticket) {
       res.status(404).json({ error: 'Ticket not found' });
@@ -650,21 +642,20 @@ export function addResponse(req: AuthenticatedRequest, res: Response): void {
     }
 
     // Look up the user's name from customers table
-    const db = getDb();
-    const customer = db.prepare('SELECT name FROM customers WHERE id = ?').get(req.user!.userId) as any;
+    const customer = await queryOne<any>('SELECT name FROM customers WHERE id = ?', [req.user!.userId]);
     const authorName = customer?.name || 'Unknown';
     const authorRole = req.user!.role;
 
     // Only admins can create internal notes
     const internal = req.user?.role === 'admin' ? (isInternal || false) : false;
 
-    const responseId = ticketService.addResponse(ticketId, req.user!.userId, authorName, authorRole, message.trim(), internal);
+    const responseId = await ticketService.addResponse(ticketId, req.user!.userId, authorName, authorRole, message.trim(), internal);
 
     // Log activity
-    activityService.logActivity(ticketId, req.user!.userId, authorName, internal ? 'internal_note' : 'response', 'Added response');
+    await activityService.logActivity(ticketId, req.user!.userId, authorName, internal ? 'internal_note' : 'response', 'Added response');
 
     if (authorRole === 'admin' && !internal) {
-      notificationService.createNotification(
+      await notificationService.createNotification(
         ticket.customerId, ticketId, 'response',
         'New response on your ticket',
         `An engineer responded to ticket ${ticket.ticketNumber}`
@@ -677,14 +668,13 @@ export function addResponse(req: AuthenticatedRequest, res: Response): void {
     // Handle @mentions - notify mentioned engineers/admins
     const mentions = message.trim().match(/@(\w+(?:\s\w+)?)/g);
     if (mentions) {
-      const db2 = getDb();
       for (const mention of mentions) {
         const name = mention.substring(1).trim(); // Remove @
         // Search engineers and admins by name
-        const engineer = db2.prepare("SELECT id, name FROM engineers WHERE LOWER(name) LIKE LOWER(?)").get(`%${name}%`) as any;
-        const admin = db2.prepare("SELECT id, name FROM customers WHERE role = 'admin' AND LOWER(name) LIKE LOWER(?)").get(`%${name}%`) as any;
+        const engineer = await queryOne<any>("SELECT id, name FROM engineers WHERE LOWER(name) LIKE LOWER(?)", [`%${name}%`]);
+        const admin = await queryOne<any>("SELECT id, name FROM customers WHERE role = 'admin' AND LOWER(name) LIKE LOWER(?)", [`%${name}%`]);
         if (admin) {
-          notificationService.createNotification(admin.id, ticketId, 'response', `You were mentioned in ${ticket.ticketNumber}`, `${authorName} mentioned you: "${message.trim().substring(0, 100)}..."`);
+          await notificationService.createNotification(admin.id, ticketId, 'response', `You were mentioned in ${ticket.ticketNumber}`, `${authorName} mentioned you: "${message.trim().substring(0, 100)}..."`);
         }
       }
     }
@@ -696,11 +686,11 @@ export function addResponse(req: AuthenticatedRequest, res: Response): void {
   }
 }
 
-export function getResponses(req: AuthenticatedRequest, res: Response): void {
+export async function getResponses(req: AuthenticatedRequest, res: Response): Promise<void> {
   try {
     const { id } = req.params;
     const ticketId = parseInt(id);
-    const ticket = ticketService.getTicketById(ticketId);
+    const ticket = await ticketService.getTicketById(ticketId);
 
     if (!ticket) {
       res.status(404).json({ error: 'Ticket not found' });
@@ -714,7 +704,7 @@ export function getResponses(req: AuthenticatedRequest, res: Response): void {
     }
 
     const includeInternal = req.user?.role === 'admin';
-    const responses = ticketService.getResponses(ticketId, includeInternal);
+    const responses = await ticketService.getResponses(ticketId, includeInternal);
 
     res.json(responses);
   } catch (error: any) {
@@ -723,48 +713,48 @@ export function getResponses(req: AuthenticatedRequest, res: Response): void {
   }
 }
 
-export function reanalyzeTicket(req: AuthenticatedRequest, res: Response): void {
+export async function reanalyzeTicket(req: AuthenticatedRequest, res: Response): Promise<void> {
   const { id } = req.params;
   const ticketId = parseInt(id);
-  const ticket = ticketService.getTicketById(ticketId);
+  const ticket = await ticketService.getTicketById(ticketId);
 
   if (!ticket) {
     res.status(404).json({ error: 'Ticket not found' });
     return;
   }
 
-  ticketService.updateTicketStatus(ticketId, 'analyzing');
+  await ticketService.updateTicketStatus(ticketId, 'analyzing');
   triggerAnalysis(ticketId, ticket.productId, ticket.categoryId);
 
   res.json({ message: 'Re-analysis triggered' });
 }
 
-export function deleteTicket(req: AuthenticatedRequest, res: Response): void {
+export async function deleteTicket(req: AuthenticatedRequest, res: Response): Promise<void> {
   try {
     const { id } = req.params;
     const ticketId = parseInt(id);
-    const db = getDb();
 
-    db.transaction(() => {
+    await transaction(async (client) => {
       // Decrement engineer workload if assigned
-      const ticket = db.prepare('SELECT assigned_engineer_id FROM tickets WHERE id = ?').get(ticketId) as any;
+      const ticketResult = await clientQuery(client, 'SELECT assigned_engineer_id FROM tickets WHERE id = ?', [ticketId]);
+      const ticket = ticketResult.rows[0];
       if (ticket?.assigned_engineer_id) {
-        db.prepare('UPDATE engineers SET current_workload = MAX(0, current_workload - 1) WHERE id = ?').run(ticket.assigned_engineer_id);
+        await clientQuery(client, 'UPDATE engineers SET current_workload = GREATEST(0, current_workload - 1) WHERE id = ?', [ticket.assigned_engineer_id]);
       }
       // Delete all related records before removing the ticket
-      db.prepare('DELETE FROM ticket_responses WHERE ticket_id = ?').run(ticketId);
-      db.prepare('DELETE FROM ticket_attachments WHERE ticket_id = ?').run(ticketId);
-      db.prepare('DELETE FROM ticket_answers WHERE ticket_id = ?').run(ticketId);
-      db.prepare('DELETE FROM ticket_activity_log WHERE ticket_id = ?').run(ticketId);
-      db.prepare('DELETE FROM ticket_tags WHERE ticket_id = ?').run(ticketId);
-      db.prepare('DELETE FROM ticket_satisfaction WHERE ticket_id = ?').run(ticketId);
-      db.prepare('DELETE FROM ticket_cc WHERE ticket_id = ?').run(ticketId);
-      db.prepare('DELETE FROM ticket_links WHERE ticket_id = ? OR linked_ticket_id = ?').run(ticketId, ticketId);
-      db.prepare('DELETE FROM time_entries WHERE ticket_id = ?').run(ticketId);
-      db.prepare('DELETE FROM notifications WHERE ticket_id = ?').run(ticketId);
-      db.prepare('UPDATE knowledge_base SET ticket_id = NULL WHERE ticket_id = ?').run(ticketId);
-      db.prepare('DELETE FROM tickets WHERE id = ?').run(ticketId);
-    })();
+      await clientQuery(client, 'DELETE FROM ticket_responses WHERE ticket_id = ?', [ticketId]);
+      await clientQuery(client, 'DELETE FROM ticket_attachments WHERE ticket_id = ?', [ticketId]);
+      await clientQuery(client, 'DELETE FROM ticket_answers WHERE ticket_id = ?', [ticketId]);
+      await clientQuery(client, 'DELETE FROM ticket_activity_log WHERE ticket_id = ?', [ticketId]);
+      await clientQuery(client, 'DELETE FROM ticket_tags WHERE ticket_id = ?', [ticketId]);
+      await clientQuery(client, 'DELETE FROM ticket_satisfaction WHERE ticket_id = ?', [ticketId]);
+      await clientQuery(client, 'DELETE FROM ticket_cc WHERE ticket_id = ?', [ticketId]);
+      await clientQuery(client, 'DELETE FROM ticket_links WHERE ticket_id = ? OR linked_ticket_id = ?', [ticketId, ticketId]);
+      await clientQuery(client, 'DELETE FROM time_entries WHERE ticket_id = ?', [ticketId]);
+      await clientQuery(client, 'DELETE FROM notifications WHERE ticket_id = ?', [ticketId]);
+      await clientQuery(client, 'UPDATE knowledge_base SET ticket_id = NULL WHERE ticket_id = ?', [ticketId]);
+      await clientQuery(client, 'DELETE FROM tickets WHERE id = ?', [ticketId]);
+    });
 
     res.json({ message: 'Ticket deleted' });
   } catch (error: any) {
@@ -773,7 +763,7 @@ export function deleteTicket(req: AuthenticatedRequest, res: Response): void {
   }
 }
 
-export function updatePriority(req: AuthenticatedRequest, res: Response): void {
+export async function updatePriority(req: AuthenticatedRequest, res: Response): Promise<void> {
   const { id } = req.params;
   const { priority } = req.body;
   const validPriorities = ['low', 'medium', 'high', 'critical'];
@@ -781,124 +771,119 @@ export function updatePriority(req: AuthenticatedRequest, res: Response): void {
     res.status(400).json({ error: 'Invalid priority' });
     return;
   }
-  const db = getDb();
-  db.prepare("UPDATE tickets SET priority = ?, updated_at = datetime('now') WHERE id = ?").run(priority, id);
+  await query("UPDATE tickets SET priority = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", [priority, id]);
 
   // Log activity
-  const userForPriority = db.prepare('SELECT name FROM customers WHERE id = ?').get(req.user!.userId) as any;
-  activityService.logActivity(parseInt(id), req.user!.userId, userForPriority?.name || 'Unknown', 'priority_changed', `Priority changed to ${priority}`);
+  const userForPriority = await queryOne<any>('SELECT name FROM customers WHERE id = ?', [req.user!.userId]);
+  await activityService.logActivity(parseInt(id), req.user!.userId, userForPriority?.name || 'Unknown', 'priority_changed', `Priority changed to ${priority}`);
 
   res.json({ message: 'Priority updated' });
 }
 
-export function bulkUpdateStatus(req: AuthenticatedRequest, res: Response): void {
+export async function bulkUpdateStatus(req: AuthenticatedRequest, res: Response): Promise<void> {
   const { ticketIds, status } = req.body;
   if (!Array.isArray(ticketIds) || !status) {
     res.status(400).json({ error: 'ticketIds array and status are required' });
     return;
   }
-  const db = getDb();
-  const stmt = db.prepare("UPDATE tickets SET status = ?, updated_at = datetime('now') WHERE id = ?");
-  db.transaction(() => {
-    for (const id of ticketIds) stmt.run(status, id);
-  })();
+  await transaction(async (client) => {
+    for (const id of ticketIds) {
+      await clientQuery(client, "UPDATE tickets SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", [status, id]);
+    }
+  });
   res.json({ message: `${ticketIds.length} tickets updated` });
 }
 
-export function bulkAssign(req: AuthenticatedRequest, res: Response): void {
+export async function bulkAssign(req: AuthenticatedRequest, res: Response): Promise<void> {
   const { ticketIds, engineerId } = req.body;
   if (!Array.isArray(ticketIds) || !engineerId) {
     res.status(400).json({ error: 'ticketIds array and engineerId are required' });
     return;
   }
-  const db = getDb();
-  db.transaction(() => {
+  await transaction(async (client) => {
     for (const id of ticketIds) {
-      const ticket = db.prepare('SELECT assigned_engineer_id FROM tickets WHERE id = ?').get(id) as any;
+      const ticketResult = await clientQuery(client, 'SELECT assigned_engineer_id FROM tickets WHERE id = ?', [id]);
+      const ticket = ticketResult.rows[0];
       if (ticket?.assigned_engineer_id) {
-        db.prepare('UPDATE engineers SET current_workload = MAX(0, current_workload - 1) WHERE id = ?').run(ticket.assigned_engineer_id);
+        await clientQuery(client, 'UPDATE engineers SET current_workload = GREATEST(0, current_workload - 1) WHERE id = ?', [ticket.assigned_engineer_id]);
       }
-      db.prepare("UPDATE tickets SET assigned_engineer_id = ?, status = 'assigned', updated_at = datetime('now') WHERE id = ?").run(engineerId, id);
+      await clientQuery(client, "UPDATE tickets SET assigned_engineer_id = ?, status = 'assigned', updated_at = CURRENT_TIMESTAMP WHERE id = ?", [engineerId, id]);
     }
-    db.prepare("UPDATE engineers SET current_workload = current_workload + ?, updated_at = datetime('now') WHERE id = ?").run(ticketIds.length, engineerId);
-  })();
+    await clientQuery(client, "UPDATE engineers SET current_workload = current_workload + ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", [ticketIds.length, engineerId]);
+  });
   res.json({ message: `${ticketIds.length} tickets assigned` });
 }
 
-export function bulkDelete(req: AuthenticatedRequest, res: Response): void {
+export async function bulkDelete(req: AuthenticatedRequest, res: Response): Promise<void> {
   const { ticketIds } = req.body;
   if (!Array.isArray(ticketIds)) {
     res.status(400).json({ error: 'ticketIds array is required' });
     return;
   }
-  const db = getDb();
-  db.transaction(() => {
+  await transaction(async (client) => {
     for (const id of ticketIds) {
-      const ticket = db.prepare('SELECT assigned_engineer_id FROM tickets WHERE id = ?').get(id) as any;
+      const ticketResult = await clientQuery(client, 'SELECT assigned_engineer_id FROM tickets WHERE id = ?', [id]);
+      const ticket = ticketResult.rows[0];
       if (ticket?.assigned_engineer_id) {
-        db.prepare('UPDATE engineers SET current_workload = MAX(0, current_workload - 1) WHERE id = ?').run(ticket.assigned_engineer_id);
+        await clientQuery(client, 'UPDATE engineers SET current_workload = GREATEST(0, current_workload - 1) WHERE id = ?', [ticket.assigned_engineer_id]);
       }
-      db.prepare('DELETE FROM ticket_responses WHERE ticket_id = ?').run(id);
-      db.prepare('DELETE FROM ticket_attachments WHERE ticket_id = ?').run(id);
-      db.prepare('DELETE FROM ticket_answers WHERE ticket_id = ?').run(id);
-      db.prepare('DELETE FROM ticket_activity_log WHERE ticket_id = ?').run(id);
-      db.prepare('DELETE FROM ticket_tags WHERE ticket_id = ?').run(id);
-      db.prepare('DELETE FROM ticket_satisfaction WHERE ticket_id = ?').run(id);
-      db.prepare('DELETE FROM ticket_cc WHERE ticket_id = ?').run(id);
-      db.prepare('DELETE FROM ticket_links WHERE ticket_id = ? OR linked_ticket_id = ?').run(id, id);
-      db.prepare('DELETE FROM time_entries WHERE ticket_id = ?').run(id);
-      db.prepare('DELETE FROM notifications WHERE ticket_id = ?').run(id);
-      db.prepare('UPDATE knowledge_base SET ticket_id = NULL WHERE ticket_id = ?').run(id);
-      db.prepare('DELETE FROM tickets WHERE id = ?').run(id);
+      await clientQuery(client, 'DELETE FROM ticket_responses WHERE ticket_id = ?', [id]);
+      await clientQuery(client, 'DELETE FROM ticket_attachments WHERE ticket_id = ?', [id]);
+      await clientQuery(client, 'DELETE FROM ticket_answers WHERE ticket_id = ?', [id]);
+      await clientQuery(client, 'DELETE FROM ticket_activity_log WHERE ticket_id = ?', [id]);
+      await clientQuery(client, 'DELETE FROM ticket_tags WHERE ticket_id = ?', [id]);
+      await clientQuery(client, 'DELETE FROM ticket_satisfaction WHERE ticket_id = ?', [id]);
+      await clientQuery(client, 'DELETE FROM ticket_cc WHERE ticket_id = ?', [id]);
+      await clientQuery(client, 'DELETE FROM ticket_links WHERE ticket_id = ? OR linked_ticket_id = ?', [id, id]);
+      await clientQuery(client, 'DELETE FROM time_entries WHERE ticket_id = ?', [id]);
+      await clientQuery(client, 'DELETE FROM notifications WHERE ticket_id = ?', [id]);
+      await clientQuery(client, 'UPDATE knowledge_base SET ticket_id = NULL WHERE ticket_id = ?', [id]);
+      await clientQuery(client, 'DELETE FROM tickets WHERE id = ?', [id]);
     }
-  })();
+  });
   res.json({ message: `${ticketIds.length} tickets deleted` });
 }
 
-export function getActivities(req: AuthenticatedRequest, res: Response): void {
+export async function getActivities(req: AuthenticatedRequest, res: Response): Promise<void> {
   const { id } = req.params;
-  const activities = activityService.getActivities(parseInt(id));
+  const activities = await activityService.getActivities(parseInt(id));
   res.json(activities);
 }
 
-export function addTag(req: AuthenticatedRequest, res: Response): void {
-  const db = getDb();
+export async function addTag(req: AuthenticatedRequest, res: Response): Promise<void> {
   const { id } = req.params;
   const { tag } = req.body;
   if (!tag?.trim()) { res.status(400).json({ error: 'tag is required' }); return; }
   try {
-    db.prepare('INSERT OR IGNORE INTO ticket_tags (ticket_id, tag) VALUES (?, ?)').run(id, tag.trim().toLowerCase());
+    await query('INSERT INTO ticket_tags (ticket_id, tag) VALUES (?, ?) ON CONFLICT DO NOTHING', [id, tag.trim().toLowerCase()]);
     res.json({ message: 'Tag added' });
   } catch { res.status(500).json({ error: 'Failed to add tag' }); }
 }
 
-export function removeTag(req: AuthenticatedRequest, res: Response): void {
-  const db = getDb();
+export async function removeTag(req: AuthenticatedRequest, res: Response): Promise<void> {
   const { id, tag } = req.params;
-  db.prepare('DELETE FROM ticket_tags WHERE ticket_id = ? AND tag = ?').run(id, tag);
+  await query('DELETE FROM ticket_tags WHERE ticket_id = ? AND tag = ?', [id, tag]);
   res.json({ message: 'Tag removed' });
 }
 
-export function getTags(req: AuthenticatedRequest, res: Response): void {
-  const db = getDb();
+export async function getTags(req: AuthenticatedRequest, res: Response): Promise<void> {
   const { id } = req.params;
-  const tags = db.prepare('SELECT tag FROM ticket_tags WHERE ticket_id = ?').all(id);
+  const tags = await queryAll<any>('SELECT tag FROM ticket_tags WHERE ticket_id = ?', [id]);
   res.json(tags.map((t: any) => t.tag));
 }
 
-export function submitSatisfaction(req: AuthenticatedRequest, res: Response): void {
+export async function submitSatisfaction(req: AuthenticatedRequest, res: Response): Promise<void> {
   try {
     const { id } = req.params;
     const ticketId = parseInt(id);
     const { rating, comment } = req.body;
-    const db = getDb();
 
     if (!rating || rating < 1 || rating > 5) {
       res.status(400).json({ error: 'Rating must be between 1 and 5' });
       return;
     }
 
-    const ticket = ticketService.getTicketById(ticketId);
+    const ticket = await ticketService.getTicketById(ticketId);
     if (!ticket) {
       res.status(404).json({ error: 'Ticket not found' });
       return;
@@ -918,11 +903,12 @@ export function submitSatisfaction(req: AuthenticatedRequest, res: Response): vo
 
     // Insert (UNIQUE constraint will prevent duplicates)
     try {
-      db.prepare(
-        'INSERT INTO ticket_satisfaction (ticket_id, customer_id, rating, comment) VALUES (?, ?, ?, ?)'
-      ).run(ticketId, ticket.customerId, rating, comment || null);
+      await query(
+        'INSERT INTO ticket_satisfaction (ticket_id, customer_id, rating, comment) VALUES (?, ?, ?, ?)',
+        [ticketId, ticket.customerId, rating, comment || null]
+      );
     } catch (err: any) {
-      if (err.message?.includes('UNIQUE')) {
+      if (err.message?.includes('unique') || err.message?.includes('duplicate') || err.code === '23505') {
         res.status(409).json({ error: 'Satisfaction rating already submitted for this ticket' });
         return;
       }
@@ -930,8 +916,8 @@ export function submitSatisfaction(req: AuthenticatedRequest, res: Response): vo
     }
 
     // Log activity
-    const customer = db.prepare('SELECT name FROM customers WHERE id = ?').get(req.user!.userId) as any;
-    activityService.logActivity(ticketId, req.user!.userId, customer?.name || 'Unknown', 'satisfaction_rated', `Rated ${rating}/5`);
+    const customer = await queryOne<any>('SELECT name FROM customers WHERE id = ?', [req.user!.userId]);
+    await activityService.logActivity(ticketId, req.user!.userId, customer?.name || 'Unknown', 'satisfaction_rated', `Rated ${rating}/5`);
 
     res.status(201).json({ message: 'Satisfaction rating submitted' });
   } catch (error: any) {
@@ -945,8 +931,7 @@ export function submitSatisfaction(req: AuthenticatedRequest, res: Response): vo
 export async function extractAttachmentData(req: AuthenticatedRequest, res: Response): Promise<void> {
   try {
     const { id, attachmentId } = req.params;
-    const db = getDb();
-    const attachment = db.prepare('SELECT * FROM ticket_attachments WHERE id = ? AND ticket_id = ?').get(attachmentId, id) as any;
+    const attachment = await queryOne<any>('SELECT * FROM ticket_attachments WHERE id = ? AND ticket_id = ?', [attachmentId, id]);
 
     if (!attachment) { res.status(404).json({ error: 'Attachment not found' }); return; }
 
@@ -989,43 +974,41 @@ export async function extractAttachmentData(req: AuthenticatedRequest, res: Resp
 
 // ===== Time Entries =====
 
-export function getTimeEntries(req: AuthenticatedRequest, res: Response): void {
-  const db = getDb();
+export async function getTimeEntries(req: AuthenticatedRequest, res: Response): Promise<void> {
   const { id } = req.params;
-  const entries = db.prepare(`
+  const entries = await queryAll<any>(`
     SELECT te.*, e.name as engineer_name
     FROM time_entries te
     LEFT JOIN engineers e ON te.engineer_id = e.id
     WHERE te.ticket_id = ?
     ORDER BY te.date DESC, te.created_at DESC
-  `).all(id);
+  `, [id]);
   res.json(entries);
 }
 
-export function addTimeEntry(req: AuthenticatedRequest, res: Response): void {
-  const db = getDb();
+export async function addTimeEntry(req: AuthenticatedRequest, res: Response): Promise<void> {
   const { id } = req.params;
   const { hours, description, isChargeable, engineerId, date } = req.body;
 
   if (!hours || hours <= 0) { res.status(400).json({ error: 'Hours must be positive' }); return; }
   if (!description?.trim()) { res.status(400).json({ error: 'Description is required' }); return; }
 
-  const customer = db.prepare('SELECT name FROM customers WHERE id = ?').get(req.user!.userId) as any;
+  const customer = await queryOne<any>('SELECT name FROM customers WHERE id = ?', [req.user!.userId]);
   const authorName = customer?.name || 'Unknown';
 
-  const result = db.prepare(
-    'INSERT INTO time_entries (ticket_id, engineer_id, author_id, author_name, hours, description, is_chargeable, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-  ).run(id, engineerId || null, req.user!.userId, authorName, hours, description.trim(), isChargeable !== false ? 1 : 0, date || new Date().toISOString().split('T')[0]);
+  const result = await query(
+    'INSERT INTO time_entries (ticket_id, engineer_id, author_id, author_name, hours, description, is_chargeable, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id',
+    [id, engineerId || null, req.user!.userId, authorName, hours, description.trim(), isChargeable !== false ? true : false, date || new Date().toISOString().split('T')[0]]
+  );
 
-  activityService.logActivity(parseInt(id), req.user!.userId, authorName, 'time_logged', `Logged ${hours}h: ${description.trim()}`);
+  await activityService.logActivity(parseInt(id), req.user!.userId, authorName, 'time_logged', `Logged ${hours}h: ${description.trim()}`);
 
-  res.status(201).json({ id: result.lastInsertRowid, message: 'Time entry added' });
+  res.status(201).json({ id: result.rows[0].id, message: 'Time entry added' });
 }
 
-export function deleteTimeEntry(req: AuthenticatedRequest, res: Response): void {
-  const db = getDb();
+export async function deleteTimeEntry(req: AuthenticatedRequest, res: Response): Promise<void> {
   const { entryId } = req.params;
-  db.prepare('DELETE FROM time_entries WHERE id = ?').run(entryId);
+  await query('DELETE FROM time_entries WHERE id = ?', [entryId]);
   res.json({ message: 'Time entry deleted' });
 }
 
@@ -1034,23 +1017,22 @@ export function deleteTimeEntry(req: AuthenticatedRequest, res: Response): void 
 export async function suggestReply(req: AuthenticatedRequest, res: Response): Promise<void> {
   try {
     const { id } = req.params;
-    const ticket = ticketService.getTicketById(parseInt(id));
+    const ticket = await ticketService.getTicketById(parseInt(id));
     if (!ticket) { res.status(404).json({ error: 'Ticket not found' }); return; }
 
-    const db = getDb();
-    const responses = ticketService.getResponses(parseInt(id), true);
+    const responses = await ticketService.getResponses(parseInt(id), true);
 
     // Find similar resolved tickets
-    const similarTickets = db.prepare(`
+    const similarTickets = await queryAll<any>(`
       SELECT t.subject, t.description, t.ai_analysis,
-             (SELECT GROUP_CONCAT(tr.message, '\n---\n') FROM ticket_responses tr WHERE tr.ticket_id = t.id AND tr.author_role = 'admin' AND tr.is_internal = 0 ORDER BY tr.created_at) as admin_responses
+             (SELECT STRING_AGG(tr.message, E'\n---\n' ORDER BY tr.created_at) FROM ticket_responses tr WHERE tr.ticket_id = t.id AND tr.author_role = 'admin' AND tr.is_internal = FALSE) as admin_responses
       FROM tickets t
       WHERE t.status IN ('resolved', 'closed')
         AND t.product_id = ?
         AND t.id != ?
       ORDER BY t.resolved_at DESC
       LIMIT 5
-    `).all(ticket.productId, ticket.id) as any[];
+    `, [ticket.productId, ticket.id]);
 
     const conversationHistory = responses
       .filter((r: any) => !r.is_internal)
@@ -1082,7 +1064,7 @@ ${ticket.aiAnalysis ? `## AI Analysis\n${ticket.aiAnalysis}` : ''}
 Write a professional, helpful reply. Be concise and technical. Do not include greetings like "Dear customer" - get straight to the point.`;
 
     // Use the configured Claude analysis mode to get suggestion
-    const analysisMode = getSetting('claude_analysis_mode') || 'disabled';
+    const analysisMode = await getSetting('claude_analysis_mode') || 'disabled';
 
     if (analysisMode === 'disabled') {
       res.json({ suggestion: '', note: 'AI is disabled. Enable Claude AI in settings to get reply suggestions.' });
@@ -1122,16 +1104,15 @@ Write a professional, helpful reply. Be concise and technical. Do not include gr
 
 // ===== Knowledge Base =====
 
-export function createKbArticle(req: AuthenticatedRequest, res: Response): void {
+export async function createKbArticle(req: AuthenticatedRequest, res: Response): Promise<void> {
   try {
     const { id } = req.params;
-    const ticket = ticketService.getTicketById(parseInt(id));
+    const ticket = await ticketService.getTicketById(parseInt(id));
     if (!ticket) { res.status(404).json({ error: 'Ticket not found' }); return; }
 
     const { title, content } = req.body;
 
-    const db = getDb();
-    const responses = ticketService.getResponses(parseInt(id), false);
+    const responses = await ticketService.getResponses(parseInt(id), false);
     const adminResponses = responses.filter((r: any) => r.author_role === 'admin');
 
     const articleTitle = title || `${ticket.product.name}: ${ticket.subject}`;
@@ -1139,13 +1120,14 @@ export function createKbArticle(req: AuthenticatedRequest, res: Response): void 
 
     const tags = [ticket.product.name, ticket.category.name].join(',');
 
-    const result = db.prepare(
-      'INSERT INTO knowledge_base (ticket_id, title, content, product_id, category_id, tags, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)'
-    ).run(ticket.id, articleTitle, articleContent, ticket.productId, ticket.categoryId, tags, req.user!.userId);
+    const result = await query(
+      'INSERT INTO knowledge_base (ticket_id, title, content, product_id, category_id, tags, created_by) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id',
+      [ticket.id, articleTitle, articleContent, ticket.productId, ticket.categoryId, tags, req.user!.userId]
+    );
 
-    activityService.logActivity(parseInt(id), req.user!.userId, 'Admin', 'kb_article_created', `Knowledge base article created: ${articleTitle}`);
+    await activityService.logActivity(parseInt(id), req.user!.userId, 'Admin', 'kb_article_created', `Knowledge base article created: ${articleTitle}`);
 
-    res.status(201).json({ id: result.lastInsertRowid, message: 'Knowledge base article created' });
+    res.status(201).json({ id: result.rows[0].id, message: 'Knowledge base article created' });
   } catch (error: any) {
     console.error('[KB] Create article error:', error);
     res.status(500).json({ error: 'Failed to create KB article' });
@@ -1154,38 +1136,34 @@ export function createKbArticle(req: AuthenticatedRequest, res: Response): void 
 
 // ===== CC Users =====
 
-export function getCcUsers(req: AuthenticatedRequest, res: Response): void {
-  const db = getDb();
+export async function getCcUsers(req: AuthenticatedRequest, res: Response): Promise<void> {
   const { id } = req.params;
-  const cc = db.prepare('SELECT * FROM ticket_cc WHERE ticket_id = ? ORDER BY created_at').all(id);
+  const cc = await queryAll<any>('SELECT * FROM ticket_cc WHERE ticket_id = ? ORDER BY created_at', [id]);
   res.json(cc);
 }
 
-export function addCcUser(req: AuthenticatedRequest, res: Response): void {
-  const db = getDb();
+export async function addCcUser(req: AuthenticatedRequest, res: Response): Promise<void> {
   const { id } = req.params;
   const { email, name } = req.body;
   if (!email?.trim()) { res.status(400).json({ error: 'Email is required' }); return; }
   try {
-    db.prepare('INSERT OR IGNORE INTO ticket_cc (ticket_id, email, name) VALUES (?, ?, ?)').run(id, email.trim().toLowerCase(), name || null);
-    activityService.logActivity(parseInt(id), req.user!.userId, req.user!.email || 'Unknown', 'cc_added', `Added CC: ${email}`);
+    await query('INSERT INTO ticket_cc (ticket_id, email, name) VALUES (?, ?, ?) ON CONFLICT DO NOTHING', [id, email.trim().toLowerCase(), name || null]);
+    await activityService.logActivity(parseInt(id), req.user!.userId, req.user!.email || 'Unknown', 'cc_added', `Added CC: ${email}`);
     res.json({ message: 'CC user added' });
   } catch { res.status(500).json({ error: 'Failed to add CC user' }); }
 }
 
-export function removeCcUser(req: AuthenticatedRequest, res: Response): void {
-  const db = getDb();
+export async function removeCcUser(req: AuthenticatedRequest, res: Response): Promise<void> {
   const { id, email } = req.params;
-  db.prepare('DELETE FROM ticket_cc WHERE ticket_id = ? AND email = ?').run(id, decodeURIComponent(email));
+  await query('DELETE FROM ticket_cc WHERE ticket_id = ? AND email = ?', [id, decodeURIComponent(email)]);
   res.json({ message: 'CC user removed' });
 }
 
 // ===== Linked Tickets =====
 
-export function getLinkedTickets(req: AuthenticatedRequest, res: Response): void {
-  const db = getDb();
+export async function getLinkedTickets(req: AuthenticatedRequest, res: Response): Promise<void> {
   const { id } = req.params;
-  const links = db.prepare(`
+  const links = await queryAll<any>(`
     SELECT tl.*,
            t.ticket_number, t.subject, t.status, t.priority
     FROM ticket_links tl
@@ -1200,12 +1178,11 @@ export function getLinkedTickets(req: AuthenticatedRequest, res: Response): void
     JOIN tickets t ON t.id = tl.ticket_id
     WHERE tl.linked_ticket_id = ?
     ORDER BY created_at DESC
-  `).all(id, id);
+  `, [id, id]);
   res.json(links);
 }
 
-export function linkTicket(req: AuthenticatedRequest, res: Response): void {
-  const db = getDb();
+export async function linkTicket(req: AuthenticatedRequest, res: Response): Promise<void> {
   const { id } = req.params;
   const { linkedTicketId, linkType } = req.body;
 
@@ -1214,7 +1191,7 @@ export function linkTicket(req: AuthenticatedRequest, res: Response): void {
   // Resolve linkedTicketId - support ticket number
   let resolvedId = linkedTicketId;
   if (typeof linkedTicketId === 'string' && !/^\d+$/.test(linkedTicketId)) {
-    const ticket = db.prepare('SELECT id FROM tickets WHERE ticket_number = ?').get(linkedTicketId) as any;
+    const ticket = await queryOne<any>('SELECT id FROM tickets WHERE ticket_number = ?', [linkedTicketId]);
     if (!ticket) { res.status(404).json({ error: 'Linked ticket not found' }); return; }
     resolvedId = ticket.id;
   }
@@ -1225,30 +1202,28 @@ export function linkTicket(req: AuthenticatedRequest, res: Response): void {
   const type = validTypes.includes(linkType) ? linkType : 'related';
 
   try {
-    db.prepare('INSERT OR IGNORE INTO ticket_links (ticket_id, linked_ticket_id, link_type, created_by) VALUES (?, ?, ?, ?)').run(id, resolvedId, type, req.user!.userId);
-    const linked = db.prepare('SELECT ticket_number FROM tickets WHERE id = ?').get(resolvedId) as any;
-    activityService.logActivity(parseInt(id), req.user!.userId, 'Admin', 'ticket_linked', `Linked to ${linked?.ticket_number || resolvedId} (${type})`);
+    await query('INSERT INTO ticket_links (ticket_id, linked_ticket_id, link_type, created_by) VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING', [id, resolvedId, type, req.user!.userId]);
+    const linked = await queryOne<any>('SELECT ticket_number FROM tickets WHERE id = ?', [resolvedId]);
+    await activityService.logActivity(parseInt(id), req.user!.userId, 'Admin', 'ticket_linked', `Linked to ${linked?.ticket_number || resolvedId} (${type})`);
     res.json({ message: 'Tickets linked' });
   } catch (err: any) {
     res.status(500).json({ error: 'Failed to link tickets' });
   }
 }
 
-export function unlinkTicket(req: AuthenticatedRequest, res: Response): void {
-  const db = getDb();
+export async function unlinkTicket(req: AuthenticatedRequest, res: Response): Promise<void> {
   const { linkId } = req.params;
-  db.prepare('DELETE FROM ticket_links WHERE id = ?').run(linkId);
+  await query('DELETE FROM ticket_links WHERE id = ?', [linkId]);
   res.json({ message: 'Link removed' });
 }
 
 // ===== Jira Issue Key =====
 
-export function updateJiraKey(req: AuthenticatedRequest, res: Response): void {
+export async function updateJiraKey(req: AuthenticatedRequest, res: Response): Promise<void> {
   const { id } = req.params;
   const { jiraIssueKey } = req.body;
-  const db = getDb();
-  db.prepare("UPDATE tickets SET jira_issue_key = ?, updated_at = datetime('now') WHERE id = ?").run(jiraIssueKey || null, id);
-  activityService.logActivity(parseInt(id), req.user!.userId, 'Admin', 'jira_linked', jiraIssueKey ? `Linked to Jira: ${jiraIssueKey}` : 'Jira link removed');
+  await query("UPDATE tickets SET jira_issue_key = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", [jiraIssueKey || null, id]);
+  await activityService.logActivity(parseInt(id), req.user!.userId, 'Admin', 'jira_linked', jiraIssueKey ? `Linked to Jira: ${jiraIssueKey}` : 'Jira link removed');
   res.json({ message: 'Jira issue key updated' });
 }
 
@@ -1259,9 +1234,9 @@ export async function escalateToJira(req: AuthenticatedRequest, res: Response): 
     const { id } = req.params;
     let ticket;
     if (/^\d+$/.test(id)) {
-      ticket = ticketService.getTicketById(parseInt(id));
+      ticket = await ticketService.getTicketById(parseInt(id));
     } else {
-      ticket = ticketService.getTicketByNumber(id);
+      ticket = await ticketService.getTicketByNumber(id);
     }
 
     if (!ticket) {
@@ -1288,12 +1263,11 @@ export async function escalateToJira(req: AuthenticatedRequest, res: Response): 
     }
 
     // Update ticket with Jira key and status
-    const db = getDb();
-    db.prepare("UPDATE tickets SET jira_issue_key = ?, status = 'escalated_to_jira', updated_at = datetime('now') WHERE id = ?").run(result.issueKey, ticket.id);
+    await query("UPDATE tickets SET jira_issue_key = ?, status = 'escalated_to_jira', updated_at = CURRENT_TIMESTAMP WHERE id = ?", [result.issueKey, ticket.id]);
 
-    activityService.logActivity(ticket.id, req.user!.userId, 'Admin', 'escalated_to_jira', `Escalated to Jira: ${result.issueKey}`);
+    await activityService.logActivity(ticket.id, req.user!.userId, 'Admin', 'escalated_to_jira', `Escalated to Jira: ${result.issueKey}`);
 
-    notificationService.createNotification(
+    await notificationService.createNotification(
       ticket.customerId, ticket.id, 'status_change',
       'Ticket escalated to engineering',
       `Ticket ${ticket.ticketNumber} has been escalated to our engineering team (${result.issueKey}).`
@@ -1308,7 +1282,7 @@ export async function escalateToJira(req: AuthenticatedRequest, res: Response): 
 
 export async function getJiraStatus(req: AuthenticatedRequest, res: Response): Promise<void> {
   const { id } = req.params;
-  const ticket = ticketService.getTicketById(parseInt(id));
+  const ticket = await ticketService.getTicketById(parseInt(id));
   if (!ticket || !ticket.jiraIssueKey) {
     res.json(null);
     return;
@@ -1318,13 +1292,12 @@ export async function getJiraStatus(req: AuthenticatedRequest, res: Response): P
   res.json(status);
 }
 
-export function getSatisfaction(req: AuthenticatedRequest, res: Response): void {
+export async function getSatisfaction(req: AuthenticatedRequest, res: Response): Promise<void> {
   try {
     const { id } = req.params;
     const ticketId = parseInt(id);
-    const db = getDb();
 
-    const ticket = ticketService.getTicketById(ticketId);
+    const ticket = await ticketService.getTicketById(ticketId);
     if (!ticket) {
       res.status(404).json({ error: 'Ticket not found' });
       return;
@@ -1335,9 +1308,10 @@ export function getSatisfaction(req: AuthenticatedRequest, res: Response): void 
       return;
     }
 
-    const satisfaction = db.prepare(
-      'SELECT rating, comment, created_at as createdAt FROM ticket_satisfaction WHERE ticket_id = ?'
-    ).get(ticketId) as any;
+    const satisfaction = await queryOne<any>(
+      'SELECT rating, comment, created_at as "createdAt" FROM ticket_satisfaction WHERE ticket_id = ?',
+      [ticketId]
+    );
 
     res.json(satisfaction || null);
   } catch (error: any) {

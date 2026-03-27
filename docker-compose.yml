@@ -1,4 +1,20 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: tbticket-db
+    environment:
+      - POSTGRES_DB=tickets
+      - POSTGRES_USER=ticketuser
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-ticketpass}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ticketuser -d tickets"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   app:
     build:
       context: .
@@ -10,6 +26,7 @@ services:
       - NODE_ENV=production
       - PORT=4001
       - JWT_SECRET=${JWT_SECRET:-change-this-secret-in-production}
+      - DATABASE_URL=postgresql://ticketuser:${POSTGRES_PASSWORD:-ticketpass}@postgres:5432/tickets
       - CLAUDE_SERVER_URL=${CLAUDE_SERVER_URL:-http://claude-support-2.telcobridges.lan}
       - CLAUDE_USER=${CLAUDE_USER:-support}
       - CLAUDE_PASS=${CLAUDE_PASS:-support}
@@ -22,12 +39,13 @@ services:
       - SMTP_FROM=${SMTP_FROM:-support@telcobridges.com}
       - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL:-}
       - TEAMS_WEBHOOK_URL=${TEAMS_WEBHOOK_URL:-}
-      - DB_PATH=/app/server/data/tickets.db
       - UPLOAD_DIR=/app/server/uploads
       - UPLOAD_HOST_PATH=/home/support/incoming/uploads
     volumes:
-      - ticket_data:/app/server/data
       - /home/support/incoming/uploads:/app/server/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
     dns:
       - 10.0.0.1
@@ -36,4 +54,4 @@ services:
       - "claude-support-2.telcobridges.lan:10.0.0.241"
 
 volumes:
-  ticket_data:
+  pg_data:

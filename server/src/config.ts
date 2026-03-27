@@ -4,7 +4,7 @@ export const config = {
   port: process.env.PORT ? parseInt(process.env.PORT) : 4001,
   jwtSecret: process.env.JWT_SECRET || 'smart-ticket-system-secret-key-change-in-production',
   jwtExpiresIn: '24h',
-  dbPath: process.env.DB_PATH || path.join(__dirname, '..', 'data', 'tickets.db'),
+  databaseUrl: process.env.DATABASE_URL || 'postgresql://ticketuser:ticketpass@localhost:5432/tickets',
   uploadDir: process.env.UPLOAD_DIR || path.join(__dirname, '..', 'uploads'),
   uploadHostPath: process.env.UPLOAD_HOST_PATH || '', // Host path mapping for shared filesystem with Claude server
   maxFileSize: 100 * 1024 * 1024, // 100MB per file

@@ -1,4 +1,4 @@
-import { getDb } from '../db/connection';
+import { queryOne, queryAll } from '../db/connection';
 
 interface EngineerScore {
   engineerId: number;
@@ -16,14 +16,12 @@ interface EngineerScore {
  * Fallback scoring algorithm when Claude is unavailable.
  * Score = (product_expertise * 3) + (skill_proficiency * 2) + (availability * 2) - workload_penalty
  */
-export function scoreEngineers(productId: number, categoryId: number): EngineerScore[] {
-  const db = getDb();
-
-  const engineers = db.prepare(`
+export async function scoreEngineers(productId: number, categoryId: number): Promise<EngineerScore[]> {
+  const engineers = await queryAll<any>(`
     SELECT * FROM engineers WHERE is_active = 1 AND current_workload < max_workload
-  `).all() as any[];
+  `);
 
-  const scores: EngineerScore[] = engineers.filter((engineer: any) => {
+  const filtered: any[] = engineers.filter((engineer: any) => {
     // Shift-based filtering: if engineer has shift defined, check if currently in shift
     if (engineer.shift_start && engineer.shift_end) {
       const now = new Date();
@@ -41,21 +39,25 @@ export function scoreEngineers(productId: number, categoryId: number): EngineerS
       }
     }
     return true;
-  }).map((engineer: any) => {
+  });
+
+  const scores: EngineerScore[] = [];
+
+  for (const engineer of filtered) {
     // Product/category expertise (0-5, weighted x3)
-    const expertise = db.prepare(`
+    const expertise = await queryOne<any>(`
       SELECT MAX(expertise_level) as level
       FROM engineer_product_expertise
       WHERE engineer_id = ? AND product_id = ? AND (category_id = ? OR category_id IS NULL)
-    `).get(engineer.id, productId, categoryId) as any;
+    `, [engineer.id, productId, categoryId]);
     const productExpertiseScore = (expertise?.level || 0) * 3;
 
     // Average skill proficiency (0-5, weighted x2)
-    const skills = db.prepare(`
+    const skills = await queryOne<any>(`
       SELECT AVG(proficiency) as avg_prof
       FROM engineer_skills
       WHERE engineer_id = ?
-    `).get(engineer.id) as any;
+    `, [engineer.id]);
     const skillScore = (skills?.avg_prof || 0) * 2;
 
     // Availability score (0-2, weighted x2)
@@ -67,7 +69,7 @@ export function scoreEngineers(productId: number, categoryId: number): EngineerS
 
     const totalScore = productExpertiseScore + skillScore + availabilityScore - workloadPenalty;
 
-    return {
+    scores.push({
       engineerId: engineer.id,
       engineerName: engineer.name,
       score: Math.round(totalScore * 100) / 100,
@@ -77,13 +79,13 @@ export function scoreEngineers(productId: number, categoryId: number): EngineerS
         availability: availabilityScore,
         workloadPenalty,
       },
-    };
-  });
+    });
+  }
 
   return scores.sort((a, b) => b.score - a.score);
 }
 
-export function getBestEngineer(productId: number, categoryId: number): EngineerScore | null {
-  const scores = scoreEngineers(productId, categoryId);
+export async function getBestEngineer(productId: number, categoryId: number): Promise<EngineerScore | null> {
+  const scores = await scoreEngineers(productId, categoryId);
   return scores.length > 0 ? scores[0] : null;
 }

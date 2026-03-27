@@ -2,9 +2,9 @@ import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { config } from '../config';
-import { getDb } from '../db/connection';
+import { query, queryOne } from '../db/connection';
 
-export function register(req: Request, res: Response): void {
+export async function register(req: Request, res: Response): Promise<void> {
   const { email, password, name, company } = req.body;
 
   if (!email || !password || !name || !company) {
@@ -12,19 +12,19 @@ export function register(req: Request, res: Response): void {
     return;
   }
 
-  const db = getDb();
-  const existing = db.prepare('SELECT id FROM customers WHERE email = ?').get(email);
+  const existing = await queryOne<any>('SELECT id FROM customers WHERE email = ?', [email]);
   if (existing) {
     res.status(409).json({ error: 'Email already registered' });
     return;
   }
 
   const passwordHash = bcrypt.hashSync(password, 10);
-  const result = db.prepare(
-    'INSERT INTO customers (email, name, company, password_hash, role) VALUES (?, ?, ?, ?, ?)'
-  ).run(email, name, company || null, passwordHash, 'customer');
+  const result = await query(
+    'INSERT INTO customers (email, name, company, password_hash, role) VALUES (?, ?, ?, ?, ?) RETURNING id',
+    [email, name, company || null, passwordHash, 'customer']
+  );
 
-  const userId = result.lastInsertRowid as number;
+  const userId = result.rows[0].id;
   const token = jwt.sign(
     { userId, email, role: 'customer', isAnonymous: false },
     config.jwtSecret,
@@ -37,7 +37,7 @@ export function register(req: Request, res: Response): void {
   });
 }
 
-export function login(req: Request, res: Response): void {
+export async function login(req: Request, res: Response): Promise<void> {
   const { email, password } = req.body;
 
   if (!email || !password) {
@@ -45,8 +45,7 @@ export function login(req: Request, res: Response): void {
     return;
   }
 
-  const db = getDb();
-  const user = db.prepare('SELECT * FROM customers WHERE email = ? AND password_hash IS NOT NULL').get(email) as any;
+  const user = await queryOne<any>('SELECT * FROM customers WHERE email = ? AND password_hash IS NOT NULL', [email]);
 
   if (!user || !bcrypt.compareSync(password, user.password_hash)) {
     res.status(401).json({ error: 'Invalid email or password' });
@@ -65,7 +64,7 @@ export function login(req: Request, res: Response): void {
   });
 }
 
-export function anonymous(req: Request, res: Response): void {
+export async function anonymous(req: Request, res: Response): Promise<void> {
   const { email, name } = req.body;
 
   if (!email) {
@@ -73,14 +72,14 @@ export function anonymous(req: Request, res: Response): void {
     return;
   }
 
-  const db = getDb();
-  let user = db.prepare('SELECT * FROM customers WHERE email = ?').get(email) as any;
+  let user = await queryOne<any>('SELECT * FROM customers WHERE email = ?', [email]);
 
   if (!user) {
-    const result = db.prepare(
-      'INSERT INTO customers (email, name, is_anonymous) VALUES (?, ?, 1)'
-    ).run(email, name || 'Anonymous');
-    user = { id: result.lastInsertRowid, email, name: name || 'Anonymous', role: 'customer' };
+    const result = await query(
+      'INSERT INTO customers (email, name, is_anonymous) VALUES (?, ?, TRUE) RETURNING id',
+      [email, name || 'Anonymous']
+    );
+    user = { id: result.rows[0].id, email, name: name || 'Anonymous', role: 'customer' };
   }
 
   const token = jwt.sign(
@@ -95,9 +94,8 @@ export function anonymous(req: Request, res: Response): void {
   });
 }
 
-export function getMe(req: any, res: Response): void {
-  const db = getDb();
-  const user = db.prepare('SELECT id, email, name, company, role, is_anonymous FROM customers WHERE id = ?').get(req.user.userId) as any;
+export async function getMe(req: any, res: Response): Promise<void> {
+  const user = await queryOne<any>('SELECT id, email, name, company, role, is_anonymous FROM customers WHERE id = ?', [req.user.userId]);
 
   if (!user) {
     res.status(404).json({ error: 'User not found' });
@@ -114,27 +112,25 @@ export function getMe(req: any, res: Response): void {
   });
 }
 
-export function updateProfile(req: any, res: Response): void {
-  const db = getDb();
+export async function updateProfile(req: any, res: Response): Promise<void> {
   const { name, company } = req.body;
-  db.prepare('UPDATE customers SET name = COALESCE(?, name), company = COALESCE(?, company), updated_at = datetime(\'now\') WHERE id = ?')
-    .run(name || null, company || null, req.user.userId);
+  await query('UPDATE customers SET name = COALESCE(?, name), company = COALESCE(?, company), updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+    [name || null, company || null, req.user.userId]);
   res.json({ message: 'Profile updated' });
 }
 
-export function changePassword(req: any, res: Response): void {
-  const db = getDb();
+export async function changePassword(req: any, res: Response): Promise<void> {
   const { currentPassword, newPassword } = req.body;
   if (!currentPassword || !newPassword || newPassword.length < 6) {
     res.status(400).json({ error: 'Valid current and new password required (min 6 chars)' });
     return;
   }
-  const user = db.prepare('SELECT password_hash FROM customers WHERE id = ?').get(req.user.userId) as any;
+  const user = await queryOne<any>('SELECT password_hash FROM customers WHERE id = ?', [req.user.userId]);
   if (!user || !bcrypt.compareSync(currentPassword, user.password_hash)) {
     res.status(401).json({ error: 'Current password is incorrect' });
     return;
   }
-  db.prepare('UPDATE customers SET password_hash = ?, updated_at = datetime(\'now\') WHERE id = ?')
-    .run(bcrypt.hashSync(newPassword, 10), req.user.userId);
+  await query('UPDATE customers SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+    [bcrypt.hashSync(newPassword, 10), req.user.userId]);
   res.json({ message: 'Password changed' });
 }

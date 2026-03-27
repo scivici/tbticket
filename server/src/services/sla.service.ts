@@ -1,4 +1,4 @@
-import { getDb } from '../db/connection';
+import { query, queryOne, queryAll } from '../db/connection';
 
 export interface SlaStatus {
   ticketId: number;
@@ -16,34 +16,31 @@ export interface SlaStatus {
   resolutionRemaining: number | null;
 }
 
-export function getSlaPolicy(priority: string) {
-  const db = getDb();
-  return db.prepare('SELECT * FROM sla_policies WHERE priority = ?').get(priority) as any;
+export async function getSlaPolicy(priority: string) {
+  return await queryOne<any>('SELECT * FROM sla_policies WHERE priority = ?', [priority]);
 }
 
-export function getAllSlaPolicies() {
-  const db = getDb();
-  return db.prepare('SELECT * FROM sla_policies ORDER BY response_time_hours').all();
+export async function getAllSlaPolicies() {
+  return await queryAll('SELECT * FROM sla_policies ORDER BY response_time_hours');
 }
 
-export function updateSlaPolicy(priority: string, responseTimeHours: number, resolutionTimeHours: number) {
-  const db = getDb();
-  db.prepare('UPDATE sla_policies SET response_time_hours = ?, resolution_time_hours = ? WHERE priority = ?')
-    .run(responseTimeHours, resolutionTimeHours, priority);
+export async function updateSlaPolicy(priority: string, responseTimeHours: number, resolutionTimeHours: number) {
+  await query('UPDATE sla_policies SET response_time_hours = ?, resolution_time_hours = ? WHERE priority = ?',
+    [responseTimeHours, resolutionTimeHours, priority]);
 }
 
-export function getTicketSlaStatus(ticketId: number): SlaStatus | null {
-  const db = getDb();
-  const ticket = db.prepare('SELECT id, priority, created_at, resolved_at FROM tickets WHERE id = ?').get(ticketId) as any;
+export async function getTicketSlaStatus(ticketId: number): Promise<SlaStatus | null> {
+  const ticket = await queryOne<any>('SELECT id, priority, created_at, resolved_at FROM tickets WHERE id = ?', [ticketId]);
   if (!ticket) return null;
 
-  const policy = getSlaPolicy(ticket.priority);
+  const policy = await getSlaPolicy(ticket.priority);
   if (!policy) return null;
 
   // Find first non-internal response
-  const firstResponse = db.prepare(
-    "SELECT created_at FROM ticket_responses WHERE ticket_id = ? AND author_role = 'admin' AND is_internal = 0 ORDER BY created_at ASC LIMIT 1"
-  ).get(ticketId) as any;
+  const firstResponse = await queryOne<any>(
+    "SELECT created_at FROM ticket_responses WHERE ticket_id = ? AND author_role = 'admin' AND is_internal = 0 ORDER BY created_at ASC LIMIT 1",
+    [ticketId]
+  );
 
   const now = new Date();
   const created = new Date(ticket.created_at + 'Z');
@@ -76,10 +73,14 @@ export function getTicketSlaStatus(ticketId: number): SlaStatus | null {
   };
 }
 
-export function getBreachedTickets() {
-  const db = getDb();
-  const openTickets = db.prepare("SELECT id FROM tickets WHERE status NOT IN ('resolved', 'closed')").all() as any[];
-  return openTickets
-    .map(t => getTicketSlaStatus(t.id))
-    .filter(s => s && (s.responseBreached || s.resolutionBreached));
+export async function getBreachedTickets() {
+  const openTickets = await queryAll<any>("SELECT id FROM tickets WHERE status NOT IN ('resolved', 'closed')");
+  const results = [];
+  for (const t of openTickets) {
+    const status = await getTicketSlaStatus(t.id);
+    if (status && (status.responseBreached || status.resolutionBreached)) {
+      results.push(status);
+    }
+  }
+  return results;
 }

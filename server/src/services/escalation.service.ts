@@ -1,25 +1,22 @@
-import { getDb } from '../db/connection';
+import { query, queryOne, queryAll } from '../db/connection';
 
-export function getEscalationRules() {
-  const db = getDb();
-  return db.prepare('SELECT * FROM escalation_rules ORDER BY priority, hours_without_response').all();
+export async function getEscalationRules() {
+  return await queryAll('SELECT * FROM escalation_rules ORDER BY priority, hours_without_response');
 }
 
-export function updateEscalationRule(id: number, hoursWithoutResponse: number, action: string, isActive: boolean) {
-  const db = getDb();
-  db.prepare('UPDATE escalation_rules SET hours_without_response = ?, action = ?, is_active = ? WHERE id = ?')
-    .run(hoursWithoutResponse, action, isActive ? 1 : 0, id);
+export async function updateEscalationRule(id: number, hoursWithoutResponse: number, action: string, isActive: boolean) {
+  await query('UPDATE escalation_rules SET hours_without_response = ?, action = ?, is_active = ? WHERE id = ?',
+    [hoursWithoutResponse, action, isActive ? 1 : 0, id]);
 }
 
-export function createEscalationRule(priority: string, hoursWithoutResponse: number, action: string) {
-  const db = getDb();
-  return db.prepare('INSERT INTO escalation_rules (priority, hours_without_response, action) VALUES (?, ?, ?)')
-    .run(priority, hoursWithoutResponse, action);
+export async function createEscalationRule(priority: string, hoursWithoutResponse: number, action: string) {
+  const result = await query('INSERT INTO escalation_rules (priority, hours_without_response, action) VALUES (?, ?, ?) RETURNING id',
+    [priority, hoursWithoutResponse, action]);
+  return result.rows[0].id;
 }
 
-export function deleteEscalationRule(id: number) {
-  const db = getDb();
-  db.prepare('DELETE FROM escalation_rules WHERE id = ?').run(id);
+export async function deleteEscalationRule(id: number) {
+  await query('DELETE FROM escalation_rules WHERE id = ?', [id]);
 }
 
 export interface EscalationAlert {
@@ -34,16 +31,15 @@ export interface EscalationAlert {
   ruleAction: string;
 }
 
-export function checkEscalations(): EscalationAlert[] {
-  const db = getDb();
-  const rules = db.prepare("SELECT * FROM escalation_rules WHERE is_active = 1").all() as any[];
-  const openTickets = db.prepare(`
+export async function checkEscalations(): Promise<EscalationAlert[]> {
+  const rules = await queryAll<any>("SELECT * FROM escalation_rules WHERE is_active = 1");
+  const openTickets = await queryAll<any>(`
     SELECT t.id, t.ticket_number, t.subject, t.priority, t.created_at, t.status,
            c.name as customer_name
     FROM tickets t
     JOIN customers c ON t.customer_id = c.id
     WHERE t.status NOT IN ('resolved', 'closed')
-  `).all() as any[];
+  `);
 
   const alerts: EscalationAlert[] = [];
   const now = Date.now();
@@ -53,9 +49,10 @@ export function checkEscalations(): EscalationAlert[] {
     const hoursOpen = (now - created) / 3600000;
 
     // Check if ticket has any non-internal admin response
-    const hasResponse = db.prepare(
-      "SELECT id FROM ticket_responses WHERE ticket_id = ? AND author_role = 'admin' AND is_internal = 0 LIMIT 1"
-    ).get(ticket.id);
+    const hasResponse = await queryOne<any>(
+      "SELECT id FROM ticket_responses WHERE ticket_id = ? AND author_role = 'admin' AND is_internal = 0 LIMIT 1",
+      [ticket.id]
+    );
 
     if (hasResponse) continue; // Already responded, no escalation needed
 

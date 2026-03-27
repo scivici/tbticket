@@ -1,4 +1,4 @@
-import { getDb } from '../db/connection';
+import { query, queryOne, queryAll, transaction, clientQuery } from '../db/connection';
 import { v4 as uuidv4 } from 'uuid';
 
 function generateTicketNumber(): string {
@@ -19,55 +19,43 @@ export interface CreateTicketData {
   files?: Express.Multer.File[];
 }
 
-export function createTicket(data: CreateTicketData) {
-  const db = getDb();
+export async function createTicket(data: CreateTicketData) {
   const ticketNumber = generateTicketNumber();
 
-  const insertTicket = db.prepare(`
-    INSERT INTO tickets (ticket_number, customer_id, product_id, category_id, subject, description, product_key)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `);
-
-  const insertAnswer = db.prepare(`
-    INSERT INTO ticket_answers (ticket_id, question_template_id, answer)
-    VALUES (?, ?, ?)
-  `);
-
-  const insertAttachment = db.prepare(`
-    INSERT INTO ticket_attachments (ticket_id, filename, original_name, mime_type, size, path)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `);
-
-  const result = db.transaction(() => {
-    const ticketResult = insertTicket.run(
-      ticketNumber, data.customerId, data.productId, data.categoryId,
-      data.subject, data.description, data.productKey || null
-    );
-    const ticketId = ticketResult.lastInsertRowid as number;
+  const result = await transaction(async (client) => {
+    const ticketResult = await clientQuery(client, `
+      INSERT INTO tickets (ticket_number, customer_id, product_id, category_id, subject, description, product_key)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+      RETURNING id
+    `, [ticketNumber, data.customerId, data.productId, data.categoryId,
+        data.subject, data.description, data.productKey || null]);
+    const ticketId = ticketResult.rows[0].id as number;
 
     for (const answer of data.answers) {
-      insertAnswer.run(ticketId, answer.questionTemplateId, answer.answer);
+      await clientQuery(client, `
+        INSERT INTO ticket_answers (ticket_id, question_template_id, answer)
+        VALUES (?, ?, ?)
+      `, [ticketId, answer.questionTemplateId, answer.answer]);
     }
 
     if (data.files) {
       for (const file of data.files) {
-        insertAttachment.run(
-          ticketId, file.filename, file.originalname,
-          file.mimetype, file.size, file.path
-        );
+        await clientQuery(client, `
+          INSERT INTO ticket_attachments (ticket_id, filename, original_name, mime_type, size, path)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `, [ticketId, file.filename, file.originalname,
+            file.mimetype, file.size, file.path]);
       }
     }
 
     return { ticketId, ticketNumber };
-  })();
+  });
 
   return result;
 }
 
-export function getTicketById(ticketId: number) {
-  const db = getDb();
-
-  const ticket = db.prepare(`
+export async function getTicketById(ticketId: number) {
+  const ticket = await queryOne<any>(`
     SELECT t.*,
            p.name as product_name, p.model as product_model, p.description as product_description,
            pc.name as category_name, pc.description as category_description,
@@ -79,21 +67,21 @@ export function getTicketById(ticketId: number) {
     LEFT JOIN engineers e ON t.assigned_engineer_id = e.id
     JOIN customers c ON t.customer_id = c.id
     WHERE t.id = ?
-  `).get(ticketId) as any;
+  `, [ticketId]);
 
   if (!ticket) return null;
 
-  const answers = db.prepare(`
+  const answers = await queryAll(`
     SELECT ta.*, qt.question_text, qt.question_type
     FROM ticket_answers ta
     JOIN question_templates qt ON ta.question_template_id = qt.id
     WHERE ta.ticket_id = ?
     ORDER BY qt.display_order
-  `).all(ticketId);
+  `, [ticketId]);
 
-  const attachments = db.prepare(`
+  const attachments = await queryAll(`
     SELECT * FROM ticket_attachments WHERE ticket_id = ?
-  `).all(ticketId);
+  `, [ticketId]);
 
   return {
     id: ticket.id,
@@ -140,14 +128,13 @@ export function getTicketById(ticketId: number) {
   };
 }
 
-export function getTicketByNumber(ticketNumber: string) {
-  const db = getDb();
-  const ticket = db.prepare('SELECT id FROM tickets WHERE ticket_number = ?').get(ticketNumber) as any;
+export async function getTicketByNumber(ticketNumber: string) {
+  const ticket = await queryOne<any>('SELECT id FROM tickets WHERE ticket_number = ?', [ticketNumber]);
   if (!ticket) return null;
   return getTicketById(ticket.id);
 }
 
-export function listTickets(filters: {
+export async function listTickets(filters: {
   status?: string;
   excludeStatus?: string;
   priority?: string;
@@ -163,7 +150,6 @@ export function listTickets(filters: {
   page?: number;
   limit?: number;
 }) {
-  const db = getDb();
   const conditions: string[] = [];
   const params: any[] = [];
 
@@ -225,9 +211,9 @@ export function listTickets(filters: {
   const limit = filters.limit || 20;
   const offset = (page - 1) * limit;
 
-  const countResult = db.prepare(`SELECT COUNT(*) as total FROM tickets t ${where}`).get(...params) as any;
+  const countResult = await queryOne<any>(`SELECT COUNT(*) as total FROM tickets t JOIN customers c ON t.customer_id = c.id ${where}`, params);
 
-  const tickets = db.prepare(`
+  const tickets = await queryAll<any>(`
     SELECT t.*,
            p.name as product_name, p.model as product_model,
            pc.name as category_name,
@@ -241,7 +227,7 @@ export function listTickets(filters: {
     ${where}
     ORDER BY t.created_at DESC
     LIMIT ? OFFSET ?
-  `).all(...params, limit, offset);
+  `, [...params, limit, offset]);
 
   return {
     tickets: tickets.map((t: any) => ({
@@ -259,60 +245,57 @@ export function listTickets(filters: {
       createdAt: t.created_at,
       updatedAt: t.updated_at,
     })),
-    total: countResult.total,
+    total: countResult?.total || 0,
     page,
     limit,
-    totalPages: Math.ceil(countResult.total / limit),
+    totalPages: Math.ceil((countResult?.total || 0) / limit),
   };
 }
 
-export function updateTicketStatus(ticketId: number, status: string) {
-  const db = getDb();
-  const updates: string[] = ["status = ?", "updated_at = datetime('now')"];
+export async function updateTicketStatus(ticketId: number, status: string) {
+  const updates: string[] = ["status = ?", "updated_at = CURRENT_TIMESTAMP"];
   const params: any[] = [status];
 
   if (status === 'resolved') {
-    updates.push("resolved_at = datetime('now')");
+    updates.push("resolved_at = CURRENT_TIMESTAMP");
   }
 
-  db.prepare(`UPDATE tickets SET ${updates.join(', ')} WHERE id = ?`).run(...params, ticketId);
+  await query(`UPDATE tickets SET ${updates.join(', ')} WHERE id = ?`, [...params, ticketId]);
 }
 
-export function assignTicket(ticketId: number, engineerId: number) {
-  const db = getDb();
-  db.transaction(() => {
-    db.prepare(`
-      UPDATE tickets SET assigned_engineer_id = ?, status = 'assigned', updated_at = datetime('now')
+export async function assignTicket(ticketId: number, engineerId: number) {
+  await transaction(async (client) => {
+    await clientQuery(client, `
+      UPDATE tickets SET assigned_engineer_id = ?, status = 'assigned', updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
-    `).run(engineerId, ticketId);
+    `, [engineerId, ticketId]);
 
-    db.prepare(`
-      UPDATE engineers SET current_workload = current_workload + 1, updated_at = datetime('now')
+    await clientQuery(client, `
+      UPDATE engineers SET current_workload = current_workload + 1, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
-    `).run(engineerId);
-  })();
+    `, [engineerId]);
+  });
 }
 
-export function updateAiAnalysis(ticketId: number, analysis: string, confidence: number) {
-  const db = getDb();
-  db.prepare(`
-    UPDATE tickets SET ai_analysis = ?, ai_confidence = ?, updated_at = datetime('now')
+export async function updateAiAnalysis(ticketId: number, analysis: string, confidence: number) {
+  await query(`
+    UPDATE tickets SET ai_analysis = ?, ai_confidence = ?, updated_at = CURRENT_TIMESTAMP
     WHERE id = ?
-  `).run(analysis, confidence, ticketId);
+  `, [analysis, confidence, ticketId]);
 }
 
-export function addResponse(ticketId: number, authorId: number, authorName: string, authorRole: string, message: string, isInternal: boolean) {
-  const db = getDb();
-  const result = db.prepare(
-    'INSERT INTO ticket_responses (ticket_id, author_id, author_name, author_role, message, is_internal) VALUES (?, ?, ?, ?, ?, ?)'
-  ).run(ticketId, authorId, authorName, authorRole, message, isInternal ? 1 : 0);
-  return result.lastInsertRowid;
+export async function addResponse(ticketId: number, authorId: number, authorName: string, authorRole: string, message: string, isInternal: boolean) {
+  const result = await query(
+    'INSERT INTO ticket_responses (ticket_id, author_id, author_name, author_role, message, is_internal) VALUES (?, ?, ?, ?, ?, ?) RETURNING id',
+    [ticketId, authorId, authorName, authorRole, message, isInternal ? 1 : 0]
+  );
+  return result.rows[0].id;
 }
 
-export function getResponses(ticketId: number, includeInternal: boolean) {
-  const db = getDb();
+export async function getResponses(ticketId: number, includeInternal: boolean) {
   const where = includeInternal ? '' : 'AND is_internal = 0';
-  return db.prepare(
-    `SELECT * FROM ticket_responses WHERE ticket_id = ? ${where} ORDER BY created_at ASC`
-  ).all(ticketId);
+  return await queryAll(
+    `SELECT * FROM ticket_responses WHERE ticket_id = ? ${where} ORDER BY created_at ASC`,
+    [ticketId]
+  );
 }

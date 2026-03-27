@@ -39,12 +39,11 @@ COPY server/ ./server/
 COPY --from=builder /app/client/dist ./client/dist
 
 # Create directories
-RUN mkdir -p /app/server/data /app/server/uploads
+RUN mkdir -p /app/server/uploads
 
 # Environment
 ENV NODE_ENV=production
 ENV PORT=4001
-ENV DB_PATH=/app/server/data/tickets.db
 ENV UPLOAD_DIR=/app/server/uploads
 
 EXPOSE 4001

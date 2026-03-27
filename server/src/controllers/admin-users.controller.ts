@@ -1,17 +1,16 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
-import { getDb } from '../db/connection';
+import { query, queryOne, queryAll } from '../db/connection';
 
-export function listAdmins(_req: Request, res: Response): void {
-  const db = getDb();
-  const admins = db.prepare(
-    'SELECT id, email, name, role, created_at FROM customers WHERE role = ? ORDER BY created_at'
-  ).all('admin');
+export async function listAdmins(_req: Request, res: Response): Promise<void> {
+  const admins = await queryAll<any>(
+    'SELECT id, email, name, role, created_at FROM customers WHERE role = ? ORDER BY created_at',
+    ['admin']
+  );
   res.json(admins);
 }
 
-export function createAdmin(req: Request, res: Response): void {
-  const db = getDb();
+export async function createAdmin(req: Request, res: Response): Promise<void> {
   const { email, name, password } = req.body;
 
   if (!email || !name || !password) {
@@ -19,48 +18,48 @@ export function createAdmin(req: Request, res: Response): void {
     return;
   }
 
-  const existing = db.prepare('SELECT id FROM customers WHERE email = ?').get(email);
+  const existing = await queryOne<any>('SELECT id FROM customers WHERE email = ?', [email]);
   if (existing) {
     res.status(409).json({ error: 'Email already exists' });
     return;
   }
 
   const passwordHash = bcrypt.hashSync(password, 10);
-  const result = db.prepare(
-    'INSERT INTO customers (email, name, password_hash, role) VALUES (?, ?, ?, ?)'
-  ).run(email, name, passwordHash, 'admin');
+  const result = await query(
+    'INSERT INTO customers (email, name, password_hash, role) VALUES (?, ?, ?, ?) RETURNING id',
+    [email, name, passwordHash, 'admin']
+  );
 
-  res.status(201).json({ id: result.lastInsertRowid, message: 'Admin created' });
+  res.status(201).json({ id: result.rows[0].id, message: 'Admin created' });
 }
 
-export function updateAdmin(req: Request, res: Response): void {
-  const db = getDb();
+export async function updateAdmin(req: Request, res: Response): Promise<void> {
   const { id } = req.params;
   const { name, email } = req.body;
 
-  const existing = db.prepare('SELECT id, email FROM customers WHERE id = ? AND role = ?').get(id, 'admin') as any;
+  const existing = await queryOne<any>('SELECT id, email FROM customers WHERE id = ? AND role = ?', [id, 'admin']);
   if (!existing) {
     res.status(404).json({ error: 'Admin not found' });
     return;
   }
 
   if (email && email !== existing.email) {
-    const duplicate = db.prepare('SELECT id FROM customers WHERE email = ? AND id != ?').get(email, id);
+    const duplicate = await queryOne<any>('SELECT id FROM customers WHERE email = ? AND id != ?', [email, id]);
     if (duplicate) {
       res.status(409).json({ error: 'Email already exists' });
       return;
     }
   }
 
-  db.prepare(
-    'UPDATE customers SET name = COALESCE(?, name), email = COALESCE(?, email) WHERE id = ?'
-  ).run(name, email, id);
+  await query(
+    'UPDATE customers SET name = COALESCE(?, name), email = COALESCE(?, email) WHERE id = ?',
+    [name, email, id]
+  );
 
   res.json({ message: 'Admin updated' });
 }
 
-export function changePassword(req: Request, res: Response): void {
-  const db = getDb();
+export async function changePassword(req: Request, res: Response): Promise<void> {
   const { id } = req.params;
   const { password } = req.body;
 
@@ -69,20 +68,19 @@ export function changePassword(req: Request, res: Response): void {
     return;
   }
 
-  const existing = db.prepare('SELECT id FROM customers WHERE id = ? AND role = ?').get(id, 'admin');
+  const existing = await queryOne<any>('SELECT id FROM customers WHERE id = ? AND role = ?', [id, 'admin']);
   if (!existing) {
     res.status(404).json({ error: 'Admin not found' });
     return;
   }
 
   const passwordHash = bcrypt.hashSync(password, 10);
-  db.prepare('UPDATE customers SET password_hash = ? WHERE id = ?').run(passwordHash, id);
+  await query('UPDATE customers SET password_hash = ? WHERE id = ?', [passwordHash, id]);
 
   res.json({ message: 'Password changed' });
 }
 
-export function changeMyPassword(req: any, res: Response): void {
-  const db = getDb();
+export async function changeMyPassword(req: any, res: Response): Promise<void> {
   const userId = req.user.userId;
   const { currentPassword, newPassword } = req.body;
 
@@ -91,7 +89,7 @@ export function changeMyPassword(req: any, res: Response): void {
     return;
   }
 
-  const user = db.prepare('SELECT id, password_hash FROM customers WHERE id = ?').get(userId) as any;
+  const user = await queryOne<any>('SELECT id, password_hash FROM customers WHERE id = ?', [userId]);
   if (!user) {
     res.status(404).json({ error: 'User not found' });
     return;
@@ -103,13 +101,12 @@ export function changeMyPassword(req: any, res: Response): void {
   }
 
   const passwordHash = bcrypt.hashSync(newPassword, 10);
-  db.prepare('UPDATE customers SET password_hash = ? WHERE id = ?').run(passwordHash, userId);
+  await query('UPDATE customers SET password_hash = ? WHERE id = ?', [passwordHash, userId]);
 
   res.json({ message: 'Password changed' });
 }
 
-export function deleteAdmin(req: any, res: Response): void {
-  const db = getDb();
+export async function deleteAdmin(req: any, res: Response): Promise<void> {
   const { id } = req.params;
   const currentUserId = req.user.userId;
 
@@ -118,18 +115,18 @@ export function deleteAdmin(req: any, res: Response): void {
     return;
   }
 
-  const existing = db.prepare('SELECT id FROM customers WHERE id = ? AND role = ?').get(id, 'admin');
+  const existing = await queryOne<any>('SELECT id FROM customers WHERE id = ? AND role = ?', [id, 'admin']);
   if (!existing) {
     res.status(404).json({ error: 'Admin not found' });
     return;
   }
 
-  const count = db.prepare('SELECT COUNT(*) as cnt FROM customers WHERE role = ?').get('admin') as any;
+  const count = await queryOne<any>('SELECT COUNT(*) as cnt FROM customers WHERE role = ?', ['admin']);
   if (count.cnt <= 1) {
     res.status(409).json({ error: 'Cannot delete the last admin' });
     return;
   }
 
-  db.prepare('DELETE FROM customers WHERE id = ?').run(id);
+  await query('DELETE FROM customers WHERE id = ?', [id]);
   res.json({ message: 'Admin deleted' });
 }

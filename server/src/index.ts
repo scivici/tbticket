@@ -63,16 +63,23 @@ if (fs.existsSync(clientDist)) {
 app.use(errorHandler);
 
 // Initialize DB and start server
-runMigrations();
+async function start() {
+  await runMigrations();
 
-app.listen(config.port, '0.0.0.0', () => {
-  console.log(`[Server] Running on http://localhost:${config.port}`);
-  console.log(`[Server] Claude server: ${config.claudeServerUrl}`);
-  if (fs.existsSync(clientDist)) {
-    console.log(`[Server] Serving client from ${clientDist}`);
-  }
-  // Start background lifecycle automation
-  startScheduler();
+  app.listen(config.port, '0.0.0.0', () => {
+    console.log(`[Server] Running on http://localhost:${config.port}`);
+    console.log(`[Server] Claude server: ${config.claudeServerUrl}`);
+    if (fs.existsSync(clientDist)) {
+      console.log(`[Server] Serving client from ${clientDist}`);
+    }
+    // Start background lifecycle automation
+    startScheduler();
+  });
+}
+
+start().catch((err) => {
+  console.error('[Server] Failed to start:', err);
+  process.exit(1);
 });
 
 export default app;

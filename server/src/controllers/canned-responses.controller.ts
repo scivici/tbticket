@@ -1,30 +1,28 @@
 import { Response } from 'express';
 import { AuthenticatedRequest } from '../types';
-import { getDb } from '../db/connection';
+import { query, queryAll } from '../db/connection';
 
-export function list(_req: AuthenticatedRequest, res: Response): void {
-  const db = getDb();
-  const responses = db.prepare('SELECT * FROM canned_responses ORDER BY created_at DESC').all();
+export async function list(_req: AuthenticatedRequest, res: Response): Promise<void> {
+  const responses = await queryAll<any>('SELECT * FROM canned_responses ORDER BY created_at DESC');
   res.json(responses);
 }
 
-export function create(req: AuthenticatedRequest, res: Response): void {
+export async function create(req: AuthenticatedRequest, res: Response): Promise<void> {
   const { title, content, category } = req.body;
   if (!title || !content) {
     res.status(400).json({ error: 'title and content are required' });
     return;
   }
-  const db = getDb();
-  const result = db.prepare(
-    'INSERT INTO canned_responses (title, content, category, created_by) VALUES (?, ?, ?, ?)'
-  ).run(title, content, category || null, req.user!.userId);
-  res.status(201).json({ id: result.lastInsertRowid, message: 'Canned response created' });
+  const result = await query(
+    'INSERT INTO canned_responses (title, content, category, created_by) VALUES (?, ?, ?, ?) RETURNING id',
+    [title, content, category || null, req.user!.userId]
+  );
+  res.status(201).json({ id: result.rows[0].id, message: 'Canned response created' });
 }
 
-export function update(req: AuthenticatedRequest, res: Response): void {
+export async function update(req: AuthenticatedRequest, res: Response): Promise<void> {
   const { id } = req.params;
   const { title, content, category } = req.body;
-  const db = getDb();
   const fields: string[] = [];
   const values: any[] = [];
   if (title !== undefined) { fields.push('title = ?'); values.push(title); }
@@ -35,13 +33,12 @@ export function update(req: AuthenticatedRequest, res: Response): void {
     return;
   }
   values.push(id);
-  db.prepare(`UPDATE canned_responses SET ${fields.join(', ')} WHERE id = ?`).run(...values);
+  await query(`UPDATE canned_responses SET ${fields.join(', ')} WHERE id = ?`, values);
   res.json({ message: 'Canned response updated' });
 }
 
-export function remove(req: AuthenticatedRequest, res: Response): void {
+export async function remove(req: AuthenticatedRequest, res: Response): Promise<void> {
   const { id } = req.params;
-  const db = getDb();
-  db.prepare('DELETE FROM canned_responses WHERE id = ?').run(id);
+  await query('DELETE FROM canned_responses WHERE id = ?', [id]);
   res.json({ message: 'Canned response deleted' });
 }

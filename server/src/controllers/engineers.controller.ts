@@ -1,34 +1,32 @@
 import { Request, Response } from 'express';
-import { getDb } from '../db/connection';
+import { query, queryOne, queryAll, transaction, clientQuery } from '../db/connection';
 
-export function listEngineers(_req: Request, res: Response): void {
-  const db = getDb();
-  const engineers = db.prepare('SELECT * FROM engineers ORDER BY name').all();
+export async function listEngineers(_req: Request, res: Response): Promise<void> {
+  const engineers = await queryAll<any>('SELECT * FROM engineers ORDER BY name');
   res.json(engineers.map(mapEngineer));
 }
 
-export function getEngineer(req: Request, res: Response): void {
-  const db = getDb();
-  const engineer = db.prepare('SELECT * FROM engineers WHERE id = ?').get(req.params.id) as any;
+export async function getEngineer(req: Request, res: Response): Promise<void> {
+  const engineer = await queryOne<any>('SELECT * FROM engineers WHERE id = ?', [req.params.id]);
   if (!engineer) {
     res.status(404).json({ error: 'Engineer not found' });
     return;
   }
 
-  const skills = db.prepare(`
+  const skills = await queryAll<any>(`
     SELECT s.id, s.name, s.description, es.proficiency
     FROM engineer_skills es
     JOIN skills s ON es.skill_id = s.id
     WHERE es.engineer_id = ?
-  `).all(engineer.id);
+  `, [engineer.id]);
 
-  const expertise = db.prepare(`
+  const expertise = await queryAll<any>(`
     SELECT epe.*, p.name as product_name, pc.name as category_name
     FROM engineer_product_expertise epe
     JOIN products p ON epe.product_id = p.id
     LEFT JOIN product_categories pc ON epe.category_id = pc.id
     WHERE epe.engineer_id = ?
-  `).all(engineer.id);
+  `, [engineer.id]);
 
   res.json({
     ...mapEngineer(engineer),
@@ -43,8 +41,7 @@ export function getEngineer(req: Request, res: Response): void {
   });
 }
 
-export function createEngineer(req: Request, res: Response): void {
-  const db = getDb();
+export async function createEngineer(req: Request, res: Response): Promise<void> {
   const { name, email, location, maxWorkload } = req.body;
 
   if (!name || !email || !location) {
@@ -52,97 +49,89 @@ export function createEngineer(req: Request, res: Response): void {
     return;
   }
 
-  const result = db.prepare(
-    'INSERT INTO engineers (name, email, location, max_workload) VALUES (?, ?, ?, ?)'
-  ).run(name, email, location, maxWorkload || 5);
+  const result = await query(
+    'INSERT INTO engineers (name, email, location, max_workload) VALUES (?, ?, ?, ?) RETURNING id',
+    [name, email, location, maxWorkload || 5]
+  );
 
-  res.status(201).json({ id: result.lastInsertRowid, message: 'Engineer created' });
+  res.status(201).json({ id: result.rows[0].id, message: 'Engineer created' });
 }
 
-export function updateEngineer(req: Request, res: Response): void {
-  const db = getDb();
+export async function updateEngineer(req: Request, res: Response): Promise<void> {
   const { name, email, location, isActive, maxWorkload, shiftStart, shiftEnd, timezone } = req.body;
   const { id } = req.params;
 
-  db.prepare(`
+  await query(`
     UPDATE engineers SET name = COALESCE(?, name), email = COALESCE(?, email),
     location = COALESCE(?, location), is_active = COALESCE(?, is_active),
     max_workload = COALESCE(?, max_workload),
     shift_start = COALESCE(?, shift_start), shift_end = COALESCE(?, shift_end),
     timezone = COALESCE(?, timezone),
-    updated_at = datetime('now')
+    updated_at = CURRENT_TIMESTAMP
     WHERE id = ?
-  `).run(name, email, location, isActive !== undefined ? (isActive ? 1 : 0) : null, maxWorkload, shiftStart || null, shiftEnd || null, timezone || null, id);
+  `, [name, email, location, isActive !== undefined ? (isActive ? true : false) : null, maxWorkload, shiftStart || null, shiftEnd || null, timezone || null, id]);
 
   res.json({ message: 'Engineer updated' });
 }
 
-export function updateSkills(req: Request, res: Response): void {
-  const db = getDb();
+export async function updateSkills(req: Request, res: Response): Promise<void> {
   const { id } = req.params;
-  const { skills } = req.body; // [{ skillId, proficiency }]
+  const { skills } = req.body;
 
   if (!Array.isArray(skills)) {
     res.status(400).json({ error: 'skills array is required' });
     return;
   }
 
-  db.transaction(() => {
-    db.prepare('DELETE FROM engineer_skills WHERE engineer_id = ?').run(id);
-    const insert = db.prepare('INSERT INTO engineer_skills (engineer_id, skill_id, proficiency) VALUES (?, ?, ?)');
+  await transaction(async (client) => {
+    await clientQuery(client, 'DELETE FROM engineer_skills WHERE engineer_id = ?', [id]);
     for (const skill of skills) {
-      insert.run(id, skill.skillId, skill.proficiency);
+      await clientQuery(client, 'INSERT INTO engineer_skills (engineer_id, skill_id, proficiency) VALUES (?, ?, ?)', [id, skill.skillId, skill.proficiency]);
     }
-  })();
+  });
 
   res.json({ message: 'Skills updated' });
 }
 
-export function updateExpertise(req: Request, res: Response): void {
-  const db = getDb();
+export async function updateExpertise(req: Request, res: Response): Promise<void> {
   const { id } = req.params;
-  const { expertise } = req.body; // [{ productId, categoryId?, expertiseLevel }]
+  const { expertise } = req.body;
 
   if (!Array.isArray(expertise)) {
     res.status(400).json({ error: 'expertise array is required' });
     return;
   }
 
-  db.transaction(() => {
-    db.prepare('DELETE FROM engineer_product_expertise WHERE engineer_id = ?').run(id);
-    const insert = db.prepare(
-      'INSERT INTO engineer_product_expertise (engineer_id, product_id, category_id, expertise_level) VALUES (?, ?, ?, ?)'
-    );
+  await transaction(async (client) => {
+    await clientQuery(client, 'DELETE FROM engineer_product_expertise WHERE engineer_id = ?', [id]);
     for (const e of expertise) {
-      insert.run(id, e.productId, e.categoryId || null, e.expertiseLevel);
+      await clientQuery(client, 'INSERT INTO engineer_product_expertise (engineer_id, product_id, category_id, expertise_level) VALUES (?, ?, ?, ?)', [id, e.productId, e.categoryId || null, e.expertiseLevel]);
     }
-  })();
+  });
 
   res.json({ message: 'Expertise updated' });
 }
 
-export function deleteEngineer(req: Request, res: Response): void {
-  const db = getDb();
+export async function deleteEngineer(req: Request, res: Response): Promise<void> {
   const { id } = req.params;
 
-  const hasTickets = db.prepare('SELECT COUNT(*) as c FROM tickets WHERE assigned_engineer_id = ?').get(id) as any;
+  const hasTickets = await queryOne<any>('SELECT COUNT(*) as c FROM tickets WHERE assigned_engineer_id = ?', [id]);
   if (hasTickets.c > 0) {
     res.status(409).json({ error: 'Cannot delete engineer with assigned tickets. Reassign tickets first.' });
     return;
   }
 
-  db.transaction(() => {
-    db.prepare('DELETE FROM engineer_skills WHERE engineer_id = ?').run(id);
-    db.prepare('DELETE FROM engineer_product_expertise WHERE engineer_id = ?').run(id);
-    db.prepare('DELETE FROM engineers WHERE id = ?').run(id);
-  })();
+  await transaction(async (client) => {
+    await clientQuery(client, 'DELETE FROM engineer_skills WHERE engineer_id = ?', [id]);
+    await clientQuery(client, 'DELETE FROM engineer_product_expertise WHERE engineer_id = ?', [id]);
+    await clientQuery(client, 'DELETE FROM engineers WHERE id = ?', [id]);
+  });
 
   res.json({ message: 'Engineer deleted' });
 }
 
-export function getSkillsList(_req: Request, res: Response): void {
-  const db = getDb();
-  const skills = db.prepare('SELECT * FROM skills ORDER BY name').all();
+export async function getSkillsList(_req: Request, res: Response): Promise<void> {
+  const skills = await queryAll<any>('SELECT * FROM skills ORDER BY name');
   res.json(skills);
 }
 

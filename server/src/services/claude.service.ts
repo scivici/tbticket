@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { config } from '../config';
-import { getDb } from '../db/connection';
+import { query, queryOne, queryAll } from '../db/connection';
 import { getSettings } from './settings.service';
 
 interface ClaudeAnalysisInput {
@@ -37,8 +37,8 @@ export interface ClaudeAnalysisResult {
   estimatedComplexity: string;
 }
 
-function getClaudeConfig() {
-  const s = getSettings('claude_');
+async function getClaudeConfig() {
+  const s = await getSettings('claude_');
   return {
     serverUrl: s['claude_server_url'] || config.claudeServerUrl,
     authType: s['claude_auth_type'] || 'basic',
@@ -171,58 +171,57 @@ function buildMessageContent(input: ClaudeAnalysisInput): any[] {
   return content;
 }
 
-function gatherAnalysisInput(ticketId: number): ClaudeAnalysisInput | null {
-  const db = getDb();
-
-  const ticket = db.prepare(`
+async function gatherAnalysisInput(ticketId: number): Promise<ClaudeAnalysisInput | null> {
+  const ticket = await queryOne<any>(`
     SELECT t.subject, t.description, p.name as product_name, p.model as product_model,
            pc.name as category_name, t.product_id, t.category_id
     FROM tickets t
     JOIN products p ON t.product_id = p.id
     JOIN product_categories pc ON t.category_id = pc.id
     WHERE t.id = ?
-  `).get(ticketId) as any;
+  `, [ticketId]);
 
   if (!ticket) return null;
 
-  const answers = db.prepare(`
+  const answers = await queryAll<any>(`
     SELECT qt.question_text, ta.answer
     FROM ticket_answers ta
     JOIN question_templates qt ON ta.question_template_id = qt.id
     WHERE ta.ticket_id = ?
     ORDER BY qt.display_order
-  `).all(ticketId) as any[];
+  `, [ticketId]);
 
-  const attachments = db.prepare(`
+  const attachments = await queryAll<any>(`
     SELECT original_name, mime_type, path FROM ticket_attachments WHERE ticket_id = ?
-  `).all(ticketId) as any[];
+  `, [ticketId]);
 
-  const engineers = db.prepare(`
+  const engineers = await queryAll<any>(`
     SELECT * FROM engineers WHERE is_active = 1 AND current_workload < max_workload
-  `).all() as any[];
+  `);
 
-  const enrichedEngineers = engineers.map((e: any) => {
-    const skills = db.prepare(`
+  const enrichedEngineers = [];
+  for (const e of engineers) {
+    const skills = await queryAll<any>(`
       SELECT s.name, es.proficiency
       FROM engineer_skills es JOIN skills s ON es.skill_id = s.id
       WHERE es.engineer_id = ?
-    `).all(e.id) as any[];
+    `, [e.id]);
 
-    const expertise = db.prepare(`
+    const expertise = await queryAll<any>(`
       SELECT p.name as product_name, COALESCE(pc.name, 'General') as category_name, epe.expertise_level as level
       FROM engineer_product_expertise epe
       JOIN products p ON epe.product_id = p.id
       LEFT JOIN product_categories pc ON epe.category_id = pc.id
       WHERE epe.engineer_id = ?
-    `).all(e.id) as any[];
+    `, [e.id]);
 
-    return {
+    enrichedEngineers.push({
       id: e.id, name: e.name, location: e.location,
       currentWorkload: e.current_workload, maxWorkload: e.max_workload,
       skills: skills.map((s: any) => ({ name: s.name, proficiency: s.proficiency })),
       productExpertise: expertise.map((pe: any) => ({ productName: pe.product_name, categoryName: pe.category_name, level: pe.level })),
-    };
-  });
+    });
+  }
 
   return {
     ticket: {
@@ -236,12 +235,13 @@ function gatherAnalysisInput(ticketId: number): ClaudeAnalysisInput | null {
   };
 }
 
-export function getAutoAssignThreshold(): number {
-  return getClaudeConfig().autoAssignThreshold;
+export async function getAutoAssignThreshold(): Promise<number> {
+  const claudeConfig = await getClaudeConfig();
+  return claudeConfig.autoAssignThreshold;
 }
 
 export async function analyzeTicket(ticketId: number): Promise<ClaudeAnalysisResult | null> {
-  const input = gatherAnalysisInput(ticketId);
+  const input = await gatherAnalysisInput(ticketId);
   if (!input) return null;
 
   if (input.engineers.length === 0) {
@@ -249,7 +249,7 @@ export async function analyzeTicket(ticketId: number): Promise<ClaudeAnalysisRes
     return null;
   }
 
-  const claudeConfig = getClaudeConfig();
+  const claudeConfig = await getClaudeConfig();
   const messageContent = buildMessageContent(input);
 
   if (!claudeConfig.serverUrl) {
