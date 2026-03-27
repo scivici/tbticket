@@ -746,15 +746,23 @@ export function deleteTicket(req: AuthenticatedRequest, res: Response): void {
     const db = getDb();
 
     db.transaction(() => {
-      db.prepare('DELETE FROM ticket_responses WHERE ticket_id = ?').run(ticketId);
-      db.prepare('DELETE FROM ticket_attachments WHERE ticket_id = ?').run(ticketId);
-      db.prepare('DELETE FROM ticket_answers WHERE ticket_id = ?').run(ticketId);
-      db.prepare('DELETE FROM notifications WHERE ticket_id = ?').run(ticketId);
       // Decrement engineer workload if assigned
       const ticket = db.prepare('SELECT assigned_engineer_id FROM tickets WHERE id = ?').get(ticketId) as any;
       if (ticket?.assigned_engineer_id) {
         db.prepare('UPDATE engineers SET current_workload = MAX(0, current_workload - 1) WHERE id = ?').run(ticket.assigned_engineer_id);
       }
+      // Delete all related records before removing the ticket
+      db.prepare('DELETE FROM ticket_responses WHERE ticket_id = ?').run(ticketId);
+      db.prepare('DELETE FROM ticket_attachments WHERE ticket_id = ?').run(ticketId);
+      db.prepare('DELETE FROM ticket_answers WHERE ticket_id = ?').run(ticketId);
+      db.prepare('DELETE FROM ticket_activity_log WHERE ticket_id = ?').run(ticketId);
+      db.prepare('DELETE FROM ticket_tags WHERE ticket_id = ?').run(ticketId);
+      db.prepare('DELETE FROM ticket_satisfaction WHERE ticket_id = ?').run(ticketId);
+      db.prepare('DELETE FROM ticket_cc WHERE ticket_id = ?').run(ticketId);
+      db.prepare('DELETE FROM ticket_links WHERE ticket_id = ? OR linked_ticket_id = ?').run(ticketId, ticketId);
+      db.prepare('DELETE FROM time_entries WHERE ticket_id = ?').run(ticketId);
+      db.prepare('DELETE FROM notifications WHERE ticket_id = ?').run(ticketId);
+      db.prepare('UPDATE knowledge_base SET ticket_id = NULL WHERE ticket_id = ?').run(ticketId);
       db.prepare('DELETE FROM tickets WHERE id = ?').run(ticketId);
     })();
 
@@ -833,7 +841,14 @@ export function bulkDelete(req: AuthenticatedRequest, res: Response): void {
       db.prepare('DELETE FROM ticket_responses WHERE ticket_id = ?').run(id);
       db.prepare('DELETE FROM ticket_attachments WHERE ticket_id = ?').run(id);
       db.prepare('DELETE FROM ticket_answers WHERE ticket_id = ?').run(id);
+      db.prepare('DELETE FROM ticket_activity_log WHERE ticket_id = ?').run(id);
+      db.prepare('DELETE FROM ticket_tags WHERE ticket_id = ?').run(id);
+      db.prepare('DELETE FROM ticket_satisfaction WHERE ticket_id = ?').run(id);
+      db.prepare('DELETE FROM ticket_cc WHERE ticket_id = ?').run(id);
+      db.prepare('DELETE FROM ticket_links WHERE ticket_id = ? OR linked_ticket_id = ?').run(id, id);
+      db.prepare('DELETE FROM time_entries WHERE ticket_id = ?').run(id);
       db.prepare('DELETE FROM notifications WHERE ticket_id = ?').run(id);
+      db.prepare('UPDATE knowledge_base SET ticket_id = NULL WHERE ticket_id = ?').run(id);
       db.prepare('DELETE FROM tickets WHERE id = ?').run(id);
     }
   })();
