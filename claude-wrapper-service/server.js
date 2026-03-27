@@ -26,6 +26,7 @@ app.use(express.json({ limit: '50mb' }));
 const PORT = process.env.WRAPPER_PORT || 4002;
 const TICKETS_DIR = process.env.TICKETS_DIR || '/home/support/incoming/tickets';
 const CLAUDE_BIN = process.env.CLAUDE_BIN || 'claude';
+const CLAUDE_PROJECT_DIR = process.env.CLAUDE_PROJECT_DIR || '/opt/claude-support/repos/tb';
 const ALLOWED_TOOLS = process.env.ALLOWED_TOOLS || 'Read,Grep,Glob,Bash(grep:*),Bash(cat:*),Bash(head:*),Bash(tail:*),Bash(wc:*),Bash(file:*),Bash(strings:*),Bash(hexdump:*)';
 const AUTH_TOKEN = process.env.AUTH_TOKEN || 'tb-claude-wrapper-secret'; // Change in production
 const ANALYSIS_TIMEOUT = parseInt(process.env.ANALYSIS_TIMEOUT || '300000'); // 5 min
@@ -156,11 +157,11 @@ ${engineersText || 'No engineers available.'}
 
     // Step 3: Build the Claude CLI prompt
     const prompt = `You are analyzing a TelcoBridges technical support ticket.
-The ticket context and any attached files are in the current directory.
+The ticket context and attached files are located at: ${ticketDir}
 
-1. Read _ticket_context.md for full ticket details.
-2. If there are attached files (logs, configs, pcap exports, screenshots), read and analyze them.
-3. You have access to bmad_docs/ and the source code repository for product documentation reference.
+1. Read ${ticketDir}/_ticket_context.md for full ticket details.
+2. If there are attached files (logs, configs, pcap exports, screenshots) in ${ticketDir}/, read and analyze them.
+3. Use your knowledge from CLAUDE.md, bmad_docs/, source code, and all available resources for detailed analysis.
 
 Provide your analysis as a JSON object with these fields:
 - classification: Brief technical classification of the issue
@@ -177,11 +178,11 @@ Provide your analysis as a JSON object with these fields:
 
 Respond with ONLY the JSON object, no markdown fences, no extra text.`;
 
-    // Step 4: Execute Claude Code CLI
-    console.log(`[Analyze] Running Claude Code CLI for ${ticketNumber}...`);
+    // Step 4: Execute Claude Code CLI (from project dir so CLAUDE.md is loaded)
+    console.log(`[Analyze] Running Claude Code CLI for ${ticketNumber} (cwd: ${CLAUDE_PROJECT_DIR})...`);
     const startTime = Date.now();
 
-    const result = await runClaude(prompt, ticketDir);
+    const result = await runClaude(prompt, CLAUDE_PROJECT_DIR);
 
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
     console.log(`[Analyze] Claude finished in ${elapsed}s for ${ticketNumber}`);
@@ -353,6 +354,7 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`\n=== Claude Analysis Wrapper Service ===`);
   console.log(`Port:         ${PORT}`);
   console.log(`Tickets dir:  ${TICKETS_DIR}`);
+  console.log(`Project dir:  ${CLAUDE_PROJECT_DIR}`);
   console.log(`Claude bin:   ${CLAUDE_BIN}`);
   console.log(`Allowed tools: ${ALLOWED_TOOLS}`);
   console.log(`Timeout:      ${ANALYSIS_TIMEOUT / 1000}s`);
