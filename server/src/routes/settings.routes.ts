@@ -7,18 +7,18 @@ import { AuthenticatedRequest } from '../types';
 const router = Router();
 
 // Get all settings (admin only)
-router.get('/', authenticate, requireAdmin, (_req: any, res: Response) => {
-  res.json(settingsService.getAllSettings());
+router.get('/', authenticate, requireAdmin, async (_req: any, res: Response) => {
+  res.json(await settingsService.getAllSettings());
 });
 
 // Update multiple settings
-router.patch('/', authenticate, requireAdmin, (req: any, res: Response) => {
+router.patch('/', authenticate, requireAdmin, async (req: any, res: Response) => {
   const { settings } = req.body;
   if (!settings || typeof settings !== 'object') {
     res.status(400).json({ error: 'settings object is required' });
     return;
   }
-  settingsService.updateSettings(settings);
+  await settingsService.updateSettings(settings);
 
   // Reset cached transporter if SMTP settings changed
   const smtpKeys = Object.keys(settings).filter(k => k.startsWith('smtp_'));
@@ -41,8 +41,8 @@ router.post('/check-license', async (req: any, res: Response) => {
 
   // Also return the no-support URL and message if needed
   if (!result.hasSupport) {
-    result.message = settingsService.getSetting('license_no_support_message') || result.message;
-    (result as any).redirectUrl = settingsService.getSetting('license_no_support_url');
+    result.message = await settingsService.getSetting('license_no_support_message') || result.message;
+    (result as any).redirectUrl = await settingsService.getSetting('license_no_support_url');
   }
 
   res.json(result);
