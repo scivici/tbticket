@@ -234,7 +234,7 @@ export default function TicketDetail() {
   if (loading) return <div className="text-center py-12 text-gray-500">Loading ticket...</div>;
   if (!ticket) return <div className="text-center py-12 text-red-400">Ticket not found</div>;
 
-  const aiAnalysis = ticket.aiAnalysis ? JSON.parse(ticket.aiAnalysis) : null;
+  const aiAnalysis = ticket.aiAnalysis ? (typeof ticket.aiAnalysis === 'string' ? JSON.parse(ticket.aiAnalysis) : ticket.aiAnalysis) : null;
 
   return (
     <div className="space-y-6">

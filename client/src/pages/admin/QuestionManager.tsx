@@ -9,7 +9,7 @@ const QUESTION_TYPES = [
   { value: 'number', label: 'Number' }, { value: 'date', label: 'Date' },
 ];
 
-interface Question { id: number; category_id: number; question_text: string; question_type: string; options: string | null; is_required: number; display_order: number; conditional_on: number | null; conditional_value: string | null; placeholder: string | null; }
+interface Question { id: number; category_id: number; question_text: string; question_type: string; options: any; is_required: boolean | number; display_order: number; conditional_on: number | null; conditional_value: string | null; placeholder: string | null; }
 
 export default function QuestionManager() {
   const [products, setProducts] = useState<any[]>([]);
@@ -32,7 +32,7 @@ export default function QuestionManager() {
   const startCreate = () => { setCreating(true); setEditing(null); setForm({ categoryId: selectedCategoryId, questionText: '', questionType: 'text', options: '', isRequired: true, displayOrder: questions.length + 1, conditionalOn: null, conditionalValue: '', placeholder: '' }); setError(''); };
   const startEdit = (q: Question) => {
     setEditing(q.id); setCreating(false);
-    let optionsStr = ''; if (q.options) { try { optionsStr = JSON.parse(q.options).join('\n'); } catch { optionsStr = q.options; } }
+    let optionsStr = ''; if (q.options) { try { const opts = typeof q.options === 'string' ? JSON.parse(q.options) : q.options; optionsStr = Array.isArray(opts) ? opts.join('\n') : String(opts); } catch { optionsStr = String(q.options); } }
     setForm({ categoryId: q.category_id, questionText: q.question_text, questionType: q.question_type, options: optionsStr, isRequired: !!q.is_required, displayOrder: q.display_order, conditionalOn: q.conditional_on, conditionalValue: q.conditional_value || '', placeholder: q.placeholder || '' });
     setError('');
   };
@@ -112,7 +112,7 @@ export default function QuestionManager() {
                   </div>
                   <div className="flex items-center gap-2 mt-1">
                     <span className="px-2 py-0.5 bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-xs rounded-full">{q.question_type}</span>
-                    {q.options && <span className="text-xs text-gray-500">{JSON.parse(q.options).length} options</span>}
+                    {q.options && <span className="text-xs text-gray-500">{(typeof q.options === 'string' ? JSON.parse(q.options) : q.options).length} options</span>}
                     {q.conditional_on && <span className="flex items-center gap-1 text-xs text-accent-amber"><GitBranch className="w-3 h-3" /> Conditional</span>}
                   </div>
                 </div>
