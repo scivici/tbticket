@@ -114,11 +114,19 @@ router.delete('/knowledge-base/:id', authenticate, requireAdmin, async (req: any
 router.get('/time-report', authenticate, requireAdmin, async (req: any, res: Response) => {
   const fromDate = req.query.fromDate as string || '';
   const toDate = req.query.toDate as string || '';
+  const engineerId = req.query.engineerId as string || '';
+  const customerId = req.query.customerId as string || '';
+  const productId = req.query.productId as string || '';
+  const activityType = req.query.activityType as string || '';
 
   let dateFilter = '';
   const params: any[] = [];
   if (fromDate) { dateFilter += ' AND te.date >= ?'; params.push(fromDate); }
   if (toDate) { dateFilter += ' AND te.date <= ?'; params.push(toDate); }
+  if (engineerId) { dateFilter += ' AND te.author_id = ?'; params.push(engineerId); }
+  if (customerId) { dateFilter += ' AND t.customer_id = ?'; params.push(customerId); }
+  if (productId) { dateFilter += ' AND t.product_id = ?'; params.push(productId); }
+  if (activityType) { dateFilter += ' AND te.activity_type = ?'; params.push(activityType); }
 
   const customerReport = await queryAll<any>(`
     SELECT c.name as customer_name, c.company,
@@ -137,24 +145,54 @@ router.get('/time-report', authenticate, requireAdmin, async (req: any, res: Res
   const engineerReport = await queryAll<any>(`
     SELECT COALESCE(e.name, te.author_name) as engineer_name,
            SUM(te.hours) as total_hours,
+           SUM(CASE WHEN te.is_chargeable = TRUE THEN te.hours ELSE 0 END) as chargeable_hours,
            COUNT(DISTINCT te.ticket_id) as ticket_count
     FROM time_entries te
     LEFT JOIN engineers e ON te.engineer_id = e.id
+    JOIN tickets t ON te.ticket_id = t.id
     WHERE 1=1 ${dateFilter}
     GROUP BY COALESCE(e.id, te.author_id), COALESCE(e.name, te.author_name)
+    ORDER BY total_hours DESC
+  `, params);
+
+  const activityReport = await queryAll<any>(`
+    SELECT te.activity_type,
+           SUM(te.hours) as total_hours,
+           COUNT(*) as entry_count
+    FROM time_entries te
+    JOIN tickets t ON te.ticket_id = t.id
+    WHERE 1=1 ${dateFilter}
+    GROUP BY te.activity_type
     ORDER BY total_hours DESC
   `, params);
 
   const overall = await queryOne<any>(`
     SELECT SUM(hours) as total_hours,
            SUM(CASE WHEN is_chargeable = TRUE THEN hours ELSE 0 END) as chargeable_hours,
+           SUM(CASE WHEN is_chargeable = FALSE THEN hours ELSE 0 END) as non_chargeable_hours,
            COUNT(*) as entry_count,
            COUNT(DISTINCT ticket_id) as ticket_count
     FROM time_entries te
+    JOIN tickets t ON te.ticket_id = t.id
     WHERE 1=1 ${dateFilter}
   `, params);
 
-  res.json({ customerReport, engineerReport, overall: overall || {} });
+  // Detailed entries list
+  const entries = await queryAll<any>(`
+    SELECT te.*, t.ticket_number, t.subject as ticket_subject,
+           p.name as product_name, c.name as customer_name, c.company,
+           e.name as engineer_name
+    FROM time_entries te
+    JOIN tickets t ON te.ticket_id = t.id
+    JOIN products p ON t.product_id = p.id
+    JOIN customers c ON t.customer_id = c.id
+    LEFT JOIN engineers e ON te.engineer_id = e.id
+    WHERE 1=1 ${dateFilter}
+    ORDER BY te.date DESC, te.created_at DESC
+    LIMIT 500
+  `, params);
+
+  res.json({ customerReport, engineerReport, activityReport, overall: overall || {}, entries });
 });
 
 // Customer diagrams/snapshots

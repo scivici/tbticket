@@ -7,8 +7,30 @@ import {
   Brain, FileText, RefreshCw, MessageSquare, Send, Lock, Clock, ShieldAlert,
   Trash2, Tag, X, Plus, PlusCircle, ArrowRightCircle, UserCheck, AlertTriangle,
   MessageSquarePlus, Image as ImageIcon, Star, Upload, Paperclip, Link2, Users, ExternalLink,
-  Timer, Sparkles, BookOpen
+  Timer, Sparkles, BookOpen, Play, Square
 } from 'lucide-react';
+
+const ACTIVITY_TYPES = [
+  { value: 'general', label: 'General', color: 'gray' },
+  { value: 'investigation', label: 'Investigation', color: 'blue' },
+  { value: 'configuration', label: 'Configuration', color: 'purple' },
+  { value: 'testing', label: 'Testing', color: 'green' },
+  { value: 'customer_call', label: 'Customer Call', color: 'yellow' },
+  { value: 'documentation', label: 'Documentation', color: 'cyan' },
+  { value: 'internal_meeting', label: 'Internal Meeting', color: 'pink' },
+  { value: 'escalation', label: 'Escalation', color: 'red' },
+];
+
+const activityColorMap: Record<string, string> = {
+  gray: 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
+  blue: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+  purple: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+  green: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+  yellow: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
+  cyan: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400',
+  pink: 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400',
+  red: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+};
 
 function timeAgo(dateStr: string) {
   const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
@@ -82,6 +104,14 @@ export default function TicketDetail() {
   const [timeHours, setTimeHours] = useState('');
   const [timeDesc, setTimeDesc] = useState('');
   const [timeChargeable, setTimeChargeable] = useState(true);
+  const [timeActivityType, setTimeActivityType] = useState('general');
+
+  // Timer
+  const [activeTimer, setActiveTimer] = useState<any>(null);
+  const [timerElapsed, setTimerElapsed] = useState('');
+  const [showStopDialog, setShowStopDialog] = useState(false);
+  const [stopTimerDesc, setStopTimerDesc] = useState('');
+  const [stopTimerChargeable, setStopTimerChargeable] = useState(true);
 
   // AI suggestion
   const [aiSuggestion, setAiSuggestion] = useState('');
@@ -156,6 +186,30 @@ export default function TicketDetail() {
   };
 
   useEffect(() => { load(); }, [id]);
+
+  // Load active timer
+  useEffect(() => {
+    ticketsApi.getActiveTimer().then((t: any) => {
+      if (t && t.ticket_id === ticket?.id) setActiveTimer(t);
+      else if (t && String(t.ticket_id) === String(id)) setActiveTimer(t);
+      else setActiveTimer(null);
+    }).catch(() => setActiveTimer(null));
+  }, [ticket?.id]);
+
+  // Timer elapsed updater
+  useEffect(() => {
+    if (!activeTimer?.started_at) { setTimerElapsed(''); return; }
+    const update = () => {
+      const diff = Math.floor((Date.now() - new Date(activeTimer.started_at).getTime()) / 1000);
+      const h = Math.floor(diff / 3600);
+      const m = Math.floor((diff % 3600) / 60);
+      const s = diff % 60;
+      setTimerElapsed(`${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`);
+    };
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, [activeTimer?.started_at]);
 
   // Scroll to anchored response if URL has hash
   useEffect(() => {
@@ -662,11 +716,19 @@ export default function TicketDetail() {
                 {timeEntries.map((entry: any) => (
                   <div key={entry.id} className="flex items-center justify-between text-sm p-2 bg-gray-50 dark:bg-white/5 rounded">
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-medium text-gray-700 dark:text-gray-200">{entry.hours}h</span>
                         <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${entry.is_chargeable ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-400'}`}>
                           {entry.is_chargeable ? 'Chargeable' : 'Non-chargeable'}
                         </span>
+                        {(() => {
+                          const at = ACTIVITY_TYPES.find(a => a.value === (entry.activity_type || 'general')) || ACTIVITY_TYPES[0];
+                          return (
+                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${activityColorMap[at.color] || activityColorMap.gray}`}>
+                              {at.label}
+                            </span>
+                          );
+                        })()}
                       </div>
                       <p className="text-xs text-gray-500 truncate">{entry.description}</p>
                       <p className="text-xs text-gray-400">{entry.author_name} - {entry.date}</p>
@@ -678,6 +740,32 @@ export default function TicketDetail() {
               </div>
             )}
 
+            {/* Stop Timer Dialog */}
+            {showStopDialog && (
+              <div className="space-y-2 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg mb-3">
+                <p className="text-xs font-medium text-amber-700 dark:text-amber-400">Confirm stop timer</p>
+                <input type="text" value={stopTimerDesc} onChange={e => setStopTimerDesc(e.target.value)}
+                  placeholder="Description (optional)" className="tb-input w-full text-sm" />
+                <label className="flex items-center gap-2 text-xs text-gray-500 cursor-pointer">
+                  <input type="checkbox" checked={stopTimerChargeable} onChange={e => setStopTimerChargeable(e.target.checked)}
+                    className="rounded border-gray-300 dark:border-gray-600 text-accent-blue" />
+                  Chargeable
+                </label>
+                <div className="flex gap-2 justify-end">
+                  <button onClick={() => setShowStopDialog(false)} className="text-xs text-gray-500 hover:text-gray-700">Cancel</button>
+                  <button onClick={async () => {
+                    if (!ticket) return;
+                    try {
+                      await ticketsApi.stopTimer(ticket.id, { description: stopTimerDesc || undefined, isChargeable: stopTimerChargeable });
+                      setActiveTimer(null); setShowStopDialog(false); setStopTimerDesc('');
+                      ticketsApi.getTimeEntries(ticket.id).then(setTimeEntries);
+                      loadActivities();
+                    } catch (err) { console.error(err); }
+                  }} className="px-3 py-1 text-xs font-medium bg-amber-500 text-white rounded hover:bg-amber-600">Stop & Save</button>
+                </div>
+              </div>
+            )}
+
             {showTimeForm ? (
               <div className="space-y-2 p-3 bg-gray-50 dark:bg-white/5 rounded-lg">
                 <div className="flex gap-2">
@@ -685,6 +773,13 @@ export default function TicketDetail() {
                     placeholder="Hours" className="tb-input w-20 text-sm" />
                   <input type="text" value={timeDesc} onChange={e => setTimeDesc(e.target.value)}
                     placeholder="What did you do?" className="tb-input flex-1 text-sm" />
+                </div>
+                <div className="flex gap-2">
+                  <select value={timeActivityType} onChange={e => setTimeActivityType(e.target.value)} className="tb-select text-sm flex-1">
+                    {ACTIVITY_TYPES.map(at => (
+                      <option key={at.value} value={at.value}>{at.label}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="flex items-center justify-between">
                   <label className="flex items-center gap-2 text-xs text-gray-500 cursor-pointer">
@@ -696,8 +791,8 @@ export default function TicketDetail() {
                     <button onClick={() => setShowTimeForm(false)} className="text-xs text-gray-500 hover:text-gray-700">Cancel</button>
                     <button onClick={async () => {
                       if (!timeHours || !timeDesc.trim() || !ticket) return;
-                      await ticketsApi.addTimeEntry(ticket.id, { hours: parseFloat(timeHours), description: timeDesc, isChargeable: timeChargeable });
-                      setTimeHours(''); setTimeDesc(''); setShowTimeForm(false);
+                      await ticketsApi.addTimeEntry(ticket.id, { hours: parseFloat(timeHours), description: timeDesc, isChargeable: timeChargeable, activityType: timeActivityType });
+                      setTimeHours(''); setTimeDesc(''); setTimeActivityType('general'); setShowTimeForm(false);
                       ticketsApi.getTimeEntries(ticket.id).then(setTimeEntries);
                       loadActivities();
                     }} disabled={!timeHours || !timeDesc.trim()}
@@ -706,10 +801,29 @@ export default function TicketDetail() {
                 </div>
               </div>
             ) : (
-              <button onClick={() => setShowTimeForm(true)}
-                className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium text-accent-blue border border-dashed border-accent-blue/30 rounded-lg hover:bg-accent-blue/5 transition-colors">
-                <Plus className="w-4 h-4" /> Log Time
-              </button>
+              <div className="flex gap-2">
+                <button onClick={() => setShowTimeForm(true)}
+                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium text-accent-blue border border-dashed border-accent-blue/30 rounded-lg hover:bg-accent-blue/5 transition-colors">
+                  <Plus className="w-4 h-4" /> Log Time
+                </button>
+                {activeTimer ? (
+                  <button onClick={() => { setStopTimerDesc(activeTimer.description || ''); setShowStopDialog(true); }}
+                    className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-amber-600 dark:text-amber-400 border border-amber-300 dark:border-amber-700 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors">
+                    <Square className="w-3.5 h-3.5 fill-current" /> Stop {timerElapsed}
+                  </button>
+                ) : (
+                  <button onClick={async () => {
+                    if (!ticket) return;
+                    try {
+                      const timer = await ticketsApi.startTimer(ticket.id, { activityType: 'general' });
+                      setActiveTimer(timer);
+                    } catch (err) { console.error(err); }
+                  }}
+                    className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-green-600 dark:text-green-400 border border-green-300 dark:border-green-700 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors">
+                    <Play className="w-3.5 h-3.5 fill-current" /> Start Timer
+                  </button>
+                )}
+              </div>
             )}
           </div>
         </div>

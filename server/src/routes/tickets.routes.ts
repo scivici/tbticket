@@ -19,6 +19,9 @@ router.post('/bulk/status', authenticate, requireAdmin, ticketsController.bulkUp
 router.post('/bulk/assign', authenticate, requireAdmin, ticketsController.bulkAssign);
 router.post('/bulk/delete', authenticate, requireAdmin, ticketsController.bulkDelete);
 
+// Active timer (must come before /:id routes)
+router.get('/timer/active', authenticate, ticketsController.getActiveTimer);
+
 router.get('/:id', authenticate, ticketsController.getTicket);
 
 // Authenticated - attachments
@@ -50,6 +53,11 @@ router.delete('/:id/links/:linkId', authenticate, requireAdmin, ticketsControlle
 router.get('/:id/time-entries', authenticate, ticketsController.getTimeEntries);
 router.post('/:id/time-entries', authenticate, requireAdmin, ticketsController.addTimeEntry);
 router.delete('/:id/time-entries/:entryId', authenticate, requireAdmin, ticketsController.deleteTimeEntry);
+
+// Timer (start/stop)
+router.post('/:id/timer/start', authenticate, requireAdmin, ticketsController.startTimer);
+router.post('/:id/timer/stop', authenticate, requireAdmin, ticketsController.stopTimer);
+router.delete('/:id/timer', authenticate, requireAdmin, ticketsController.cancelTimer);
 
 // AI suggested reply
 router.post('/:id/suggest-reply', authenticate, requireAdmin, ticketsController.suggestReply);

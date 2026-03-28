@@ -551,11 +551,19 @@ export async function assignEngineer(req: AuthenticatedRequest, res: Response): 
     return;
   }
 
-  await ticketService.assignTicket(parseInt(id), engineerId);
+  const oldEngineerId = await ticketService.assignTicket(parseInt(id), engineerId);
 
-  // Log activity
+  // Log activity with reassignment details
   const userForAssign = await queryOne<any>('SELECT name FROM customers WHERE id = ?', [req.user!.userId]);
-  await activityService.logActivity(parseInt(id), req.user!.userId, userForAssign?.name || 'Unknown', 'assigned', `Assigned to engineer #${engineerId}`);
+  const newEngineer = await queryOne<any>('SELECT name FROM engineers WHERE id = ?', [engineerId]);
+  let activityMessage: string;
+  if (oldEngineerId && oldEngineerId !== engineerId) {
+    const oldEngineer = await queryOne<any>('SELECT name FROM engineers WHERE id = ?', [oldEngineerId]);
+    activityMessage = `Reassigned from ${oldEngineer?.name || 'Unknown'} to ${newEngineer?.name || 'Unknown'}`;
+  } else {
+    activityMessage = `Assigned to ${newEngineer?.name || 'Unknown'}`;
+  }
+  await activityService.logActivity(parseInt(id), req.user!.userId, userForAssign?.name || 'Unknown', 'assigned', activityMessage);
 
   const ticket = await ticketService.getTicketById(parseInt(id));
   if (ticket) {
@@ -990,7 +998,7 @@ export async function getTimeEntries(req: AuthenticatedRequest, res: Response): 
 
 export async function addTimeEntry(req: AuthenticatedRequest, res: Response): Promise<void> {
   const { id } = req.params;
-  const { hours, description, isChargeable, engineerId, date } = req.body;
+  const { hours, description, isChargeable, engineerId, date, activityType } = req.body;
 
   if (!hours || hours <= 0) { res.status(400).json({ error: 'Hours must be positive' }); return; }
   if (!description?.trim()) { res.status(400).json({ error: 'Description is required' }); return; }
@@ -999,11 +1007,11 @@ export async function addTimeEntry(req: AuthenticatedRequest, res: Response): Pr
   const authorName = customer?.name || 'Unknown';
 
   const result = await query(
-    'INSERT INTO time_entries (ticket_id, engineer_id, author_id, author_name, hours, description, is_chargeable, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id',
-    [id, engineerId || null, req.user!.userId, authorName, hours, description.trim(), isChargeable !== false ? true : false, date || new Date().toISOString().split('T')[0]]
+    'INSERT INTO time_entries (ticket_id, engineer_id, author_id, author_name, hours, description, is_chargeable, date, activity_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id',
+    [id, engineerId || null, req.user!.userId, authorName, hours, description.trim(), isChargeable !== false ? true : false, date || new Date().toISOString().split('T')[0], activityType || 'general']
   );
 
-  await activityService.logActivity(parseInt(id), req.user!.userId, authorName, 'time_logged', `Logged ${hours}h: ${description.trim()}`);
+  await activityService.logActivity(parseInt(id), req.user!.userId, authorName, 'time_logged', `Logged ${hours}h [${activityType || 'general'}]: ${description.trim()}`);
 
   res.status(201).json({ id: result.rows[0].id, message: 'Time entry added' });
 }
@@ -1012,6 +1020,81 @@ export async function deleteTimeEntry(req: AuthenticatedRequest, res: Response):
   const { entryId } = req.params;
   await query('DELETE FROM time_entries WHERE id = ?', [entryId]);
   res.json({ message: 'Time entry deleted' });
+}
+
+// ===== Timer =====
+
+export async function startTimer(req: AuthenticatedRequest, res: Response): Promise<void> {
+  const { id } = req.params;
+  const { activityType, description } = req.body;
+  const userId = req.user!.userId;
+
+  // Check for existing active timer
+  const existing = await queryOne<any>('SELECT id, ticket_id FROM active_timers WHERE user_id = ?', [userId]);
+  if (existing) {
+    res.status(409).json({ error: 'Timer already running', activeTicketId: existing.ticket_id });
+    return;
+  }
+
+  await query(
+    'INSERT INTO active_timers (user_id, ticket_id, activity_type, description) VALUES (?, ?, ?, ?)',
+    [userId, id, activityType || 'general', description || null]
+  );
+
+  res.json({ message: 'Timer started', ticketId: parseInt(id) });
+}
+
+export async function stopTimer(req: AuthenticatedRequest, res: Response): Promise<void> {
+  const { id } = req.params;
+  const { description, isChargeable } = req.body;
+  const userId = req.user!.userId;
+
+  const timer = await queryOne<any>('SELECT * FROM active_timers WHERE user_id = ? AND ticket_id = ?', [userId, id]);
+  if (!timer) {
+    res.status(404).json({ error: 'No active timer for this ticket' });
+    return;
+  }
+
+  // Calculate hours from elapsed time
+  const elapsedMs = Date.now() - new Date(timer.started_at).getTime();
+  const hours = Math.round((elapsedMs / 3600000) * 4) / 4; // Round to nearest 0.25h
+
+  if (hours <= 0) {
+    await query('DELETE FROM active_timers WHERE id = ?', [timer.id]);
+    res.json({ message: 'Timer stopped (less than 15 minutes, not recorded)', hours: 0 });
+    return;
+  }
+
+  const customer = await queryOne<any>('SELECT name FROM customers WHERE id = ?', [userId]);
+  const authorName = customer?.name || 'Unknown';
+  const finalDescription = description?.trim() || timer.description || 'Timer entry';
+
+  const result = await query(
+    'INSERT INTO time_entries (ticket_id, engineer_id, author_id, author_name, hours, description, is_chargeable, date, activity_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id',
+    [id, null, userId, authorName, hours, finalDescription, isChargeable !== false ? true : false, new Date().toISOString().split('T')[0], timer.activity_type]
+  );
+
+  await query('DELETE FROM active_timers WHERE id = ?', [timer.id]);
+  await activityService.logActivity(parseInt(id), userId, authorName, 'time_logged', `Timer: ${hours}h [${timer.activity_type}]: ${finalDescription}`);
+
+  res.json({ id: result.rows[0].id, hours, message: 'Timer stopped and time entry created' });
+}
+
+export async function getActiveTimer(req: AuthenticatedRequest, res: Response): Promise<void> {
+  const userId = req.user!.userId;
+  const timer = await queryOne<any>(`
+    SELECT at.*, t.ticket_number, t.subject
+    FROM active_timers at
+    JOIN tickets t ON at.ticket_id = t.id
+    WHERE at.user_id = ?
+  `, [userId]);
+  res.json(timer || null);
+}
+
+export async function cancelTimer(req: AuthenticatedRequest, res: Response): Promise<void> {
+  const { id } = req.params;
+  await query('DELETE FROM active_timers WHERE user_id = ? AND ticket_id = ?', [req.user!.userId, id]);
+  res.json({ message: 'Timer cancelled' });
 }
 
 // ===== AI Suggested Reply =====

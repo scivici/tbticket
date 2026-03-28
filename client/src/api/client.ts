@@ -109,10 +109,19 @@ export const tickets = {
 
   // Time entries
   getTimeEntries: (id: number) => request<any[]>(`/tickets/${id}/time-entries`),
-  addTimeEntry: (id: number, data: { hours: number; description: string; isChargeable?: boolean; engineerId?: number; date?: string }) =>
+  addTimeEntry: (id: number, data: { hours: number; description: string; isChargeable?: boolean; engineerId?: number; date?: string; activityType?: string }) =>
     request<any>(`/tickets/${id}/time-entries`, { method: 'POST', body: JSON.stringify(data) }),
   deleteTimeEntry: (id: number, entryId: number) =>
     request<any>(`/tickets/${id}/time-entries/${entryId}`, { method: 'DELETE' }),
+
+  // Timer
+  startTimer: (id: number, data?: { activityType?: string; description?: string }) =>
+    request<any>(`/tickets/${id}/timer/start`, { method: 'POST', body: JSON.stringify(data || {}) }),
+  stopTimer: (id: number, data?: { description?: string; isChargeable?: boolean }) =>
+    request<any>(`/tickets/${id}/timer/stop`, { method: 'POST', body: JSON.stringify(data || {}) }),
+  cancelTimer: (id: number) =>
+    request<any>(`/tickets/${id}/timer`, { method: 'DELETE' }),
+  getActiveTimer: () => request<any>('/tickets/timer/active'),
 
   // AI suggestion
   suggestReply: (id: number) => request<any>(`/tickets/${id}/suggest-reply`, { method: 'POST' }),
@@ -190,10 +199,14 @@ export const admin = {
     request<any>('/admin/notify-version-update', { method: 'POST', body: JSON.stringify({ productId, version, releaseNotes }) }),
   knowledgeBase: () => request<any[]>('/admin/knowledge-base'),
   deleteKbArticle: (id: number) => request<any>(`/admin/knowledge-base/${id}`, { method: 'DELETE' }),
-  timeReport: (fromDate?: string, toDate?: string) => {
+  timeReport: (filters?: { fromDate?: string; toDate?: string; engineerId?: string; customerId?: string; productId?: string; activityType?: string }) => {
     const params = new URLSearchParams();
-    if (fromDate) params.set('fromDate', fromDate);
-    if (toDate) params.set('toDate', toDate);
+    if (filters?.fromDate) params.set('fromDate', filters.fromDate);
+    if (filters?.toDate) params.set('toDate', filters.toDate);
+    if (filters?.engineerId) params.set('engineerId', filters.engineerId);
+    if (filters?.customerId) params.set('customerId', filters.customerId);
+    if (filters?.productId) params.set('productId', filters.productId);
+    if (filters?.activityType) params.set('activityType', filters.activityType);
     return request<any>(`/admin/time-report?${params}`);
   },
   recurringTickets: (minCount?: number, daysBack?: number) => {

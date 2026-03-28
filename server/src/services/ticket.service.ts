@@ -264,18 +264,40 @@ export async function updateTicketStatus(ticketId: number, status: string) {
   await query(`UPDATE tickets SET ${updates.join(', ')} WHERE id = ?`, [...params, ticketId]);
 }
 
-export async function assignTicket(ticketId: number, engineerId: number) {
+export async function assignTicket(ticketId: number, engineerId: number): Promise<number | null> {
+  // Returns the old engineer ID if this is a reassignment, or null if first assignment
+  let oldEngineerId: number | null = null;
+
   await transaction(async (client) => {
+    // Check if ticket already has an assigned engineer
+    const existing = await clientQuery(client, `
+      SELECT assigned_engineer_id FROM tickets WHERE id = ?
+    `, [ticketId]);
+    oldEngineerId = existing?.rows?.[0]?.assigned_engineer_id || null;
+
+    // If reassigning, decrement old engineer's workload
+    if (oldEngineerId && oldEngineerId !== engineerId) {
+      await clientQuery(client, `
+        UPDATE engineers SET current_workload = GREATEST(0, current_workload - 1), updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `, [oldEngineerId]);
+    }
+
     await clientQuery(client, `
       UPDATE tickets SET assigned_engineer_id = ?, status = 'assigned', updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `, [engineerId, ticketId]);
 
-    await clientQuery(client, `
-      UPDATE engineers SET current_workload = current_workload + 1, updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
-    `, [engineerId]);
+    // Only increment new engineer's workload if it's a different engineer
+    if (oldEngineerId !== engineerId) {
+      await clientQuery(client, `
+        UPDATE engineers SET current_workload = current_workload + 1, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `, [engineerId]);
+    }
   });
+
+  return oldEngineerId;
 }
 
 export async function updateAiAnalysis(ticketId: number, analysis: string, confidence: number) {

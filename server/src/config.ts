@@ -23,6 +23,7 @@ export const config = {
     pass: process.env.SMTP_PASS || '',
     from: process.env.SMTP_FROM || 'support@telcobridges.com',
   },
+  appUrl: process.env.APP_URL || 'http://localhost:4001',
   slackWebhookUrl: process.env.SLACK_WEBHOOK_URL || '',
   teamsWebhookUrl: process.env.TEAMS_WEBHOOK_URL || '',
 };

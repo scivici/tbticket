@@ -32,4 +32,32 @@ export async function runMigrations(): Promise<void> {
     await query("ALTER TABLE tickets ADD COLUMN ai_analysis_history JSONB DEFAULT '[]'::jsonb");
     console.log('[DB] Migration: added ai_analysis_history column');
   }
+
+  // Migration: add activity_type to time_entries
+  const activityTypeCol = await query(
+    "SELECT column_name FROM information_schema.columns WHERE table_name = 'time_entries' AND column_name = 'activity_type'"
+  );
+  if (activityTypeCol.rows.length === 0) {
+    await query("ALTER TABLE time_entries ADD COLUMN activity_type TEXT NOT NULL DEFAULT 'general'");
+    console.log('[DB] Migration: added activity_type column to time_entries');
+  }
+
+  // Migration: add active_timers table for start/stop timer
+  const timerTable = await query(
+    "SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename = 'active_timers'"
+  );
+  if (timerTable.rows.length === 0) {
+    await query(`
+      CREATE TABLE active_timers (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES customers(id),
+        ticket_id INTEGER NOT NULL REFERENCES tickets(id),
+        activity_type TEXT NOT NULL DEFAULT 'general',
+        description TEXT,
+        started_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id)
+      )
+    `);
+    console.log('[DB] Migration: created active_timers table');
+  }
 }

@@ -39,6 +39,7 @@ services:
       - SMTP_FROM=${SMTP_FROM:-support@telcobridges.com}
       - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL:-}
       - TEAMS_WEBHOOK_URL=${TEAMS_WEBHOOK_URL:-}
+      - APP_URL=${APP_URL:-http://ticket.telcobridges.lan:4001}
       - UPLOAD_DIR=/app/server/uploads
       - UPLOAD_HOST_PATH=/home/support/incoming/uploads
     volumes:
