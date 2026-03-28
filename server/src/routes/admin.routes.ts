@@ -23,7 +23,7 @@ router.get('/customers/:id', authenticate, requireAdmin, async (req: any, res: R
     FROM customers WHERE id = ?
   `, [req.params.id]);
   if (!customer) { res.status(404).json({ error: 'Customer not found' }); return; }
-  customer.externalLinks = customer.external_links ? JSON.parse(customer.external_links) : [];
+  customer.externalLinks = customer.external_links ? (typeof customer.external_links === 'string' ? JSON.parse(customer.external_links) : customer.external_links) : [];
   res.json(customer);
 });
 

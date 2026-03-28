@@ -27,13 +27,13 @@ export async function getQuestions(req: Request, res: Response): Promise<void> {
     categoryId: q.category_id,
     questionText: q.question_text,
     questionType: q.question_type,
-    options: q.options ? JSON.parse(q.options) : null,
+    options: q.options ? (typeof q.options === 'string' ? JSON.parse(q.options) : q.options) : null,
     isRequired: !!q.is_required,
     displayOrder: q.display_order,
     conditionalOn: q.conditional_on,
     conditionalValue: q.conditional_value,
     placeholder: q.placeholder,
-    validationRules: q.validation_rules ? JSON.parse(q.validation_rules) : null,
+    validationRules: q.validation_rules ? (typeof q.validation_rules === 'string' ? JSON.parse(q.validation_rules) : q.validation_rules) : null,
   }));
 
   res.json(parsed);
