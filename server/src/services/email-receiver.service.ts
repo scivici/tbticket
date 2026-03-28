@@ -1,13 +1,24 @@
-// npm install imapflow
 // Email-to-Ticket service: polls an IMAP inbox and creates tickets from incoming emails.
+// Requires: npm install imapflow (optional — service gracefully skips if not installed)
 
-import { ImapFlow } from 'imapflow';
-import { queryOne, queryAll, query } from '../db/connection';
+import { queryOne, query } from '../db/connection';
 import { getSetting } from './settings.service';
+
+let ImapFlow: any = null;
+try {
+  ImapFlow = require('imapflow').ImapFlow;
+} catch {
+  // imapflow not installed — email-to-ticket will be disabled
+}
 
 let pollingTimer: ReturnType<typeof setInterval> | null = null;
 
 export async function startEmailReceiver() {
+  if (!ImapFlow) {
+    console.log('[EmailReceiver] imapflow not installed — email-to-ticket disabled. Run: npm install imapflow');
+    return;
+  }
+
   const enabled = await getSetting('email_to_ticket_enabled');
   if (enabled !== 'true') {
     console.log('[EmailReceiver] Email-to-ticket is disabled');
