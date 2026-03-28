@@ -1061,7 +1061,7 @@ ${conversationHistory || 'No responses yet.'}
 
 ${similarContext ? `## Similar Resolved Tickets (for reference)\n${similarContext}` : ''}
 
-${ticket.aiAnalysis ? `## AI Analysis\n${ticket.aiAnalysis}` : ''}
+${ticket.aiAnalysis ? `## AI Analysis\n${typeof ticket.aiAnalysis === 'string' ? ticket.aiAnalysis : JSON.stringify(ticket.aiAnalysis, null, 2)}` : ''}
 
 Write a professional, helpful reply. Be concise and technical. Do not include greetings like "Dear customer" - get straight to the point.`;
 
