@@ -4,7 +4,6 @@
 import { ImapFlow } from 'imapflow';
 import { queryOne, queryAll, query } from '../db/connection';
 import { getSetting } from './settings.service';
-import * as ticketService from './ticket.service';
 
 let pollingTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -128,8 +127,8 @@ async function processEmail(msg: any) {
     console.log(`[EmailReceiver] Created anonymous customer: ${senderAddress}`);
   }
 
-  // Check if subject contains a ticket number (TBT-xxx pattern)
-  const ticketNumberMatch = subject.match(/TBT-\d+/i);
+  // Check if subject contains a ticket number (TBT-xxx or TBT-xxx-xxx pattern)
+  const ticketNumberMatch = subject.match(/TBT-[A-Z0-9]+-[A-Z0-9]+/i) || subject.match(/TBT-\d+/i);
 
   if (ticketNumberMatch) {
     // Add as response to existing ticket
@@ -174,14 +173,10 @@ async function processEmail(msg: any) {
     categoryId = firstCategory?.id || 1;
   }
 
-  // Generate ticket number
-  const lastTicket = await queryOne<any>('SELECT ticket_number FROM tickets ORDER BY id DESC LIMIT 1');
-  let nextNum = 1;
-  if (lastTicket?.ticket_number) {
-    const match = lastTicket.ticket_number.match(/TBT-(\d+)/);
-    if (match) nextNum = parseInt(match[1]) + 1;
-  }
-  const ticketNumber = `TBT-${String(nextNum).padStart(4, '0')}`;
+  // Generate ticket number (same format as ticket.service.ts)
+  const timestamp = Date.now().toString(36).toUpperCase();
+  const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+  const ticketNumber = `TBT-${timestamp}-${random}`;
 
   await query(
     `INSERT INTO tickets (ticket_number, customer_id, product_id, category_id, subject, description, status, priority)

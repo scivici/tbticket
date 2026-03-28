@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import ThemeToggle from './ThemeToggle';
-import LanguageSwitcher from './LanguageSwitcher';
 import {
   LayoutDashboard, Ticket, Users, Package, FolderOpen,
   HelpCircle, Wrench, UserCog, LogOut, ChevronLeft, Settings,
@@ -53,7 +52,6 @@ export default function AdminLayout() {
           <span className="text-primary-500 dark:text-accent-blue font-bold text-sm">Admin</span>
         </Link>
         <div className="flex items-center gap-2">
-          <LanguageSwitcher />
           <ThemeToggle />
           <button onClick={() => setSidebarOpen(false)} className="lg:hidden p-1 text-gray-400 hover:text-gray-600 dark:hover:text-white transition-colors">
             <X className="w-5 h-5" />

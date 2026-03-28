@@ -1,0 +1,187 @@
+Ticketing System Requirements (Structured)
+1. 🎫 Core Ticket Management
+1.1 Ticket Creation
+	• Tickets can be created via:
+		○ Email (thread-aware: same email thread → same ticket) - No: force customers to use the portal (*)!
+		○ Customer portal
+		○ Internal users
+		○ Chat / phone / Teams integration
+	• Automatic ticket creation must:
+		○ Validate required fields:
+			§ Serial number / product key (Unit SN / ProSBC key) and explain how to get this…
+			§ Time of event
+			§ Logs (tbreport, pcap, etc.) force it (*)! and explain how to get this…
+		○ If missing → auto-reply requesting required data Or force it (*)!
+1.2 Ticket Fields (Standardized)
+Each ticket must include:
+	• Unique Ticket ID
+	• Customer / Account Integrate user access with dashboard? 
+	• Contact(s) (including CC)Integrate user access with dashboard? 
+	• Product / Unit (SN or key)
+	• Version used at time of issue
+	• Priority Maybe it should be internal only?
+	• Severity / Classification:
+		○ Bug / Incident
+		○ Enhancement
+		○ Major issue
+	• SLA status  SLA from dashboard + internal SLA (How long before we solve the issue)
+	• Status / Stage
+	• Assigned agent
+	• Linked cases
+	• Linked Jira issue
+	• Tags
+	• Attachments Available for new tickets, but not to add later? 
+1.3 Ticket States / Workflow
+	• New
+	• Answered
+	• In Progress
+	• Waiting for Customer
+	• On Hold
+	• Escalated to Jira
+	• Closed
+1.4 Ticket Actions
+	• Assign / reassign ticket
+	• Put ticket on hold
+	• Link to:
+		○ Another ticket
+		○ Specific comment in ticket
+	• Add tags
+	• Add public/private comments
+	• Attach files (up to ~1GB)
+	• Direct URL access to ticket Ticket number - yes vs TKT-MN3I16O8-0E62 - No
+		○ http://tbticket.telcoway.com/my-tickets/4 working
+http://tbticket.telcoway.com/my-tickets/TKT-MN3I16O8-0E62  not working
+	• Assign tickets by:
+		○ Agent
+		○ Time of day / shift
+		○ Allow to mention users
+		
+2. 👥 Customer & Account Management
+2.1 Customer Portal
+Customers can:
+	• Create tickets
+	• View all their tickets
+	• View company-wide tickets (configurable)  Integrate user access with dashboard?
+	• Add CC users 
+	• Add users to their account
+	• Upload files  File type issue
+	• Chat with support
+2.2 Access Control
+	• Define visibility:
+		○ Per customer
+		○ Per company
+		○ Internal vs external users
+	• Role-based permissions:
+		○ Support agents
+		○ Managers
+		○ Customers
+2.3 Customer Data Integration
+	• Link ticket to central database:
+		○ SLA status (active/expired) Integrate user access with dashboard?
+		○ Phone numbers
+		○ Installed units
+		○ Available professional service hours Integrate kimai
+	• Global customer info:
+		○ Able to add diagrams and snapshots
+		○ Environment notes We could add in questions
+		○ Links (Odoo, dashboards, etc.)
+
+3. ⏱️ SLA & Time Management
+3.1 SLA Management
+	• Define SLA per customer Integrate user access with dashboard?
+	• Display SLA in ticket
+	• Track:
+		○ First response time
+		○ Resolution time
+		○ Time since last response
+		○ Time since last access
+	• Alerts:
+		○ SLA breach warnings 
+		○ No response for X time
+		○ Agent inactivity
+		○ Customer inactivity
+		
+3.2 Time Tracking
+	• Manual time entry  Integrate kimai?
+	• Automatic time tracking (optional)
+	• Track:
+		○ Chargeable vs non-chargeable time
+	• Integration:
+		○ Deduct from professional service hours
+		○ Display remaining hours (customer + support)
+
+4. 🔍 Search & Reporting
+4.1 Advanced Search
+	• Search by:
+		○ Ticket ID
+		○ Customer / company  Need to add in Ticket section
+		○ Assigned agent Need to add in Ticket section
+		○ Keywords  Need to add in Ticket section
+		○ Tags  Need to add in Ticket section
+		○ Status
+			§ Show all except closed one
+4.2 Reporting & Metrics
+	• Ticket volume
+	• SLA compliance
+	• Time spent per customer
+	• Open vs closed tickets
+
+5. 🔗 Integrations
+5.1 Email Integration
+	• Incoming emails → tickets - No: force customers to use the portal (*)!
+	• Thread detection - Fixed automatically
+	• Auto-add CC users
+5.2 Jira Integration
+	• Create Jira issue from ticket
+	• Sync status between systems
+	• Link ticket ↔ Jira issue
+5.3 Communication Tools
+	• Microsoft Teams:
+		○ Calls
+		○ Meeting scheduling
+	• Phone system / call center (24/7)
+
+6. 🤖 Automation & AI Features
+6.1 Automated Responses
+	• Auto-acknowledgment on ticket creation
+	• Pre-configured answer templates
+	• Suggested replies (AI-assisted)
+6.2 Smart Ticket Validation
+	• Detect missing required info
+	• Auto-request missing data
+6.3 AI Log Analysis
+When sufficient data is collected:
+	• Send logs to Claude AI system 
+	• AI outputs:
+		○ Suggested answer
+		○ Request for more logs
+		○ Suggest escalation (Jira)
+		○ Suggest working session
+		○ Suggest RMA
+6.4 Knowledge Base Automation
+	• Convert resolved tickets → KB articleswinscp
+	• Reuse past answers
+
+7. 💬 Communication & Collaboration
+7.1 Chat Integration
+	• Chat with customer directly from ticket
+	• Convert chat → ticket
+
+8. 📦 File & Data Handling
+	• Upload large files, any size (or up to 1GB?)
+		○ Store logs for reuse (could be elsewhere)
+	• Extract structured data from attachments
+	• Make files accessible to AI tools
+
+9. 🔔 Notifications & Alerts
+	• New ticket notifications
+	• SLA breach alerts
+	• Idle ticket alerts
+	• Customer response reminders
+	• Version update notifications to customers
+
+10. 🔄 Lifecycle Automation
+	• Auto-reminders for customer updates
+		○ Section explaining latest release, release notes, OS updates
+	• Auto-close after inactivity
+	• Auto-state transitions based on rules

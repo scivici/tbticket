@@ -1,0 +1,3 @@
+- Müşteriler login olmadan ticket gönderemezlers
+- Müşteri dashboard a login olacak. Dahsboard üzerinden ProSBC veya TMG yi seöecek ve Ticket AÇ butonuna tıklayacak. Maksim bize gerekli bilgileri gönderecek
+- 
