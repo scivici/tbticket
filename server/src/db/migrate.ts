@@ -24,11 +24,12 @@ export async function runMigrations(): Promise<void> {
     console.log('[DB] Database already initialized.');
   }
 
-  // Future migrations can be added here using pattern:
-  // const colExists = await query(
-  //   "SELECT column_name FROM information_schema.columns WHERE table_name = 'X' AND column_name = 'Y'"
-  // );
-  // if (colExists.rows.length === 0) {
-  //   await query("ALTER TABLE X ADD COLUMN Y ...");
-  // }
+  // Migration: add ai_analysis_history column
+  const historyCol = await query(
+    "SELECT column_name FROM information_schema.columns WHERE table_name = 'tickets' AND column_name = 'ai_analysis_history'"
+  );
+  if (historyCol.rows.length === 0) {
+    await query("ALTER TABLE tickets ADD COLUMN ai_analysis_history JSONB DEFAULT '[]'::jsonb");
+    console.log('[DB] Migration: added ai_analysis_history column');
+  }
 }

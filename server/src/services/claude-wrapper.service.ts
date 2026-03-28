@@ -88,6 +88,7 @@ interface WrapperInput {
   answers: { question: string; answer: string }[];
   attachments: { localPath: string; filename: string; originalName: string }[];
   engineers: { id: number; name: string; skills: string; expertise: string; workload: string }[];
+  customPrompt?: string;
 }
 
 export interface WrapperResponse {
@@ -132,6 +133,7 @@ export async function analyzeTicketViaWrapper(input: WrapperInput): Promise<Wrap
         engineers: input.engineers,
         attachments: [],       // empty — no base64 transfer
         filePaths,             // host paths for shared filesystem
+        customPrompt: input.customPrompt || undefined,
       };
       console.log(`[Wrapper] Using shared filesystem mode (${filePaths.length} files via path reference)`);
     } else {

@@ -193,11 +193,15 @@ export default function TicketDetail() {
     load(); setActionLoading('');
   };
 
-  const handleReanalyze = async () => {
+  const [showAnalyzeModal, setShowAnalyzeModal] = useState(false);
+  const [analyzePrompt, setAnalyzePrompt] = useState('');
+
+  const handleReanalyze = async (customPrompt?: string) => {
     if (!ticket) return;
+    setShowAnalyzeModal(false);
     setActionLoading('analyze');
-    await ticketsApi.analyze(ticket.id).catch(console.error);
-    setTimeout(load, 2000); setActionLoading('');
+    await ticketsApi.analyze(ticket.id, customPrompt || undefined).catch(console.error);
+    setTimeout(load, 5000); setActionLoading('');
   };
 
   const handleDelete = async () => {
@@ -429,6 +433,35 @@ export default function TicketDetail() {
                 </div>
               )}
             </div>
+          )}
+
+          {/* Previous AI Analyses */}
+          {ticket.aiAnalysisHistory?.length > 0 && (
+            <details className="tb-card border-gray-500/20 p-6">
+              <summary className="cursor-pointer flex items-center gap-2 text-sm font-semibold text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
+                <Clock className="w-4 h-4" />
+                <span>Previous AI Analyses ({ticket.aiAnalysisHistory.length})</span>
+              </summary>
+              <div className="mt-4 space-y-3">
+                {[...ticket.aiAnalysisHistory].reverse().map((prev: any, i: number) => (
+                  <details key={i} className="p-4 bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 rounded-lg">
+                    <summary className="cursor-pointer text-sm text-gray-600 dark:text-gray-300">
+                      <span className="font-medium">{prev.classification || 'Analysis'}</span>
+                      {prev.archivedAt && <span className="text-xs text-gray-400 ml-2">{new Date(prev.archivedAt).toLocaleString()}</span>}
+                      {prev.confidence && <span className="text-xs text-gray-400 ml-2">({(prev.confidence * 100).toFixed(0)}%)</span>}
+                    </summary>
+                    <div className="mt-3 space-y-2 text-sm">
+                      {prev.rootCauseHypothesis && (
+                        <div><p className="text-xs text-gray-500 font-semibold mb-1">Root Cause</p><div className="prose prose-sm dark:prose-invert max-w-none"><ReactMarkdown>{prev.rootCauseHypothesis}</ReactMarkdown></div></div>
+                      )}
+                      {prev.fullReport && (
+                        <div><p className="text-xs text-gray-500 font-semibold mb-1">Full Report</p><div className="prose prose-sm dark:prose-invert max-w-none"><ReactMarkdown>{prev.fullReport}</ReactMarkdown></div></div>
+                      )}
+                    </div>
+                  </details>
+                ))}
+              </div>
+            </details>
           )}
 
           {/* Responses Section */}
@@ -911,10 +944,10 @@ export default function TicketDetail() {
                   {engineers.map((e: any) => <option key={e.id} value={e.id}>{e.name} ({e.currentWorkload}/{e.maxWorkload})</option>)}
                 </select>
               </div>
-              <button onClick={handleReanalyze} disabled={!!actionLoading}
+              <button onClick={() => { setAnalyzePrompt(''); setShowAnalyzeModal(true); }} disabled={!!actionLoading}
                 className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-purple-500/20 text-purple-300 rounded-lg text-sm font-medium hover:bg-purple-500/30 disabled:opacity-50 transition-colors">
                 <RefreshCw className={`w-4 h-4 ${actionLoading === 'analyze' ? 'animate-spin' : ''}`} />
-                Re-analyze with AI
+                {actionLoading === 'analyze' ? 'AI Analyzing...' : 'Re-analyze with AI'}
               </button>
               {ticket.status !== 'escalated_to_jira' && !ticket.jiraIssueKey && (
                 <button onClick={async () => {
@@ -990,6 +1023,39 @@ export default function TicketDetail() {
         </div>
       </div>
     </div>
+
+    {/* AI Analysis Modal */}
+    {showAnalyzeModal && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowAnalyzeModal(false)}>
+        <div className="bg-white dark:bg-tb-card rounded-xl shadow-2xl p-6 w-full max-w-lg mx-4" onClick={e => e.stopPropagation()}>
+          <div className="flex items-center gap-2 mb-4">
+            <Brain className="w-5 h-5 text-purple-400" />
+            <h3 className="font-semibold text-gray-900 dark:text-white">AI Analysis</h3>
+          </div>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+            Optionally provide specific instructions for the AI analysis. Leave empty for a general analysis.
+          </p>
+          <textarea
+            value={analyzePrompt}
+            onChange={e => setAnalyzePrompt(e.target.value)}
+            placeholder="e.g., Focus on the ptime mismatch between the two pcap files. Compare the SDP negotiation in good vs bad call..."
+            rows={4}
+            className="tb-input w-full mb-4 text-sm"
+            autoFocus
+          />
+          <div className="flex justify-end gap-3">
+            <button onClick={() => setShowAnalyzeModal(false)} className="tb-btn-secondary text-sm">Cancel</button>
+            <button onClick={() => handleReanalyze(analyzePrompt.trim())} className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 transition-colors">
+              <Sparkles className="w-4 h-4" />
+              {analyzePrompt.trim() ? 'Analyze with Custom Prompt' : 'General Analysis'}
+            </button>
+          </div>
+          {ticket?.aiAnalysis && (
+            <p className="text-xs text-gray-400 mt-3">Previous analysis will be preserved in history.</p>
+          )}
+        </div>
+      </div>
+    )}
   );
 }
 

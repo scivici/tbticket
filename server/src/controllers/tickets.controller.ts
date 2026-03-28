@@ -149,13 +149,13 @@ async function checkMissingInfo(ticketId: number, productId: number, productKey:
   }
 }
 
-async function triggerAnalysis(ticketId: number, productId: number, categoryId: number) {
+async function triggerAnalysis(ticketId: number, productId: number, categoryId: number, customPrompt?: string) {
   try {
     const analysisMode = await getSetting('claude_analysis_mode') || 'ssh';
 
     // Wrapper mode: HTTP -> Claude Code CLI with full server access (recommended)
     if (analysisMode === 'wrapper') {
-      await triggerWrapperAnalysis(ticketId, productId, categoryId);
+      await triggerWrapperAnalysis(ticketId, productId, categoryId, customPrompt);
       return;
     }
 
@@ -317,7 +317,7 @@ async function triggerSshAnalysis(ticketId: number) {
   }
 }
 
-async function triggerWrapperAnalysis(ticketId: number, productId: number, categoryId: number) {
+async function triggerWrapperAnalysis(ticketId: number, productId: number, categoryId: number, customPrompt?: string) {
   const ticket = await ticketService.getTicketById(ticketId);
   if (!ticket) return;
 
@@ -355,6 +355,7 @@ async function triggerWrapperAnalysis(ticketId: number, productId: number, categ
         originalName: a.original_name,
       })),
       engineers: engineerList,
+      customPrompt,
     });
 
     if (result.success && result.analysis) {
@@ -716,6 +717,7 @@ export async function getResponses(req: AuthenticatedRequest, res: Response): Pr
 export async function reanalyzeTicket(req: AuthenticatedRequest, res: Response): Promise<void> {
   const { id } = req.params;
   const ticketId = parseInt(id);
+  const { customPrompt } = req.body || {};
   const ticket = await ticketService.getTicketById(ticketId);
 
   if (!ticket) {
@@ -724,7 +726,7 @@ export async function reanalyzeTicket(req: AuthenticatedRequest, res: Response):
   }
 
   await ticketService.updateTicketStatus(ticketId, 'analyzing');
-  triggerAnalysis(ticketId, ticket.productId, ticket.categoryId);
+  triggerAnalysis(ticketId, ticket.productId, ticket.categoryId, customPrompt);
 
   res.json({ message: 'Re-analysis triggered' });
 }

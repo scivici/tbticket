@@ -97,6 +97,7 @@ export async function getTicketById(ticketId: number) {
     assignedEngineerId: ticket.assigned_engineer_id,
     jiraIssueKey: ticket.jira_issue_key,
     aiAnalysis: ticket.ai_analysis,
+    aiAnalysisHistory: ticket.ai_analysis_history || [],
     aiConfidence: ticket.ai_confidence,
     createdAt: ticket.created_at,
     updatedAt: ticket.updated_at,
@@ -278,8 +279,13 @@ export async function assignTicket(ticketId: number, engineerId: number) {
 }
 
 export async function updateAiAnalysis(ticketId: number, analysis: string, confidence: number) {
+  // Archive existing analysis before overwriting
   await query(`
-    UPDATE tickets SET ai_analysis = ?, ai_confidence = ?, updated_at = CURRENT_TIMESTAMP
+    UPDATE tickets SET
+      ai_analysis_history = COALESCE(ai_analysis_history, '[]'::jsonb) || CASE WHEN ai_analysis IS NOT NULL THEN jsonb_build_array(ai_analysis || jsonb_build_object('archivedAt', to_char(CURRENT_TIMESTAMP, 'YYYY-MM-DD"T"HH24:MI:SS"Z"'))) ELSE '[]'::jsonb END,
+      ai_analysis = ?::jsonb,
+      ai_confidence = ?,
+      updated_at = CURRENT_TIMESTAMP
     WHERE id = ?
   `, [analysis, confidence, ticketId]);
 }

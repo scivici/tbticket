@@ -109,6 +109,7 @@ app.post('/analyze', authenticate, async (req, res) => {
   } = req.body;
 
   const filePaths = req.body.filePaths || [];  // Shared filesystem mode
+  const customPrompt = req.body.customPrompt || null;  // Optional custom analysis prompt
 
   if (!ticketNumber || !subject) {
     return res.status(400).json({ error: 'ticketNumber and subject are required' });
@@ -244,7 +245,7 @@ No markdown fences around the JSON. The JSON must be the very last thing you out
   "estimatedComplexity": "low|medium|high",
   "suggestedActions": ["Specific step 1", "Step 2", "..."],
   "fullReport": "Use markdown formatting. Use ## headings for sections, numbered lists for evidence, tables where useful (e.g. comparing good vs bad call). Sections:\\n\\n## Summary\\nOne paragraph overview.\\n\\n## Evidence\\nNumbered list — each item on its own line with exact quotes.\\n\\n## Architecture Context\\nHow the affected component works, cite bmad_docs.\\n\\n## Root Cause Analysis\\nObservations vs inferences, clearly separated.\\n\\n## Impact\\nScope of the issue.\\n\\n## Recommended Actions\\nNumbered steps.\\n\\n## Escalation Notes\\nWhether dev team needed."
-}`;
+}` + (customPrompt ? `\n\n## ADDITIONAL INSTRUCTIONS FROM SUPPORT ENGINEER\nThe support engineer has provided the following specific analysis request. Focus your analysis on this:\n\n${customPrompt}` : '');
 
     // Step 4: Execute Claude Code CLI (from project dir so CLAUDE.md is loaded)
     console.log(`[Analyze] Running Claude Code CLI for ${ticketNumber} (cwd: ${CLAUDE_PROJECT_DIR})...`);

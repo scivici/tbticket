@@ -70,8 +70,8 @@ export const tickets = {
     request<any>(`/tickets/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
   assign: (id: number, engineerId: number) =>
     request<any>(`/tickets/${id}/assign`, { method: 'PATCH', body: JSON.stringify({ engineerId }) }),
-  analyze: (id: number) =>
-    request<any>(`/tickets/${id}/analyze`, { method: 'POST' }),
+  analyze: (id: number, customPrompt?: string) =>
+    request<any>(`/tickets/${id}/analyze`, { method: 'POST', body: JSON.stringify({ customPrompt }) }),
   addAttachments: (id: number, formData: FormData) =>
     request<any>(`/tickets/${id}/attachments`, { method: 'POST', body: formData }),
   getResponses: (id: number) => request<any[]>(`/tickets/${id}/responses`),
