@@ -30,7 +30,9 @@ import RecurringTickets from './pages/admin/RecurringTickets';
 import TimeReports from './pages/admin/TimeReports';
 import CustomFieldManager from './pages/admin/CustomFieldManager';
 import SlaDashboard from './pages/admin/SlaDashboard';
+import HealthDashboard from './pages/admin/HealthDashboard';
 import TicketPrint from './pages/admin/TicketPrint';
+import NotFound from './pages/NotFound';
 
 function AdminGuard() {
   const { isAdmin, loading } = useAuth();
@@ -72,10 +74,14 @@ export default function App() {
         <Route path="/admin/time-reports" element={<TimeReports />} />
         <Route path="/admin/custom-fields" element={<CustomFieldManager />} />
         <Route path="/admin/sla-dashboard" element={<SlaDashboard />} />
+        <Route path="/admin/health" element={<HealthDashboard />} />
         <Route path="/admin/tickets/:id/print" element={<TicketPrint />} />
         <Route path="/admin/users" element={<Navigate to="/admin/setup" />} />
         <Route path="/admin/setup" element={<SetupPage />} />
       </Route>
+
+      {/* 404 catch-all */}
+      <Route path="*" element={<NotFound />} />
     </Routes>
   );
 }

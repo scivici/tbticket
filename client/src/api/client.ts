@@ -53,6 +53,7 @@ export const products = {
   categories: (productId: number) => request<any[]>(`/products/${productId}/categories`),
   questions: (categoryId: number) => request<any[]>(`/products/categories/${categoryId}/questions`),
   releaseNotes: () => request<any[]>('/products/release-notes'),
+  customFields: (productId: number) => request<any[]>(`/products/${productId}/custom-fields`),
 };
 
 // Tickets
@@ -219,6 +220,35 @@ export const admin = {
     return request<any[]>(`/admin/recurring-tickets?${params}`);
   },
   slaDashboard: () => request<any>('/admin/sla-dashboard'),
+  healthDashboard: () => request<any>('/admin/health-dashboard'),
+  exportTicketsCsv: async () => {
+    const token = localStorage.getItem('token');
+    const resp = await fetch('/api/admin/export/tickets', {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!resp.ok) throw new Error('Export failed');
+    const blob = await resp.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'tickets-export.csv';
+    a.click();
+    window.URL.revokeObjectURL(url);
+  },
+  exportTimeEntriesCsv: async () => {
+    const token = localStorage.getItem('token');
+    const resp = await fetch('/api/admin/export/time-entries', {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!resp.ok) throw new Error('Export failed');
+    const blob = await resp.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'time-entries-export.csv';
+    a.click();
+    window.URL.revokeObjectURL(url);
+  },
 };
 
 // Admin Manage

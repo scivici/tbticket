@@ -65,9 +65,39 @@ const authLimiter = rateLimit({
   message: { error: 'Too many login attempts, please try again in 15 minutes' },
 });
 
+// File upload rate limiting: 20 uploads per 15 min per IP
+const uploadLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many file uploads, please try again later' },
+});
+
+// Anonymous ticket creation: 10 per hour per IP
+const ticketCreateLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many tickets created, please try again later' },
+});
+
+// Ticket tracking: 60 per 15 min per IP
+const trackingLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many tracking requests, please try again later' },
+});
+
 app.use('/api', apiLimiter);
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/register', authLimiter);
+app.post('/api/tickets', ticketCreateLimiter);
+app.post('/api/tickets/:id/attachments', uploadLimiter);
+app.get('/api/tickets/track/:ticketNumber', trackingLimiter);
 
 app.use(express.json({ limit: '200mb' }));
 app.use(express.urlencoded({ extended: true, limit: '200mb' }));

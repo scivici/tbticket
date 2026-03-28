@@ -100,4 +100,54 @@ export async function runMigrations(): Promise<void> {
     await query("ALTER TABLE ticket_responses ADD COLUMN is_chat BOOLEAN NOT NULL DEFAULT FALSE");
     console.log('[DB] Migration: added is_chat column to ticket_responses');
   }
+
+  // Migration: release_notes table
+  const releaseNotesTable = await query(
+    "SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename = 'release_notes'"
+  );
+  if (releaseNotesTable.rows.length === 0) {
+    await query(`
+      CREATE TABLE IF NOT EXISTS release_notes (
+        id SERIAL PRIMARY KEY,
+        product_id INTEGER NOT NULL REFERENCES products(id),
+        version TEXT NOT NULL,
+        title TEXT NOT NULL,
+        content TEXT,
+        published BOOLEAN NOT NULL DEFAULT FALSE,
+        created_by INTEGER REFERENCES customers(id),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('[DB] Migration: created release_notes table');
+  }
+
+  // Migration: customer_diagrams table
+  const customerDiagramsTable = await query(
+    "SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename = 'customer_diagrams'"
+  );
+  if (customerDiagramsTable.rows.length === 0) {
+    await query(`
+      CREATE TABLE IF NOT EXISTS customer_diagrams (
+        id SERIAL PRIMARY KEY,
+        customer_id INTEGER NOT NULL REFERENCES customers(id),
+        filename TEXT NOT NULL,
+        original_name TEXT NOT NULL,
+        mime_type TEXT NOT NULL,
+        size INTEGER NOT NULL,
+        path TEXT NOT NULL,
+        label TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('[DB] Migration: created customer_diagrams table');
+  }
+
+  // Migration: add professional_service_hours column to customers
+  const psHoursCol = await query(
+    "SELECT column_name FROM information_schema.columns WHERE table_name = 'customers' AND column_name = 'professional_service_hours'"
+  );
+  if (psHoursCol.rows.length === 0) {
+    await query("ALTER TABLE customers ADD COLUMN professional_service_hours NUMERIC(10,2) DEFAULT 0");
+    console.log('[DB] Migration: added professional_service_hours column to customers');
+  }
 }

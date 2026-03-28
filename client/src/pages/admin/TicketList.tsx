@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { tickets as ticketsApi, engineers as engineersApi, products as productsApi } from '../../api/client';
+import { tickets as ticketsApi, engineers as engineersApi, products as productsApi, admin } from '../../api/client';
 import { StatusBadge, PriorityBadge } from '../../components/StatusBadge';
 import { RefreshCw, Download, Trash2, CheckSquare, Search, Filter, X } from 'lucide-react';
 import Pagination from '../../components/Pagination';
@@ -142,7 +142,15 @@ export default function TicketList() {
         <div className="flex items-center gap-2">
           <button onClick={exportCSV} disabled={!data?.tickets?.length} className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-accent-blue border border-gray-300 dark:border-gray-600 rounded-lg hover:border-accent-blue disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
             <Download className="w-4 h-4" />
-            Export CSV
+            Export Page
+          </button>
+          <button onClick={() => admin.exportTicketsCsv().catch(console.error)} className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-accent-blue border border-gray-300 dark:border-gray-600 rounded-lg hover:border-accent-blue transition-colors">
+            <Download className="w-4 h-4" />
+            Export All
+          </button>
+          <button onClick={() => admin.exportTimeEntriesCsv().catch(console.error)} className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-accent-blue border border-gray-300 dark:border-gray-600 rounded-lg hover:border-accent-blue transition-colors">
+            <Download className="w-4 h-4" />
+            Time Entries
           </button>
           <button onClick={load} className="p-2 text-gray-500 dark:text-gray-400 hover:text-accent-blue transition-colors">
             <RefreshCw className="w-5 h-5" />

@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Ticket, Users, Package, FolderOpen,
   HelpCircle, Wrench, UserCog, LogOut, ChevronLeft, Settings,
   UserCheck, MessageSquarePlus, Menu, X, AlertTriangle, Repeat, Clock, ShieldAlert, SlidersHorizontal,
-  Keyboard
+  Keyboard, Activity
 } from 'lucide-react';
 
 const navItems = [
@@ -24,6 +24,7 @@ const navItems = [
   { to: '/admin/time-reports', icon: Clock, label: 'Time Reports' },
   { to: '/admin/sla-dashboard', icon: ShieldAlert, label: 'SLA Dashboard' },
   { to: '/admin/custom-fields', icon: SlidersHorizontal, label: 'Custom Fields' },
+  { to: '/admin/health', icon: Activity, label: 'System Health' },
   { to: '/admin/setup', icon: Settings, label: 'Setup' },
 ];
 

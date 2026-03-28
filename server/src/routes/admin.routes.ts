@@ -544,6 +544,121 @@ router.get('/sla-dashboard', authenticate, requireAdmin, async (_req: any, res: 
   }
 });
 
+// Health dashboard
+router.get('/health-dashboard', authenticate, requireAdmin, async (_req: any, res: Response) => {
+  try {
+    const settingsRows = await queryAll<any>('SELECT key, value FROM settings');
+    const settingsMap: Record<string, string> = {};
+    for (const row of settingsRows) settingsMap[row.key] = row.value;
+
+    const ticketCount = await queryOne<any>('SELECT COUNT(*) as cnt FROM tickets');
+    const customerCount = await queryOne<any>('SELECT COUNT(*) as cnt FROM customers WHERE role = \'customer\'');
+    const engineerCount = await queryOne<any>('SELECT COUNT(*) as cnt FROM engineers');
+    const activeTimers = await queryOne<any>('SELECT COUNT(*) as cnt FROM active_timers');
+
+    const claudeMode = settingsMap['claude_analysis_mode'] || 'disabled';
+    const claudeConfigured = claudeMode !== 'disabled';
+
+    res.json({
+      database: true,
+      uptime: Math.floor(process.uptime()),
+      nodeVersion: process.version,
+      stats: {
+        tickets: ticketCount?.cnt || 0,
+        customers: customerCount?.cnt || 0,
+        engineers: engineerCount?.cnt || 0,
+        activeTimers: activeTimers?.cnt || 0,
+      },
+      services: {
+        claude: { configured: claudeConfigured, mode: claudeMode },
+        smtp: { configured: !!(settingsMap['smtp_host']), host: settingsMap['smtp_host'] || '' },
+        slack: { configured: !!(settingsMap['slack_webhook_url']) },
+        teams: { configured: !!(settingsMap['teams_webhook_url']) },
+        jira: { configured: !!(settingsMap['jira_base_url']) },
+      },
+    });
+  } catch (error: any) {
+    // If DB fails, still return partial info
+    res.json({
+      database: false,
+      uptime: Math.floor(process.uptime()),
+      nodeVersion: process.version,
+      stats: { tickets: 0, customers: 0, engineers: 0, activeTimers: 0 },
+      services: {
+        claude: { configured: false, mode: 'unknown' },
+        smtp: { configured: false },
+        slack: { configured: false },
+        teams: { configured: false },
+        jira: { configured: false },
+      },
+    });
+  }
+});
+
+// Export tickets as CSV
+router.get('/export/tickets', authenticate, requireAdmin, async (_req: any, res: Response) => {
+  const tickets = await queryAll<any>(`
+    SELECT t.ticket_number, t.subject, t.status, t.priority,
+           p.name as product, pc.name as category,
+           c.name as customer, e.name as engineer,
+           t.created_at, t.resolved_at, t.ai_confidence
+    FROM tickets t
+    JOIN products p ON t.product_id = p.id
+    LEFT JOIN product_categories pc ON t.category_id = pc.id
+    JOIN customers c ON t.customer_id = c.id
+    LEFT JOIN engineers e ON t.assigned_engineer_id = e.id
+    ORDER BY t.created_at DESC
+  `);
+
+  const headers = ['ticket_number', 'subject', 'status', 'priority', 'product', 'category', 'customer', 'engineer', 'created_at', 'resolved_at', 'ai_confidence'];
+  const csvRows = [headers.join(',')];
+  for (const t of tickets) {
+    const row = headers.map(h => {
+      const val = t[h];
+      if (val === null || val === undefined) return '';
+      const str = String(val).replace(/"/g, '""');
+      return str.includes(',') || str.includes('"') || str.includes('\n') ? `"${str}"` : str;
+    });
+    csvRows.push(row.join(','));
+  }
+
+  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Disposition', 'attachment; filename=tickets-export.csv');
+  res.send(csvRows.join('\n'));
+});
+
+// Export time entries as CSV
+router.get('/export/time-entries', authenticate, requireAdmin, async (_req: any, res: Response) => {
+  const entries = await queryAll<any>(`
+    SELECT te.date, te.hours, te.description, te.activity_type, te.is_chargeable,
+           t.ticket_number, t.subject as ticket_subject,
+           p.name as product, c.name as customer, c.company,
+           COALESCE(e.name, te.author_name) as engineer
+    FROM time_entries te
+    JOIN tickets t ON te.ticket_id = t.id
+    JOIN products p ON t.product_id = p.id
+    JOIN customers c ON t.customer_id = c.id
+    LEFT JOIN engineers e ON te.engineer_id = e.id
+    ORDER BY te.date DESC, te.created_at DESC
+  `);
+
+  const headers = ['date', 'hours', 'description', 'activity_type', 'is_chargeable', 'ticket_number', 'ticket_subject', 'product', 'customer', 'company', 'engineer'];
+  const csvRows = [headers.join(',')];
+  for (const e of entries) {
+    const row = headers.map(h => {
+      const val = e[h];
+      if (val === null || val === undefined) return '';
+      const str = String(val).replace(/"/g, '""');
+      return str.includes(',') || str.includes('"') || str.includes('\n') ? `"${str}"` : str;
+    });
+    csvRows.push(row.join(','));
+  }
+
+  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Disposition', 'attachment; filename=time-entries-export.csv');
+  res.send(csvRows.join('\n'));
+});
+
 router.get('/recurring-tickets', authenticate, requireAdmin, async (req: any, res: Response) => {
   const minCount = parseInt(req.query.minCount as string) || 2;
   const daysBack = parseInt(req.query.daysBack as string) || 90;

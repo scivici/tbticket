@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { settings as settingsApi, adminUsers } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
-import { Settings, Key, Mail, MessageSquare, Globe, Shield, Save, TestTube, ExternalLink, Brain, Terminal, UserCog, Plus, Pencil, Trash2, X, Eye, EyeOff, Clock, Zap } from 'lucide-react';
+import { Settings, Key, Mail, MessageSquare, Globe, Shield, Save, TestTube, ExternalLink, Brain, Terminal, UserCog, Plus, Pencil, Trash2, X, Eye, EyeOff, Clock, Zap, Bell } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 
-type Tab = 'claude' | 'license' | 'email' | 'webhooks' | 'general' | 'automation' | 'jira' | 'users';
+type Tab = 'claude' | 'license' | 'email' | 'webhooks' | 'general' | 'automation' | 'jira' | 'users' | 'notifications';
 
 export default function SetupPage() {
   const toast = useToast();
@@ -80,6 +80,7 @@ export default function SetupPage() {
     { id: 'automation', label: 'Automation', icon: Clock },
     { id: 'jira', label: 'Jira', icon: ExternalLink },
     { id: 'users', label: 'Admin Users', icon: UserCog },
+    { id: 'notifications', label: 'Notifications', icon: Bell },
   ];
 
   if (loading) return <div className="text-center py-12 text-gray-500">Loading settings...</div>;
@@ -803,6 +804,102 @@ export default function SetupPage() {
 
       {/* Tab: Admin Users */}
       {activeTab === 'users' && <UsersPanel />}
+
+      {/* Tab: Notifications */}
+      {activeTab === 'notifications' && (
+        <div className="tb-card p-6">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-1 flex items-center gap-2">
+            <Bell className="w-5 h-5" /> Notification Preferences
+          </h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+            Control which events trigger notifications through each channel.
+          </p>
+
+          <div className="space-y-6">
+            {/* Email Notifications */}
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                <Mail className="w-4 h-4" /> Email Notifications
+              </h3>
+              <div className="space-y-3">
+                {[
+                  { key: 'notify_email_new_ticket', label: 'Email on new ticket' },
+                  { key: 'notify_email_status_change', label: 'Email on status change' },
+                ].map(item => (
+                  <label key={item.key} className="flex items-center justify-between p-3 bg-[#f2f2f2] dark:bg-tb-bg rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer">
+                    <span className="text-sm text-gray-700 dark:text-gray-300">{item.label}</span>
+                    <input
+                      type="checkbox"
+                      checked={get(item.key) === 'true'}
+                      onChange={e => set(item.key, e.target.checked ? 'true' : 'false')}
+                      className="w-5 h-5 rounded border-gray-300 text-primary-500 focus:ring-primary-500"
+                    />
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Slack Notifications */}
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                <MessageSquare className="w-4 h-4" /> Slack Notifications
+              </h3>
+              <div className="space-y-3">
+                {[
+                  { key: 'notify_slack_new_ticket', label: 'Slack on new ticket' },
+                  { key: 'notify_slack_assignment', label: 'Slack on assignment' },
+                ].map(item => (
+                  <label key={item.key} className="flex items-center justify-between p-3 bg-[#f2f2f2] dark:bg-tb-bg rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer">
+                    <span className="text-sm text-gray-700 dark:text-gray-300">{item.label}</span>
+                    <input
+                      type="checkbox"
+                      checked={get(item.key) === 'true'}
+                      onChange={e => set(item.key, e.target.checked ? 'true' : 'false')}
+                      className="w-5 h-5 rounded border-gray-300 text-primary-500 focus:ring-primary-500"
+                    />
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Teams Notifications */}
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                <MessageSquare className="w-4 h-4" /> Microsoft Teams Notifications
+              </h3>
+              <div className="space-y-3">
+                {[
+                  { key: 'notify_teams_new_ticket', label: 'Teams on new ticket' },
+                ].map(item => (
+                  <label key={item.key} className="flex items-center justify-between p-3 bg-[#f2f2f2] dark:bg-tb-bg rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer">
+                    <span className="text-sm text-gray-700 dark:text-gray-300">{item.label}</span>
+                    <input
+                      type="checkbox"
+                      checked={get(item.key) === 'true'}
+                      onChange={e => set(item.key, e.target.checked ? 'true' : 'false')}
+                      className="w-5 h-5 rounded border-gray-300 text-primary-500 focus:ring-primary-500"
+                    />
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <button
+              onClick={() => saveKeys([
+                'notify_email_new_ticket', 'notify_email_status_change',
+                'notify_slack_new_ticket', 'notify_slack_assignment',
+                'notify_teams_new_ticket',
+              ])}
+              disabled={saving}
+              className="tb-btn-success flex items-center gap-2"
+            >
+              <Save className="w-4 h-4" /> {saving ? 'Saving...' : 'Save Notification Settings'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

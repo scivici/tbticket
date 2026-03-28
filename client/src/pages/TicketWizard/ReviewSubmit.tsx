@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { tickets } from '../../api/client';
+import { tickets, products as productsApi } from '../../api/client';
 import { WizardData } from './WizardContainer';
 import { CheckCircle, FileText } from 'lucide-react';
 
@@ -19,9 +19,25 @@ export default function ReviewSubmit({ data, onUpdate, onPrev }: Props) {
   const [result, setResult] = useState<{ ticketNumber: string } | null>(null);
   const [email, setEmail] = useState(data.email || user?.email || '');
   const [name, setName] = useState(data.name || user?.name || '');
+  const [customFields, setCustomFields] = useState<any[]>([]);
+  const [customFieldValues, setCustomFieldValues] = useState<Record<number, string>>(data.customFieldValues || {});
+
+  useEffect(() => {
+    if (data.product?.id) {
+      productsApi.customFields(data.product.id).then(fields => {
+        setCustomFields(fields);
+      }).catch(() => {});
+    }
+  }, [data.product?.id]);
 
   const handleSubmit = async () => {
     if (!user && !email) { setError('Email is required'); return; }
+    // Validate required custom fields
+    const missingRequired = customFields.filter(cf => cf.is_required && !customFieldValues[cf.id]?.trim());
+    if (missingRequired.length > 0) {
+      setError(`Please fill in required fields: ${missingRequired.map(cf => cf.name).join(', ')}`);
+      return;
+    }
     setError(''); setLoading(true);
     try {
       const formData = new FormData();
@@ -33,6 +49,13 @@ export default function ReviewSubmit({ data, onUpdate, onPrev }: Props) {
       const answersArray = Object.entries(data.answers).filter(([_, v]) => v.trim())
         .map(([qId, answer]) => ({ questionTemplateId: parseInt(qId), answer }));
       formData.append('answers', JSON.stringify(answersArray));
+      // Include custom field values
+      const cfValues = Object.entries(customFieldValues)
+        .filter(([_, v]) => v !== undefined && v !== '')
+        .map(([fieldId, value]) => ({ fieldId: parseInt(fieldId), value }));
+      if (cfValues.length > 0) {
+        formData.append('customFieldValues', JSON.stringify(cfValues));
+      }
       if (!user) { formData.append('email', email); formData.append('name', name || 'Anonymous'); }
       for (const file of data.files) formData.append('files', file);
       const res = await tickets.create(formData);
@@ -94,6 +117,46 @@ export default function ReviewSubmit({ data, onUpdate, onPrev }: Props) {
                 <div key={q.id}>
                   <p className="text-xs text-gray-500">{q.questionText}</p>
                   <p className="text-sm font-medium text-gray-700 dark:text-gray-200">{data.answers[q.id]}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {customFields.length > 0 && (
+          <div className="bg-[#f2f2f2] dark:bg-tb-bg rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+            <p className="text-xs text-gray-500 uppercase font-medium mb-3">Additional Fields</p>
+            <div className="space-y-3">
+              {customFields.map(cf => (
+                <div key={cf.id}>
+                  <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">
+                    {cf.name} {cf.is_required && <span className="text-red-400">*</span>}
+                  </label>
+                  {cf.field_type === 'text' && (
+                    <input type="text" value={customFieldValues[cf.id] || ''} onChange={e => setCustomFieldValues(v => ({ ...v, [cf.id]: e.target.value }))} className="tb-input" />
+                  )}
+                  {cf.field_type === 'number' && (
+                    <input type="number" value={customFieldValues[cf.id] || ''} onChange={e => setCustomFieldValues(v => ({ ...v, [cf.id]: e.target.value }))} className="tb-input" />
+                  )}
+                  {cf.field_type === 'textarea' && (
+                    <textarea value={customFieldValues[cf.id] || ''} onChange={e => setCustomFieldValues(v => ({ ...v, [cf.id]: e.target.value }))} rows={3} className="tb-input" />
+                  )}
+                  {cf.field_type === 'date' && (
+                    <input type="date" value={customFieldValues[cf.id] || ''} onChange={e => setCustomFieldValues(v => ({ ...v, [cf.id]: e.target.value }))} className="tb-input" />
+                  )}
+                  {cf.field_type === 'select' && (
+                    <select value={customFieldValues[cf.id] || ''} onChange={e => setCustomFieldValues(v => ({ ...v, [cf.id]: e.target.value }))} className="tb-select w-full">
+                      <option value="">Select...</option>
+                      {(cf.options || []).map((opt: string) => <option key={opt} value={opt}>{opt}</option>)}
+                    </select>
+                  )}
+                  {cf.field_type === 'checkbox' && (
+                    <label className="flex items-center gap-2 cursor-pointer text-gray-600 dark:text-gray-300">
+                      <input type="checkbox" checked={customFieldValues[cf.id] === 'true'} onChange={e => setCustomFieldValues(v => ({ ...v, [cf.id]: e.target.checked ? 'true' : 'false' }))}
+                        className="rounded text-primary-500 focus:ring-primary-500 bg-white dark:bg-tb-card border-gray-300 dark:border-gray-600" />
+                      <span className="text-sm">{cf.name}</span>
+                    </label>
+                  )}
                 </div>
               ))}
             </div>
