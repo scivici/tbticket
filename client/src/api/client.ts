@@ -125,6 +125,7 @@ export const tickets = {
 
   // AI suggestion
   suggestReply: (id: number) => request<any>(`/tickets/${id}/suggest-reply`, { method: 'POST' }),
+  generateEscalationDoc: (id: number) => request<any>(`/tickets/${id}/escalation-doc`, { method: 'POST' }),
 
   // Knowledge base
   createKbArticle: (id: number, data?: { title?: string; content?: string }) =>

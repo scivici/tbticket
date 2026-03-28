@@ -1170,6 +1170,142 @@ export async function cancelTimer(req: AuthenticatedRequest, res: Response): Pro
   res.json({ message: 'Timer cancelled' });
 }
 
+// ===== Developer Escalation Document =====
+
+export async function generateEscalationDoc(req: AuthenticatedRequest, res: Response): Promise<void> {
+  try {
+    const { id } = req.params;
+    const ticket = await ticketService.getTicketById(parseInt(id));
+    if (!ticket) { res.status(404).json({ error: 'Ticket not found' }); return; }
+
+    const responses = await ticketService.getResponses(parseInt(id), true);
+    const timeEntries = await queryAll<any>('SELECT * FROM time_entries WHERE ticket_id = ? ORDER BY date', [id]);
+
+    const conversationHistory = responses
+      .map((r: any) => `[${r.author_role}${r.is_internal ? ' - INTERNAL' : ''}] ${r.author_name} (${r.created_at}):\n${r.message}`)
+      .join('\n\n---\n\n');
+
+    const timeSpent = timeEntries.reduce((sum: number, te: any) => sum + (te.hours || 0), 0);
+
+    const aiAnalysisText = ticket.aiAnalysis
+      ? (typeof ticket.aiAnalysis === 'string' ? ticket.aiAnalysis : JSON.stringify(ticket.aiAnalysis, null, 2))
+      : 'No AI analysis available';
+
+    const prompt = `IMPORTANT: This is a DEVELOPER ESCALATION DOCUMENT request. Do NOT produce a ticket analysis JSON.
+You must generate a formal escalation document that will be sent to the TelcoBridges development team.
+
+Write ONLY the document — no preamble, no thinking out loud, no JSON.
+
+## Ticket Information
+- Ticket Number: ${ticket.ticketNumber}
+- Product: ${ticket.product.name} (${ticket.product.model})
+- Category: ${ticket.category.name}
+- Subject: ${ticket.subject}
+- Status: ${ticket.status}
+- Priority: ${ticket.priority}
+- Customer: (see responses below)
+- Created: ${ticket.createdAt}
+- Time Spent by Support: ${timeSpent}h
+
+## Customer Description
+${ticket.description}
+
+## Conversation History
+${conversationHistory || 'No responses yet.'}
+
+## AI Analysis
+${aiAnalysisText}
+
+## Instructions
+Generate a formal Developer Escalation Document in markdown format with these sections:
+
+# Developer Escalation: ${ticket.ticketNumber}
+
+## 1. Executive Summary
+One paragraph summarizing what the issue is, how long support has been working on it, and why development team involvement is needed.
+
+## 2. Issue Description
+Clear technical description of the problem, written for developers. Include product, version, deployment environment.
+
+## 3. Steps to Reproduce
+Numbered steps based on what support and the customer have established.
+
+## 4. Evidence & Findings
+All technical evidence gathered during support investigation:
+- Log analysis results (quote exact log lines if available)
+- Configuration findings
+- pcap/network analysis results
+- Any patterns identified (intermittent, specific conditions, etc.)
+
+## 5. Support Investigation Timeline
+Chronological summary of what support has done, including time spent.
+
+## 6. Suspected Root Cause
+What support believes the root cause is, clearly separating confirmed facts from hypotheses.
+Reference relevant source code paths if the AI analysis identified any.
+
+## 7. Requested Action from Development
+Specific asks: bug fix, code review of specific area, configuration option needed, etc.
+
+## 8. Impact & Urgency
+Customer impact, business impact, SLA status, and recommended priority for dev team.
+
+## 9. Attachments & References
+List all files provided by customer, relevant KB articles, Jira issues, and related tickets.
+
+Write the complete document now. Use proper markdown formatting with headers, lists, bold text, and tables where appropriate.`;
+
+    const analysisMode = await getSetting('claude_analysis_mode') || 'disabled';
+
+    if (analysisMode === 'disabled') {
+      res.json({ document: '', error: 'AI is disabled' });
+      return;
+    }
+
+    if (analysisMode === 'wrapper') {
+      const { analyzeTicketViaWrapper } = await import('../services/claude-wrapper.service');
+      const result = await analyzeTicketViaWrapper({
+        ticketNumber: ticket.ticketNumber,
+        productName: ticket.product.name,
+        productModel: ticket.product.model,
+        categoryName: ticket.category.name,
+        subject: ticket.subject,
+        description: ticket.description,
+        answers: [],
+        attachments: [],
+        engineers: [],
+        customPrompt: prompt,
+      });
+
+      let document = '';
+      if (result.rawOutput) {
+        try {
+          const envelope = JSON.parse(result.rawOutput);
+          document = envelope?.result || '';
+        } catch {
+          document = result.rawOutput;
+        }
+      }
+      // Remove any JSON blocks
+      document = document.replace(/\{[\s\S]*"classification"[\s\S]*\}/g, '').trim();
+      // Remove AI preamble
+      document = document.replace(/^(I now have|Let me|Here's|Here is|Now I|Based on|IMPORTANT).*?\n\n/s, '').trim();
+
+      if (!document) document = 'Unable to generate escalation document.';
+
+      // Log activity
+      await activityService.logActivity(parseInt(id), req.user!.userId, 'System', 'escalation_doc', 'Developer escalation document generated');
+
+      res.json({ document });
+    } else {
+      res.json({ document: '', error: 'Escalation document requires wrapper analysis mode' });
+    }
+  } catch (error: any) {
+    console.error('[Escalation Doc] Error:', error);
+    res.status(500).json({ error: 'Failed to generate escalation document' });
+  }
+}
+
 // ===== AI Suggested Reply =====
 
 export async function suggestReply(req: AuthenticatedRequest, res: Response): Promise<void> {
