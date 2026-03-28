@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import ReactMarkdown from 'react-markdown';
 import { tickets as ticketsApi, engineers as engineersApi, cannedResponses as cannedApi } from '../../api/client';
 import { StatusBadge, PriorityBadge } from '../../components/StatusBadge';
 import {
@@ -343,41 +344,90 @@ export default function TicketDetail() {
               <div className="flex items-center gap-2 mb-4">
                 <Brain className="w-5 h-5 text-purple-400" />
                 <h3 className="font-semibold text-gray-900 dark:text-white">AI Analysis</h3>
+                {aiAnalysis.analysisMode && <span className="px-2 py-0.5 bg-purple-500/20 text-purple-300 rounded text-xs">{aiAnalysis.analysisMode}</span>}
+                {aiAnalysis.executionTimeSeconds && <span className="px-2 py-0.5 bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded text-xs">{Math.round(aiAnalysis.executionTimeSeconds)}s</span>}
                 <span className={`ml-auto px-2 py-0.5 rounded-full text-xs font-medium ${
                   ticket.aiConfidence >= 0.7 ? 'bg-status-active-bg text-status-active-text' : 'bg-status-warn-bg text-status-warn-text'
                 }`}>Confidence: {(ticket.aiConfidence * 100).toFixed(0)}%</span>
               </div>
-              <div className="space-y-3 text-sm">
-                <div><p className="text-gray-500">Classification</p><p className="font-medium text-gray-700 dark:text-gray-200">{aiAnalysis.classification}</p></div>
-                <div><p className="text-gray-500">Severity</p><PriorityBadge priority={aiAnalysis.severity} /></div>
-                <div><p className="text-gray-500">Root Cause Hypothesis</p><p className="font-medium text-gray-700 dark:text-gray-200">{aiAnalysis.rootCauseHypothesis}</p></div>
-                <div><p className="text-gray-500">Recommended Engineer</p><p className="font-medium text-gray-700 dark:text-gray-200">{aiAnalysis.recommendedEngineerName}</p></div>
-                <div><p className="text-gray-500">Reasoning</p><p className="text-gray-600 dark:text-gray-300">{aiAnalysis.reasoning}</p></div>
-                {aiAnalysis.suggestedSkills?.length > 0 && (
-                  <div>
-                    <p className="text-gray-500">Required Skills</p>
-                    <div className="flex gap-1 mt-1">
-                      {aiAnalysis.suggestedSkills.map((s: string) => (
-                        <span key={s} className="px-2 py-0.5 bg-purple-500/20 text-purple-300 rounded text-xs">{s}</span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                <div><p className="text-gray-500">Estimated Complexity</p><p className="font-medium text-gray-700 dark:text-gray-200 capitalize">{aiAnalysis.estimatedComplexity}</p></div>
-                {aiAnalysis.suggestedAction && (
-                  <div><p className="text-gray-500">Suggested Action</p><p className="font-medium text-gray-700 dark:text-gray-200 capitalize">{aiAnalysis.suggestedAction.replace(/_/g, ' ')}</p></div>
-                )}
-                {aiAnalysis.shouldEscalateToJira && (
-                  <div className="p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg">
-                    <p className="text-sm font-medium text-orange-700 dark:text-orange-300 flex items-center gap-1.5">
-                      <ExternalLink className="w-4 h-4" /> AI recommends Jira escalation
-                    </p>
-                    {aiAnalysis.escalationReason && (
-                      <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">{aiAnalysis.escalationReason}</p>
-                    )}
-                  </div>
-                )}
+
+              {/* Summary Grid */}
+              <div className="grid grid-cols-2 gap-4 text-sm mb-4">
+                <div><p className="text-gray-500 text-xs uppercase tracking-wide mb-1">Classification</p><p className="font-medium text-gray-700 dark:text-gray-200">{aiAnalysis.classification}</p></div>
+                <div><p className="text-gray-500 text-xs uppercase tracking-wide mb-1">Severity</p><PriorityBadge priority={aiAnalysis.severity} /></div>
+                <div><p className="text-gray-500 text-xs uppercase tracking-wide mb-1">Recommended Engineer</p><p className="font-medium text-gray-700 dark:text-gray-200">{aiAnalysis.recommendedEngineerName}</p></div>
+                <div><p className="text-gray-500 text-xs uppercase tracking-wide mb-1">Complexity</p><p className="font-medium text-gray-700 dark:text-gray-200 capitalize">{aiAnalysis.estimatedComplexity}</p></div>
               </div>
+
+              {/* Skills */}
+              {aiAnalysis.suggestedSkills?.length > 0 && (
+                <div className="flex gap-1.5 flex-wrap mb-4">
+                  {aiAnalysis.suggestedSkills.map((s: string) => (
+                    <span key={s} className="px-2 py-0.5 bg-purple-500/20 text-purple-300 rounded text-xs">{s}</span>
+                  ))}
+                </div>
+              )}
+
+              {/* Root Cause */}
+              <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800/30 rounded-lg">
+                <p className="text-xs uppercase tracking-wide text-red-500 dark:text-red-400 font-semibold mb-2">Root Cause Hypothesis</p>
+                <div className="text-sm text-gray-700 dark:text-gray-200 prose prose-sm dark:prose-invert max-w-none">
+                  <ReactMarkdown>{aiAnalysis.rootCauseHypothesis || ''}</ReactMarkdown>
+                </div>
+              </div>
+
+              {/* Reasoning */}
+              {aiAnalysis.reasoning && (
+                <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800/30 rounded-lg">
+                  <p className="text-xs uppercase tracking-wide text-blue-500 dark:text-blue-400 font-semibold mb-2">Engineer Selection Reasoning</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">{aiAnalysis.reasoning}</p>
+                </div>
+              )}
+
+              {/* Suggested Actions */}
+              {aiAnalysis.suggestedActions?.length > 0 && (
+                <div className="mb-4 p-4 bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-800/30 rounded-lg">
+                  <p className="text-xs uppercase tracking-wide text-green-500 dark:text-green-400 font-semibold mb-2">Recommended Actions</p>
+                  <ol className="list-decimal list-inside space-y-1 text-sm text-gray-700 dark:text-gray-200">
+                    {aiAnalysis.suggestedActions.map((action: string, i: number) => (
+                      <li key={i}>{action}</li>
+                    ))}
+                  </ol>
+                </div>
+              )}
+
+              {/* Full Report - Markdown rendered */}
+              {aiAnalysis.fullReport && (
+                <details className="group">
+                  <summary className="cursor-pointer flex items-center gap-2 text-sm font-semibold text-purple-400 hover:text-purple-300 py-2">
+                    <FileText className="w-4 h-4" />
+                    <span>Full Technical Report</span>
+                    <span className="text-xs text-gray-500 group-open:hidden">(click to expand)</span>
+                  </summary>
+                  <div className="mt-2 p-4 bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 rounded-lg prose prose-sm dark:prose-invert max-w-none overflow-x-auto
+                    prose-headings:text-gray-900 dark:prose-headings:text-white
+                    prose-strong:text-gray-800 dark:prose-strong:text-gray-200
+                    prose-code:bg-gray-200 dark:prose-code:bg-gray-700 prose-code:px-1 prose-code:rounded
+                    prose-pre:bg-gray-900 prose-pre:text-gray-100
+                    prose-table:border-collapse prose-th:border prose-th:border-gray-300 dark:prose-th:border-gray-600 prose-th:px-3 prose-th:py-1 prose-th:bg-gray-100 dark:prose-th:bg-gray-800
+                    prose-td:border prose-td:border-gray-300 dark:prose-td:border-gray-600 prose-td:px-3 prose-td:py-1
+                  ">
+                    <ReactMarkdown>{aiAnalysis.fullReport}</ReactMarkdown>
+                  </div>
+                </details>
+              )}
+
+              {/* Jira Escalation */}
+              {aiAnalysis.shouldEscalateToJira && (
+                <div className="mt-4 p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg">
+                  <p className="text-sm font-medium text-orange-700 dark:text-orange-300 flex items-center gap-1.5">
+                    <ExternalLink className="w-4 h-4" /> AI recommends Jira escalation
+                  </p>
+                  {aiAnalysis.escalationReason && (
+                    <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">{aiAnalysis.escalationReason}</p>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
