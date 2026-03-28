@@ -18,6 +18,11 @@ export async function createAdmin(req: Request, res: Response): Promise<void> {
     return;
   }
 
+  if (password.length < 8 || !/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password)) {
+    res.status(400).json({ error: 'Password must be at least 8 characters with uppercase, lowercase, and a number' });
+    return;
+  }
+
   const existing = await queryOne<any>('SELECT id FROM customers WHERE email = ?', [email]);
   if (existing) {
     res.status(409).json({ error: 'Email already exists' });
@@ -65,6 +70,11 @@ export async function changePassword(req: Request, res: Response): Promise<void>
 
   if (!password) {
     res.status(400).json({ error: 'Password is required' });
+    return;
+  }
+
+  if (password.length < 8 || !/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password)) {
+    res.status(400).json({ error: 'Password must be at least 8 characters with uppercase, lowercase, and a number' });
     return;
   }
 

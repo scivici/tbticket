@@ -12,6 +12,15 @@ export async function register(req: Request, res: Response): Promise<void> {
     return;
   }
 
+  if (password.length < 8) {
+    res.status(400).json({ error: 'Password must be at least 8 characters' });
+    return;
+  }
+  if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password)) {
+    res.status(400).json({ error: 'Password must contain uppercase, lowercase, and a number' });
+    return;
+  }
+
   const existing = await queryOne<any>('SELECT id FROM customers WHERE email = ?', [email]);
   if (existing) {
     res.status(409).json({ error: 'Email already registered' });
@@ -121,8 +130,8 @@ export async function updateProfile(req: any, res: Response): Promise<void> {
 
 export async function changePassword(req: any, res: Response): Promise<void> {
   const { currentPassword, newPassword } = req.body;
-  if (!currentPassword || !newPassword || newPassword.length < 6) {
-    res.status(400).json({ error: 'Valid current and new password required (min 6 chars)' });
+  if (!currentPassword || !newPassword || newPassword.length < 8 || !/[A-Z]/.test(newPassword) || !/[a-z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
+    res.status(400).json({ error: 'Password must be at least 8 characters with uppercase, lowercase, and a number' });
     return;
   }
   const user = await queryOne<any>('SELECT password_hash FROM customers WHERE id = ?', [req.user.userId]);

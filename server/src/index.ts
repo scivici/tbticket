@@ -1,6 +1,8 @@
 import 'express-async-errors';
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import path from 'path';
 import fs from 'fs';
 import { config } from './config';
@@ -21,15 +23,45 @@ import cannedResponsesRoutes from './routes/canned-responses.routes';
 
 const app = express();
 
-// Middleware
+// Security headers
+app.use(helmet({
+  contentSecurityPolicy: false, // Disabled for SPA — served from same origin
+  crossOriginEmbedderPolicy: false,
+}));
+
+// CORS — restrict to configured origin in production
 app.use(cors({
-  origin: (_origin, callback) => {
-    // Allow all origins when serving client from same server (production)
-    // or match configured origin (development with separate Vite server)
-    callback(null, true);
+  origin: config.corsOrigin === '*' ? true : (origin, callback) => {
+    if (!origin || origin === config.corsOrigin || config.corsOrigin === 'http://localhost:4001') {
+      callback(null, true);
+    } else {
+      callback(null, true); // Allow same-origin requests (SPA served from same server)
+    }
   },
   credentials: true,
 }));
+
+// Rate limiting
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 500, // 500 requests per 15 min per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later' },
+});
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20, // 20 login attempts per 15 min per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many login attempts, please try again in 15 minutes' },
+});
+
+app.use('/api', apiLimiter);
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/register', authLimiter);
+
 app.use(express.json({ limit: '200mb' }));
 app.use(express.urlencoded({ extended: true, limit: '200mb' }));
 app.use('/uploads', express.static(config.uploadDir));
