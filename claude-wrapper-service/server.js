@@ -235,7 +235,7 @@ No markdown fences around the JSON. The JSON must be the very last thing you out
 {
   "classification": "Specific technical classification of the issue",
   "severity": "low|medium|high|critical",
-  "rootCauseHypothesis": "Detailed root cause with evidence citations",
+  "rootCauseHypothesis": "Root cause summary in 1-2 sentences, then list evidence as markdown numbered list:\\n\\n1. First evidence with exact quote\\n2. Second evidence\\n3. etc.",
   "recommendedEngineerId": <ID>,
   "recommendedEngineerName": "<name>",
   "confidence": <0.0 to 1.0>,
@@ -243,7 +243,7 @@ No markdown fences around the JSON. The JSON must be the very last thing you out
   "suggestedSkills": ["skill1", "skill2"],
   "estimatedComplexity": "low|medium|high",
   "suggestedActions": ["Specific step 1", "Step 2", "..."],
-  "fullReport": "DETAILED technical report with sections: Summary, Evidence Found (with exact quotes), Architecture Context (citing bmad_docs), Root Cause Analysis (observations vs inferences), Impact Assessment, Recommended Actions, Escalation Notes"
+  "fullReport": "Use markdown formatting. Use ## headings for sections, numbered lists for evidence, tables where useful (e.g. comparing good vs bad call). Sections:\\n\\n## Summary\\nOne paragraph overview.\\n\\n## Evidence\\nNumbered list — each item on its own line with exact quotes.\\n\\n## Architecture Context\\nHow the affected component works, cite bmad_docs.\\n\\n## Root Cause Analysis\\nObservations vs inferences, clearly separated.\\n\\n## Impact\\nScope of the issue.\\n\\n## Recommended Actions\\nNumbered steps.\\n\\n## Escalation Notes\\nWhether dev team needed."
 }`;
 
     // Step 4: Execute Claude Code CLI (from project dir so CLAUDE.md is loaded)
