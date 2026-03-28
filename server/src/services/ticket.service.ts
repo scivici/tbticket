@@ -287,13 +287,13 @@ export async function updateAiAnalysis(ticketId: number, analysis: string, confi
 export async function addResponse(ticketId: number, authorId: number, authorName: string, authorRole: string, message: string, isInternal: boolean) {
   const result = await query(
     'INSERT INTO ticket_responses (ticket_id, author_id, author_name, author_role, message, is_internal) VALUES (?, ?, ?, ?, ?, ?) RETURNING id',
-    [ticketId, authorId, authorName, authorRole, message, isInternal ? 1 : 0]
+    [ticketId, authorId, authorName, authorRole, message, isInternal]
   );
   return result.rows[0].id;
 }
 
 export async function getResponses(ticketId: number, includeInternal: boolean) {
-  const where = includeInternal ? '' : 'AND is_internal = 0';
+  const where = includeInternal ? '' : 'AND is_internal = FALSE';
   return await queryAll(
     `SELECT * FROM ticket_responses WHERE ticket_id = ? ${where} ORDER BY created_at ASC`,
     [ticketId]

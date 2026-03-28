@@ -8,7 +8,7 @@ export async function createNotification(customerId: number, ticketId: number, t
 }
 
 export async function getNotifications(customerId: number, unreadOnly: boolean = false) {
-  const where = unreadOnly ? 'AND is_read = 0' : '';
+  const where = unreadOnly ? 'AND is_read = FALSE' : '';
   return await queryAll(
     `SELECT n.*, t.ticket_number FROM notifications n JOIN tickets t ON n.ticket_id = t.id WHERE n.customer_id = ? ${where} ORDER BY n.created_at DESC LIMIT 50`,
     [customerId]
@@ -16,14 +16,14 @@ export async function getNotifications(customerId: number, unreadOnly: boolean =
 }
 
 export async function getUnreadCount(customerId: number): Promise<number> {
-  const result = await queryOne<any>('SELECT COUNT(*) as count FROM notifications WHERE customer_id = ? AND is_read = 0', [customerId]);
+  const result = await queryOne<any>('SELECT COUNT(*) as count FROM notifications WHERE customer_id = ? AND is_read = FALSE', [customerId]);
   return result?.count || 0;
 }
 
 export async function markAsRead(notificationId: number, customerId: number) {
-  await query('UPDATE notifications SET is_read = 1 WHERE id = ? AND customer_id = ?', [notificationId, customerId]);
+  await query('UPDATE notifications SET is_read = TRUE WHERE id = ? AND customer_id = ?', [notificationId, customerId]);
 }
 
 export async function markAllAsRead(customerId: number) {
-  await query('UPDATE notifications SET is_read = 1 WHERE customer_id = ? AND is_read = 0', [customerId]);
+  await query('UPDATE notifications SET is_read = TRUE WHERE customer_id = ? AND is_read = FALSE', [customerId]);
 }

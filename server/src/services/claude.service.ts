@@ -196,7 +196,7 @@ async function gatherAnalysisInput(ticketId: number): Promise<ClaudeAnalysisInpu
   `, [ticketId]);
 
   const engineers = await queryAll<any>(`
-    SELECT * FROM engineers WHERE is_active = 1 AND current_workload < max_workload
+    SELECT * FROM engineers WHERE is_active = TRUE AND current_workload < max_workload
   `);
 
   const enrichedEngineers = [];

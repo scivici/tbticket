@@ -38,7 +38,7 @@ export async function getTicketSlaStatus(ticketId: number): Promise<SlaStatus | 
 
   // Find first non-internal response
   const firstResponse = await queryOne<any>(
-    "SELECT created_at FROM ticket_responses WHERE ticket_id = ? AND author_role = 'admin' AND is_internal = 0 ORDER BY created_at ASC LIMIT 1",
+    "SELECT created_at FROM ticket_responses WHERE ticket_id = ? AND author_role = 'admin' AND is_internal = FALSE ORDER BY created_at ASC LIMIT 1",
     [ticketId]
   );
 

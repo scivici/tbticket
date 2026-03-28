@@ -84,7 +84,7 @@ async function autoStateTransitions() {
           AND tr.created_at > (
             SELECT COALESCE(MAX(tr2.created_at), '1970-01-01')
             FROM ticket_responses tr2
-            WHERE tr2.ticket_id = t.id AND tr2.author_role = 'admin' AND tr2.is_internal = 0
+            WHERE tr2.ticket_id = t.id AND tr2.author_role = 'admin' AND tr2.is_internal = FALSE
           )
       )
   `);

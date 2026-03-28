@@ -6,7 +6,7 @@ export async function getEscalationRules() {
 
 export async function updateEscalationRule(id: number, hoursWithoutResponse: number, action: string, isActive: boolean) {
   await query('UPDATE escalation_rules SET hours_without_response = ?, action = ?, is_active = ? WHERE id = ?',
-    [hoursWithoutResponse, action, isActive ? 1 : 0, id]);
+    [hoursWithoutResponse, action, isActive, id]);
 }
 
 export async function createEscalationRule(priority: string, hoursWithoutResponse: number, action: string) {
@@ -32,7 +32,7 @@ export interface EscalationAlert {
 }
 
 export async function checkEscalations(): Promise<EscalationAlert[]> {
-  const rules = await queryAll<any>("SELECT * FROM escalation_rules WHERE is_active = 1");
+  const rules = await queryAll<any>("SELECT * FROM escalation_rules WHERE is_active = TRUE");
   const openTickets = await queryAll<any>(`
     SELECT t.id, t.ticket_number, t.subject, t.priority, t.created_at, t.status,
            c.name as customer_name
@@ -50,7 +50,7 @@ export async function checkEscalations(): Promise<EscalationAlert[]> {
 
     // Check if ticket has any non-internal admin response
     const hasResponse = await queryOne<any>(
-      "SELECT id FROM ticket_responses WHERE ticket_id = ? AND author_role = 'admin' AND is_internal = 0 LIMIT 1",
+      "SELECT id FROM ticket_responses WHERE ticket_id = ? AND author_role = 'admin' AND is_internal = FALSE LIMIT 1",
       [ticket.id]
     );
 

@@ -18,7 +18,7 @@ interface EngineerScore {
  */
 export async function scoreEngineers(productId: number, categoryId: number): Promise<EngineerScore[]> {
   const engineers = await queryAll<any>(`
-    SELECT * FROM engineers WHERE is_active = 1 AND current_workload < max_workload
+    SELECT * FROM engineers WHERE is_active = TRUE AND current_workload < max_workload
   `);
 
   const filtered: any[] = engineers.filter((engineer: any) => {
