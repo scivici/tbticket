@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { adminSkills } from '../../api/client';
 import { Wrench, Plus, Pencil, Trash2, X, Save } from 'lucide-react';
+import { useToast } from '../../context/ToastContext';
 
 export default function SkillManager() {
+  const toast = useToast();
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<number | null>(null);
@@ -24,7 +26,7 @@ export default function SkillManager() {
     try { if (creating) await adminSkills.create(form); else if (editing) await adminSkills.update(editing, form); cancel(); load(); } catch (err: any) { setError(err.message); } finally { setSaving(false); }
   };
 
-  const handleDelete = async (id: number, name: string) => { if (!confirm(`"${name}" skill'ini silmek istediginize emin misiniz?`)) return; try { await adminSkills.delete(id); load(); } catch (err: any) { alert(err.message); } };
+  const handleDelete = async (id: number, name: string) => { if (!confirm(`"${name}" skill'ini silmek istediginize emin misiniz?`)) return; try { await adminSkills.delete(id); load(); } catch (err: any) { toast.error(err.message); } };
 
   if (loading) return <div className="text-center py-12 text-gray-500">Loading...</div>;
 

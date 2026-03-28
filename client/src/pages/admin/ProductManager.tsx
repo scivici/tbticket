@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { products as productsApi, adminProducts } from '../../api/client';
 import { Package, Plus, Pencil, Trash2, X, Save } from 'lucide-react';
+import { useToast } from '../../context/ToastContext';
 
 interface FormData { name: string; model: string; description: string; imageUrl: string; }
 const emptyForm: FormData = { name: '', model: '', description: '', imageUrl: '' };
 
 export default function ProductManager() {
+  const toast = useToast();
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<number | null>(null);
@@ -33,7 +35,7 @@ export default function ProductManager() {
 
   const handleDelete = async (id: number, name: string) => {
     if (!confirm(`"${name}" urununu silmek istediginize emin misiniz?`)) return;
-    try { await adminProducts.delete(id); load(); } catch (err: any) { alert(err.message); }
+    try { await adminProducts.delete(id); load(); } catch (err: any) { toast.error(err.message); }
   };
 
   if (loading) return <div className="text-center py-12 text-gray-500">Loading...</div>;

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { customFields as cfApi, products as productsApi } from '../../api/client';
 import { Plus, Pencil, Trash2, X, Save, SlidersHorizontal } from 'lucide-react';
+import { useToast } from '../../context/ToastContext';
 
 const FIELD_TYPES = ['text', 'number', 'select', 'checkbox', 'date', 'textarea'];
 
@@ -18,6 +19,7 @@ interface CustomField {
 }
 
 export default function CustomFieldManager() {
+  const toast = useToast();
   const [fields, setFields] = useState<CustomField[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -94,7 +96,7 @@ export default function CustomFieldManager() {
       resetForm();
       load();
     } catch (err: any) {
-      alert(err.message);
+      toast.error(err.message);
     }
   };
 
@@ -104,7 +106,7 @@ export default function CustomFieldManager() {
       await cfApi.delete(id);
       load();
     } catch (err: any) {
-      alert(err.message);
+      toast.error(err.message);
     }
   };
 

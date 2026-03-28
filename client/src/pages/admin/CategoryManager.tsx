@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { products as productsApi, adminCategories } from '../../api/client';
 import { FolderOpen, Plus, Pencil, Trash2, X, Save, ChevronUp, ChevronDown } from 'lucide-react';
+import { useToast } from '../../context/ToastContext';
 
 const ICONS = ['wifi', 'microphone', 'cpu', 'link', 'download', 'activity', 'server', 'network', 'bell', 'trending-up', 'shield', 'settings', 'alert-triangle', 'database', 'monitor'];
 
 export default function CategoryManager() {
+  const toast = useToast();
   const [products, setProducts] = useState<any[]>([]);
   const [selectedProductId, setSelectedProductId] = useState<number>(0);
   const [categories, setCategories] = useState<any[]>([]);
@@ -29,12 +31,12 @@ export default function CategoryManager() {
     try { if (creating) await adminCategories.create(form); else if (editing) await adminCategories.update(editing, form); cancel(); reload(); } catch (err: any) { setError(err.message); } finally { setSaving(false); }
   };
 
-  const handleDelete = async (id: number, name: string) => { if (!confirm(`"${name}" kategorisini silmek istediginize emin misiniz?`)) return; try { await adminCategories.delete(id); reload(); } catch (err: any) { alert(err.message); } };
+  const handleDelete = async (id: number, name: string) => { if (!confirm(`"${name}" kategorisini silmek istediginize emin misiniz?`)) return; try { await adminCategories.delete(id); reload(); } catch (err: any) { toast.error(err.message); } };
 
   const moveCategory = async (index: number, direction: -1 | 1) => {
     const arr = [...categories]; const si = index + direction; if (si < 0 || si >= arr.length) return;
     [arr[index], arr[si]] = [arr[si], arr[index]];
-    try { await adminCategories.reorder(arr.map((c, i) => ({ id: c.id, displayOrder: i + 1 }))); reload(); } catch (err: any) { alert(err.message); }
+    try { await adminCategories.reorder(arr.map((c, i) => ({ id: c.id, displayOrder: i + 1 }))); reload(); } catch (err: any) { toast.error(err.message); }
   };
 
   if (loading) return <div className="text-center py-12 text-gray-500">Loading...</div>;

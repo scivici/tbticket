@@ -2,10 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { settings as settingsApi, adminUsers } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { Settings, Key, Mail, MessageSquare, Globe, Shield, Save, TestTube, ExternalLink, Brain, Terminal, UserCog, Plus, Pencil, Trash2, X, Eye, EyeOff, Clock, Zap } from 'lucide-react';
+import { useToast } from '../../context/ToastContext';
 
 type Tab = 'claude' | 'license' | 'email' | 'webhooks' | 'general' | 'automation' | 'jira' | 'users';
 
 export default function SetupPage() {
+  const toast = useToast();
   const [activeTab, setActiveTab] = useState<Tab>('claude');
   const [allSettings, setAllSettings] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -808,6 +810,7 @@ export default function SetupPage() {
 // ============ Users Panel (embedded) ============
 
 function UsersPanel() {
+  const toast = useToast();
   const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -866,7 +869,7 @@ function UsersPanel() {
 
   const handleDelete = async (id: number, name: string) => {
     if (!confirm(`Delete admin "${name}"?`)) return;
-    try { await adminUsers.delete(id); load(); } catch (err: any) { alert(err.message); }
+    try { await adminUsers.delete(id); load(); } catch (err: any) { toast.error(err.message); }
   };
 
   if (loading) return <div className="text-center py-8 text-gray-500">Loading...</div>;

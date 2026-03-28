@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { tickets as ticketsApi, engineers as engineersApi, products as productsApi } from '../../api/client';
 import { StatusBadge, PriorityBadge } from '../../components/StatusBadge';
 import { RefreshCw, Download, Trash2, CheckSquare, Search, Filter, X } from 'lucide-react';
+import Pagination from '../../components/Pagination';
 
 const STATUS_OPTIONS = ['new', 'analyzing', 'assigned', 'in_progress', 'pending_info', 'escalated_to_jira', 'resolved', 'closed'];
 
@@ -380,27 +381,13 @@ export default function TicketList() {
             </tbody>
           </table>
           {data && (
-            <div className="px-4 py-3 bg-black/5 dark:bg-white/5 flex items-center justify-between text-sm text-gray-500">
-              <span>Showing {data.tickets.length} of {data.total} tickets (Page {data.page}/{data.totalPages})</span>
-              {data.totalPages > 1 && (
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setFilters(f => ({ ...f, page: String(Math.max(1, data.page - 1)) }))}
-                    disabled={data.page <= 1}
-                    className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm hover:bg-gray-100 dark:hover:bg-white/10 disabled:opacity-50 transition-colors"
-                  >
-                    Previous
-                  </button>
-                  <button
-                    onClick={() => setFilters(f => ({ ...f, page: String(Math.min(data.totalPages, data.page + 1)) }))}
-                    disabled={data.page >= data.totalPages}
-                    className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm hover:bg-gray-100 dark:hover:bg-white/10 disabled:opacity-50 transition-colors"
-                  >
-                    Next
-                  </button>
-                </div>
-              )}
-            </div>
+            <Pagination
+              page={data.page}
+              totalPages={data.totalPages}
+              total={data.total}
+              limit={data.limit || 25}
+              onPageChange={(p) => setFilters(f => ({ ...f, page: String(p) }))}
+            />
           )}
         </div>
       )}

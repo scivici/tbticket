@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { products as productsApi, adminQuestions } from '../../api/client';
 import { Plus, Pencil, Trash2, X, Save, ChevronUp, ChevronDown, GitBranch } from 'lucide-react';
+import { useToast } from '../../context/ToastContext';
 
 const QUESTION_TYPES = [
   { value: 'text', label: 'Text Input' }, { value: 'textarea', label: 'Text Area' },
@@ -12,6 +13,7 @@ const QUESTION_TYPES = [
 interface Question { id: number; category_id: number; question_text: string; question_type: string; options: any; is_required: boolean | number; display_order: number; conditional_on: number | null; conditional_value: string | null; placeholder: string | null; }
 
 export default function QuestionManager() {
+  const toast = useToast();
   const [products, setProducts] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [selectedProductId, setSelectedProductId] = useState<number>(0);
@@ -51,8 +53,8 @@ export default function QuestionManager() {
     } catch (err: any) { setError(err.message); } finally { setSaving(false); }
   };
 
-  const handleDelete = async (id: number, text: string) => { if (!confirm(`Bu soruyu silmek istediginize emin misiniz?\n"${text}"`)) return; try { await adminQuestions.delete(id); reload(); } catch (err: any) { alert(err.message); } };
-  const moveQuestion = async (index: number, direction: -1 | 1) => { const arr = [...questions]; const si = index + direction; if (si < 0 || si >= arr.length) return; [arr[index], arr[si]] = [arr[si], arr[index]]; try { await adminQuestions.reorder(arr.map((q, i) => ({ id: q.id, displayOrder: i + 1 }))); reload(); } catch (err: any) { alert(err.message); } };
+  const handleDelete = async (id: number, text: string) => { if (!confirm(`Bu soruyu silmek istediginize emin misiniz?\n"${text}"`)) return; try { await adminQuestions.delete(id); reload(); } catch (err: any) { toast.error(err.message); } };
+  const moveQuestion = async (index: number, direction: -1 | 1) => { const arr = [...questions]; const si = index + direction; if (si < 0 || si >= arr.length) return; [arr[index], arr[si]] = [arr[si], arr[index]]; try { await adminQuestions.reorder(arr.map((q, i) => ({ id: q.id, displayOrder: i + 1 }))); reload(); } catch (err: any) { toast.error(err.message); } };
 
   if (loading) return <div className="text-center py-12 text-gray-500">Loading...</div>;
 

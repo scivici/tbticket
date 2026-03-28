@@ -2,8 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { adminUsers } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { UserCog, Plus, Pencil, Trash2, Key, X, Save, Shield } from 'lucide-react';
+import { useToast } from '../../context/ToastContext';
 
 export default function UserManager() {
+  const toast = useToast();
   const { user: currentUser } = useAuth();
   const [admins, setAdmins] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -161,7 +163,7 @@ export default function UserManager() {
       await adminUsers.delete(id);
       load();
     } catch (err: any) {
-      alert(err.message);
+      toast.error(err.message);
     }
   };
 

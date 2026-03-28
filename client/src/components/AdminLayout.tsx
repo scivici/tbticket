@@ -5,7 +5,8 @@ import ThemeToggle from './ThemeToggle';
 import {
   LayoutDashboard, Ticket, Users, Package, FolderOpen,
   HelpCircle, Wrench, UserCog, LogOut, ChevronLeft, Settings,
-  UserCheck, MessageSquarePlus, Menu, X, AlertTriangle, Repeat, Clock, ShieldAlert, SlidersHorizontal
+  UserCheck, MessageSquarePlus, Menu, X, AlertTriangle, Repeat, Clock, ShieldAlert, SlidersHorizontal,
+  Keyboard
 } from 'lucide-react';
 
 const navItems = [
@@ -31,6 +32,7 @@ export default function AdminLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
 
   const handleLogout = () => { logout(); navigate('/'); };
 
@@ -38,6 +40,49 @@ export default function AdminLayout() {
   useEffect(() => {
     setSidebarOpen(false);
   }, [location.pathname]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable;
+
+      // Escape always works - close modals/overlays
+      if (e.key === 'Escape') {
+        setShowShortcuts(false);
+        setSidebarOpen(false);
+        return;
+      }
+
+      // ? shortcut only when not focused on input
+      if (e.key === '?' && !isInput) {
+        e.preventDefault();
+        setShowShortcuts(prev => !prev);
+        return;
+      }
+
+      // Alt+key shortcuts
+      if (e.altKey && !e.ctrlKey && !e.metaKey) {
+        switch (e.key.toLowerCase()) {
+          case 'd':
+            e.preventDefault();
+            navigate('/admin');
+            break;
+          case 't':
+            e.preventDefault();
+            navigate('/admin/tickets');
+            break;
+          case 'n':
+            e.preventDefault();
+            navigate('/submit');
+            break;
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [navigate]);
 
   const isActive = (item: typeof navItems[0]) => {
     if (item.exact) return location.pathname === item.to;
@@ -128,6 +173,47 @@ export default function AdminLayout() {
           <Outlet />
         </div>
       </main>
+
+      {/* Keyboard shortcut hint */}
+      <button
+        onClick={() => setShowShortcuts(true)}
+        className="hidden lg:flex fixed bottom-4 right-4 items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-tb-card border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors z-30"
+        title="Keyboard shortcuts"
+      >
+        <Keyboard className="w-3.5 h-3.5" />
+        <span>Press <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-[10px] font-mono">?</kbd> for shortcuts</span>
+      </button>
+
+      {/* Keyboard shortcuts modal */}
+      {showShortcuts && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowShortcuts(false)}>
+          <div className="bg-white dark:bg-tb-card rounded-xl shadow-2xl p-6 w-full max-w-sm mx-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Keyboard className="w-5 h-5 text-accent-blue" />
+                <h3 className="font-semibold text-gray-900 dark:text-white">Keyboard Shortcuts</h3>
+              </div>
+              <button onClick={() => setShowShortcuts(false)} className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-white transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-2">
+              {[
+                { keys: 'Alt + D', label: 'Go to Dashboard' },
+                { keys: 'Alt + T', label: 'Go to Tickets' },
+                { keys: 'Alt + N', label: 'New Ticket (submit page)' },
+                { keys: 'Escape', label: 'Close modal / overlay' },
+                { keys: '?', label: 'Toggle this help' },
+              ].map(s => (
+                <div key={s.keys} className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50 dark:bg-white/5">
+                  <span className="text-sm text-gray-600 dark:text-gray-300">{s.label}</span>
+                  <kbd className="px-2 py-1 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded text-xs font-mono">{s.keys}</kbd>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

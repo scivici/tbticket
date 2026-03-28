@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import { tickets as ticketsApi, engineers as engineersApi, cannedResponses as cannedApi, customFields as cfApi } from '../../api/client';
 import { StatusBadge, PriorityBadge } from '../../components/StatusBadge';
+import { useToast } from '../../context/ToastContext';
 import {
   Brain, FileText, RefreshCw, MessageSquare, Send, Lock, Clock, ShieldAlert,
   Trash2, Tag, X, Plus, PlusCircle, ArrowRightCircle, UserCheck, AlertTriangle,
@@ -59,6 +60,7 @@ const isImageFile = (filename: string) => /\.(png|jpg|jpeg|gif|webp)$/i.test(fil
 export default function TicketDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const toast = useToast();
   const [ticket, setTicket] = useState<any>(null);
   const [engineers, setEngineers] = useState<any[]>([]);
   const [responses, setResponses] = useState<any[]>([]);
@@ -664,7 +666,7 @@ export default function TicketDetail() {
                       if (!ticket) return;
                       try {
                         await ticketsApi.createKbArticle(ticket.id);
-                        alert('Knowledge base article created!');
+                        toast.success('Knowledge base article created!');
                         loadActivities();
                       } catch (err) { console.error(err); }
                     }}
@@ -1196,9 +1198,9 @@ export default function TicketDetail() {
                   setActionLoading('jira');
                   try {
                     const result = await ticketsApi.escalateToJira(ticket.id);
-                    alert(`Jira issue created: ${result.issueKey}`);
+                    toast.success(`Jira issue created: ${result.issueKey}`);
                     load();
-                  } catch (err: any) { alert(err.message); }
+                  } catch (err: any) { toast.error(err.message); }
                   setActionLoading('');
                 }} disabled={!!actionLoading}
                   className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-orange-500/20 text-orange-400 rounded-lg text-sm font-medium hover:bg-orange-500/30 disabled:opacity-50 transition-colors">
@@ -1324,7 +1326,7 @@ export default function TicketDetail() {
               </button>
               <button onClick={() => {
                 navigator.clipboard.writeText(escalationDoc);
-                alert('Copied to clipboard');
+                toast.info('Copied to clipboard');
               }} className="px-3 py-1.5 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-sm hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">
                 Copy
               </button>
@@ -1377,13 +1379,13 @@ export default function TicketDetail() {
                 setMerging(true);
                 try {
                   const sourceId = parseInt(mergeSourceInput.trim());
-                  if (isNaN(sourceId)) { alert('Please enter a valid ticket ID'); setMerging(false); return; }
+                  if (isNaN(sourceId)) { toast.warning('Please enter a valid ticket ID'); setMerging(false); return; }
                   const result = await ticketsApi.mergeTicket(ticket.id, sourceId);
-                  alert(result.message || 'Tickets merged successfully');
+                  toast.success(result.message || 'Tickets merged successfully');
                   setShowMergeModal(false);
                   load();
                 } catch (err: any) {
-                  alert(err.message || 'Failed to merge tickets');
+                  toast.error(err.message || 'Failed to merge tickets');
                 }
                 setMerging(false);
               }}

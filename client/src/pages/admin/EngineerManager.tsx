@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { engineers as engineersApi, products as productsApi } from '../../api/client';
 import { User, Star, ChevronDown, ChevronUp, Plus, Pencil, Trash2, X, Save, PlusCircle } from 'lucide-react';
+import { useToast } from '../../context/ToastContext';
 
 interface EngineerForm { name: string; email: string; location: string; maxWorkload: number; isActive: boolean; }
 const emptyForm: EngineerForm = { name: '', email: '', location: '', maxWorkload: 5, isActive: true };
 
 export default function EngineerManager() {
+  const toast = useToast();
   const [engineers, setEngineers] = useState<any[]>([]);
   const [skills, setSkills] = useState<any[]>([]);
   const [allProducts, setAllProducts] = useState<any[]>([]);
@@ -138,7 +140,7 @@ export default function EngineerManager() {
 
   const handleDelete = async (id: number, name: string) => {
     if (!confirm(`"${name}" muhendisini silmek istediginize emin misiniz?`)) return;
-    try { await engineersApi.delete(id); if (expanded === id) { setExpanded(null); setDetail(null); } load(); } catch (err: any) { alert(err.message); }
+    try { await engineersApi.delete(id); if (expanded === id) { setExpanded(null); setDetail(null); } load(); } catch (err: any) { toast.error(err.message); }
   };
 
   if (loading) return <div className="text-center py-12 text-gray-500">Loading engineers...</div>;
