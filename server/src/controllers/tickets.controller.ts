@@ -1081,11 +1081,21 @@ Write a professional, helpful reply. Be concise and technical. Do not include gr
         productName: ticket.product.name,
         productModel: ticket.product.model,
         categoryName: ticket.category.name,
-        subject: 'REPLY_SUGGESTION: ' + ticket.subject,
-        description: prompt,
+        subject: ticket.subject,
+        description: ticket.description,
         answers: [],
         attachments: [],
         engineers: [],
+        customPrompt: `IMPORTANT: This is NOT a ticket analysis request. This is a REPLY SUGGESTION request.
+You must write a professional support reply that will be sent to the customer. Do NOT produce JSON. Do NOT produce an analysis report.
+
+Write ONLY the reply text — no preamble, no "Here's the reply:", no JSON, no thinking out loud.
+
+Context for writing the reply:
+
+${prompt}
+
+Write the reply now. Plain text only, professional tone, concise and technical.`,
       });
 
       // Extract the actual text from Claude CLI JSON envelope
@@ -1098,9 +1108,11 @@ Write a professional, helpful reply. Be concise and technical. Do not include gr
           suggestion = result.rawOutput;
         }
       }
-      // Remove any JSON blocks from the suggestion (in case Claude returned analysis JSON)
+      // Remove any JSON blocks or thinking preamble
       suggestion = suggestion.replace(/\{[\s\S]*"classification"[\s\S]*\}/g, '').trim();
-      if (!suggestion) suggestion = result.analysis?.fullReport || result.analysis?.rootCauseHypothesis || 'Unable to generate suggestion.';
+      // Remove common AI preamble lines
+      suggestion = suggestion.replace(/^(I now have|Let me|Here's|Here is|Now I|Based on).*?\n\n/s, '').trim();
+      if (!suggestion) suggestion = 'Unable to generate suggestion. Please compose your reply manually.';
 
       res.json({ suggestion });
     } else {
