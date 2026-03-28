@@ -1,5 +1,6 @@
 import 'express-async-errors';
 import express from 'express';
+import http from 'http';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
@@ -9,6 +10,10 @@ import { config } from './config';
 import { runMigrations } from './db/migrate';
 import { errorHandler } from './middleware/error';
 import { startScheduler } from './services/scheduler.service';
+import { initChatService } from './services/chat.service';
+import { createLogger } from './services/logger.service';
+
+const log = createLogger('Server');
 
 import authRoutes from './routes/auth.routes';
 import productsRoutes from './routes/products.routes';
@@ -23,6 +28,7 @@ import cannedResponsesRoutes from './routes/canned-responses.routes';
 import kbRoutes from './routes/kb.routes';
 
 const app = express();
+const server = http.createServer(app);
 
 // Security headers
 app.use(helmet({
@@ -101,11 +107,14 @@ app.use(errorHandler);
 async function start() {
   await runMigrations();
 
-  app.listen(config.port, '0.0.0.0', () => {
-    console.log(`[Server] Running on http://localhost:${config.port}`);
-    console.log(`[Server] Claude server: ${config.claudeServerUrl}`);
+  // Initialize WebSocket chat service
+  initChatService(server);
+
+  server.listen(config.port, '0.0.0.0', () => {
+    log.info(`Running on http://localhost:${config.port}`);
+    log.info(`Claude server: ${config.claudeServerUrl}`);
     if (fs.existsSync(clientDist)) {
-      console.log(`[Server] Serving client from ${clientDist}`);
+      log.info(`Serving client from ${clientDist}`);
     }
     // Start background lifecycle automation
     startScheduler();
@@ -113,7 +122,7 @@ async function start() {
 }
 
 start().catch((err) => {
-  console.error('[Server] Failed to start:', err);
+  log.error('Failed to start', { error: (err as Error).message });
   process.exit(1);
 });
 

@@ -1,6 +1,9 @@
 import nodemailer from 'nodemailer';
 import { config } from '../config';
 import { getSettings } from './settings.service';
+import { createLogger } from './logger.service';
+
+const log = createLogger('Email');
 
 let transporter: nodemailer.Transporter | null = null;
 
@@ -159,15 +162,15 @@ function emailTemplate(title: string, body: string, ticketNumber?: string): stri
 export async function sendEmail(to: string, subject: string, html: string): Promise<boolean> {
   const t = await getTransporter();
   if (!t) {
-    console.log('[Email] SMTP not configured, skipping email to', to);
+    log.info('SMTP not configured, skipping email', { to });
     return false;
   }
   try {
     await t.sendMail({ from: await getFromAddress(), to, subject, html });
-    console.log('[Email] Sent to', to, ':', subject);
+    log.info('Email sent', { to, subject });
     return true;
   } catch (error) {
-    console.error('[Email] Failed to send:', error);
+    log.error('Failed to send email', { to, error: (error as Error).message });
     return false;
   }
 }

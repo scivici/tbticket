@@ -91,4 +91,13 @@ export async function runMigrations(): Promise<void> {
     `);
     console.log('[DB] Migration: created custom_fields and ticket_custom_field_values tables');
   }
+
+  // Migration: add is_chat column to ticket_responses for live chat messages
+  const isChatCol = await query(
+    "SELECT column_name FROM information_schema.columns WHERE table_name = 'ticket_responses' AND column_name = 'is_chat'"
+  );
+  if (isChatCol.rows.length === 0) {
+    await query("ALTER TABLE ticket_responses ADD COLUMN is_chat BOOLEAN NOT NULL DEFAULT FALSE");
+    console.log('[DB] Migration: added is_chat column to ticket_responses');
+  }
 }

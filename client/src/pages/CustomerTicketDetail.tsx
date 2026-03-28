@@ -4,6 +4,7 @@ import { tickets as ticketsApi } from '../api/client';
 import { StatusBadge, PriorityBadge } from '../components/StatusBadge';
 import { useAuth } from '../context/AuthContext';
 import { MessageSquare, Send, Clock, FileText, ArrowLeft, Star, Upload, Paperclip } from 'lucide-react';
+import ChatWidget from '../components/ChatWidget';
 
 export default function CustomerTicketDetail() {
   const { id } = useParams();
@@ -331,6 +332,18 @@ export default function CustomerTicketDetail() {
             </div>
           )}
         </div>
+      )}
+
+      {/* Live Chat Widget */}
+      {ticket && user && (
+        <ChatWidget
+          ticketId={ticket.id}
+          currentUser={{
+            userId: user.id,
+            name: user.name || user.email,
+            role: user.role,
+          }}
+        />
       )}
     </div>
   );

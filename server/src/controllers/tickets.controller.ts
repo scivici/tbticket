@@ -377,6 +377,14 @@ async function triggerWrapperAnalysis(ticketId: number, productId: number, categ
       }
 
       await activityService.logActivity(ticketId, null, 'Claude AI', 'ai_analysis', `AI analysis completed via wrapper service (${result.executionTimeSeconds}s)`);
+
+      // Teams/Slack webhook for AI analysis completion
+      webhookService.notifyAiAnalysisComplete(
+        ticket.ticketNumber,
+        result.analysis.classification || 'N/A',
+        confidence,
+        result.analysis.recommendedEngineerName || '',
+      );
     } else if (result.success && result.rawOutput) {
       // Got raw output but no structured analysis
       const fallback = {
@@ -506,11 +514,20 @@ export async function updateStatus(req: AuthenticatedRequest, res: Response): Pr
     return;
   }
 
+  // Capture old status before updating
+  const oldTicket = await ticketService.getTicketById(parseInt(id));
+  const oldStatus = oldTicket?.status || 'unknown';
+
   await ticketService.updateTicketStatus(parseInt(id), status);
 
   // Log activity
   const userForStatus = await queryOne<any>('SELECT name FROM customers WHERE id = ?', [req.user!.userId]);
   await activityService.logActivity(parseInt(id), req.user!.userId, userForStatus?.name || 'Unknown', 'status_changed', `Status changed to ${status}`);
+
+  // Teams/Slack webhook for status change
+  webhookService.notifyTicketStatusChanged(
+    oldTicket?.ticketNumber || id, oldStatus, status, userForStatus?.name || 'Unknown'
+  );
 
   const ticket = await ticketService.getTicketById(parseInt(id));
   if (ticket) {

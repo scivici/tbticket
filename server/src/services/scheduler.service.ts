@@ -5,17 +5,21 @@ import * as emailService from './email.service';
 import * as activityService from './activity.service';
 import * as slaService from './sla.service';
 import { startEmailReceiver } from './email-receiver.service';
+import * as webhookService from './webhook.service';
+import { createLogger } from './logger.service';
+
+const log = createLogger('Scheduler');
 
 const INTERVAL_MS = 5 * 60 * 1000; // Run every 5 minutes
 
 export function startScheduler() {
-  console.log('[Scheduler] Starting lifecycle automation (every 5 minutes)');
+  log.info('Starting lifecycle automation (every 5 minutes)');
   // Run once immediately, then on interval
   setTimeout(runScheduledTasks, 10_000); // 10s delay after startup
   setInterval(runScheduledTasks, INTERVAL_MS);
 
   // Start email-to-ticket poller (has its own interval)
-  startEmailReceiver().catch(err => console.warn('[Scheduler] Email receiver start failed:', err.message));
+  startEmailReceiver().catch(err => log.warn('Email receiver start failed', { error: err.message }));
 }
 
 async function runScheduledTasks() {
@@ -26,7 +30,7 @@ async function runScheduledTasks() {
     await sendCustomerReminderAlerts();
     await sendSlaBreachAlerts();
   } catch (error) {
-    console.error('[Scheduler] Error running scheduled tasks:', error);
+    log.error('Error running scheduled tasks', { error: (error as Error).message });
   }
 }
 
@@ -63,7 +67,7 @@ async function autoCloseInactiveTickets() {
   }
 
   if (staleTickets.length > 0) {
-    console.log(`[Scheduler] Auto-closed ${staleTickets.length} inactive tickets`);
+    log.info(`Auto-closed ${staleTickets.length} inactive tickets`);
   }
 }
 
@@ -99,7 +103,7 @@ async function autoStateTransitions() {
   }
 
   if (pendingWithCustomerReply.length > 0) {
-    console.log(`[Scheduler] Auto-transitioned ${pendingWithCustomerReply.length} tickets from pending_info to in_progress`);
+    log.info(`Auto-transitioned ${pendingWithCustomerReply.length} tickets from pending_info to in_progress`);
   }
 }
 
@@ -146,7 +150,7 @@ async function sendIdleTicketAlerts() {
   }
 
   if (idleTickets.length > 0) {
-    console.log(`[Scheduler] Sent idle alerts for ${idleTickets.length} tickets`);
+    log.info(`Sent idle alerts for ${idleTickets.length} tickets`);
   }
 }
 
@@ -191,7 +195,7 @@ async function sendCustomerReminderAlerts() {
   }
 
   if (pendingTickets.length > 0) {
-    console.log(`[Scheduler] Sent ${pendingTickets.length} customer reminders`);
+    log.info(`Sent ${pendingTickets.length} customer reminders`);
   }
 }
 
@@ -248,11 +252,15 @@ async function sendSlaBreachAlerts() {
 
       // Send email to customer
       emailService.sendTicketStatusEmail(ticket.customer_email, ticket.ticket_number, 'in_progress').catch(() => {});
+
+      // Teams/Slack webhook for SLA breach
+      const overdueHours = Math.abs(Math.min(sla.responseRemaining || 0, sla.resolutionRemaining || 0));
+      webhookService.notifySlaBreach(ticket.ticket_number, ticket.subject, sla.priority || 'unknown', Math.round(overdueHours));
     }
 
-    console.log(`[Scheduler] Processed ${breached.length} SLA breaches`);
+    log.info(`Processed ${breached.length} SLA breaches`);
   } catch (error) {
     // SLA service might not have all fields — gracefully skip
-    console.warn('[Scheduler] SLA breach check skipped:', (error as any)?.message);
+    log.warn('SLA breach check skipped', { error: (error as any)?.message });
   }
 }

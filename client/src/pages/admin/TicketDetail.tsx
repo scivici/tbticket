@@ -4,6 +4,8 @@ import ReactMarkdown from 'react-markdown';
 import { tickets as ticketsApi, engineers as engineersApi, cannedResponses as cannedApi, customFields as cfApi } from '../../api/client';
 import { StatusBadge, PriorityBadge } from '../../components/StatusBadge';
 import { useToast } from '../../context/ToastContext';
+import { useAuth } from '../../context/AuthContext';
+import ChatWidget from '../../components/ChatWidget';
 import {
   Brain, FileText, RefreshCw, MessageSquare, Send, Lock, Clock, ShieldAlert,
   Trash2, Tag, X, Plus, PlusCircle, ArrowRightCircle, UserCheck, AlertTriangle,
@@ -61,6 +63,7 @@ export default function TicketDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const toast = useToast();
+  const { user: authUser } = useAuth();
   const [ticket, setTicket] = useState<any>(null);
   const [engineers, setEngineers] = useState<any[]>([]);
   const [responses, setResponses] = useState<any[]>([]);
@@ -1398,6 +1401,18 @@ export default function TicketDetail() {
           </div>
         </div>
       </div>
+    )}
+
+    {/* Live Chat Widget */}
+    {ticket && authUser && (
+      <ChatWidget
+        ticketId={ticket.id}
+        currentUser={{
+          userId: authUser.id,
+          name: authUser.name || authUser.email,
+          role: authUser.role,
+        }}
+      />
     )}
     </>
   );
