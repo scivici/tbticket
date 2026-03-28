@@ -192,45 +192,74 @@ ${engineersText || 'No engineers available.'}
     // This prompt works in conjunction with the project CLAUDE.md which provides
     // detailed rules about the environment, available resources, and analysis approach.
     const prompt = `You are performing automated first-line triage for a TelcoBridges support ticket.
+Your analysis will be read by support engineers and potentially shared with the customer. Be thorough.
 
 ## Ticket Information
 Read the full ticket context at: ${ticketDir}/_ticket_context.md
 
-## Analysis Instructions
+## Analysis Instructions — Follow ALL steps in order
 
-1. **Read the ticket context** at ${ticketDir}/_ticket_context.md
-2. **Analyze all attached files** in ${ticketDir}/
-   - For .tar.gz, .tgz, or tbreport archives: extract to ${tmpDir}/ using \`mkdir -p ${tmpDir} && tar xzf <file> -C ${tmpDir}\`, then analyze the extracted contents
-   - For log files: identify errors (TBLV0), warnings (TBLV1), crashes, and call flow issues using the log format from bmad_docs/log-analysis.md
-   - For core dumps: use gdb for backtrace analysis, check registers, disassemble crash point
-   - For config files: check for misconfigurations, deprecated settings, incompatible combinations
-3. **Consult the knowledge base**: read bmad_docs/project-context.md and relevant component docs to ground your analysis in the actual codebase architecture
-4. **Identify the target system** based on the product and symptoms:
-   - ISDN, CAS, GR-303, H.248, streamserver, TDM, SS7, trunks → TMG
-   - tbrouter, tbsip, DPDK, SRTP, software transcoding → SBC
-   - Unknown → assume SBC
-5. **Select the best engineer** based on skills, product expertise, and current workload from the engineer list
+### Step 1: Read Required Documentation FIRST
+Before analyzing the ticket, you MUST read these files to ground your analysis:
+- Read bmad_docs/project-context.md — critical architecture, components, glossary
+- Read bmad_docs/log-analysis.md — log formats, levels (TBLV0-3), analysis techniques
+- Identify the target system from the product name:
+  * ISDN, CAS, GR-303, H.248, streamserver, TDM, SS7, trunks → TMG (read bmad_docs/component-inventory-host-backend.md)
+  * tbrouter, tbsip, DPDK, SRTP, software transcoding → SBC (read bmad_docs/prosbc-core-applications.md)
+  * Unknown or unspecified → assume SBC
 
-## Honesty Rules
-- If you cannot determine the root cause, say so clearly
-- Separate observations (what the logs show) from inferences (what you think happened)
-- Do not fabricate missing evidence — note gaps in available information
-- If the issue requires development team escalation, say so in suggestedActions
+### Step 2: Read the Ticket
+Read ${ticketDir}/_ticket_context.md for full ticket details including customer description, questionnaire responses, and engineer list.
+
+### Step 3: Deep File Analysis
+Analyze ALL attached files in ${ticketDir}/:
+- **Archives (.tar.gz, .tgz, tbreport):** Extract to ${tmpDir}/ using \`mkdir -p ${tmpDir} && tar xzf <file> -C ${tmpDir}\`. Then examine ALL extracted files — logs, configs, status dumps, core files.
+- **Log files:** Search for TBLV0 (critical errors), TBLV1 (warnings), crash indicators, call flow anomalies. Quote exact log lines as evidence. Use the log format: \`<day>, <time><timezone> <level> <module>: <message>\`
+- **Core dumps:** Use gdb for backtrace (\`bt\`), check registers (\`info registers\`), disassemble crash point (\`x/i\`). Note: matching binary may not be available — work with raw addresses first.
+- **Config files:** Check for misconfigurations, deprecated settings, incompatible combinations. Reference docs.prosbc.com parameters where applicable.
+- **Status/diagnostic files:** Parse tbstatus output, interface states, route tables, NAP configurations.
+
+### Step 4: Cross-Reference with Source Code
+After analyzing the files, search the source code repository for relevant code:
+- If you found error messages in logs, grep for those messages in the source to understand the code path
+- If you identified a failing component, read its source to understand the failure mode
+- Reference specific file paths and function names in your report (e.g., "In apps/s2gw/apps/demo/gateway/...")
+
+### Step 5: Cite Your Sources
+For EVERY claim in your analysis, cite the source:
+- Log evidence: quote the exact log line with timestamp
+- Architecture claims: reference the specific bmad_docs file and section
+- Code references: cite the source file path and function name
+- Configuration issues: reference docs.prosbc.com parameter documentation
+- If a claim is based on inference rather than direct evidence, explicitly mark it as inference
+
+### Step 6: Select Engineer
+Choose the best engineer based on:
+- Skill match to the issue type (SIP, SS7, Security, Cloud, Hardware)
+- Product expertise match (ProSBC vs TMG vs TSG)
+- Current workload (prefer engineers with lower workload)
+
+## Honesty Rules (CRITICAL)
+- If you cannot determine the root cause, say "root cause could not be determined from available evidence"
+- Separate observations ("the log shows X at timestamp Y") from inferences ("this suggests Z")
+- Do NOT fabricate missing evidence — note gaps explicitly
+- If the issue requires development team escalation, say so in suggestedActions with a clear summary of what is known and what remains unknown
+- Do NOT give generic telecom advice — ground everything in THIS codebase's architecture
 
 ## Required Output
 Respond with ONLY a JSON object (no markdown fences, no extra text):
 {
-  "classification": "Brief technical classification of the issue",
+  "classification": "Brief technical classification (e.g., 'NAP activation failure — all NAPs down on primary server')",
   "severity": "low|medium|high|critical",
-  "rootCauseHypothesis": "Your best assessment based on evidence. If uncertain, state what is known and what is not.",
+  "rootCauseHypothesis": "Detailed root cause assessment with evidence citations. If uncertain, state what is known vs unknown.",
   "recommendedEngineerId": <engineer ID number>,
   "recommendedEngineerName": "<engineer name>",
   "confidence": <0.0 to 1.0>,
-  "reasoning": "Why you chose this engineer and your technical reasoning",
+  "reasoning": "Detailed explanation of why this engineer was chosen, citing their specific skills and expertise match",
   "suggestedSkills": ["skill1", "skill2"],
   "estimatedComplexity": "low|medium|high",
-  "suggestedActions": ["step 1", "step 2", "..."],
-  "fullReport": "Detailed multi-paragraph technical analysis report including: what was found in logs/files, relevant code/architecture context from bmad_docs, root cause analysis, and recommended next steps."
+  "suggestedActions": ["Specific actionable step 1 with context", "Step 2...", "Step 3..."],
+  "fullReport": "COMPREHENSIVE multi-paragraph technical report. Must include:\\n\\n**1. Summary:** One paragraph overview.\\n\\n**2. Evidence Found:** List every relevant finding from logs/files with exact quotes and timestamps. Cite source file for each.\\n\\n**3. Architecture Context:** How the affected component works, citing bmad_docs and source code paths.\\n\\n**4. Root Cause Analysis:** What the evidence points to, clearly separating observations from inferences.\\n\\n**5. Impact Assessment:** What is affected and scope of the issue.\\n\\n**6. Recommended Actions:** Numbered steps for the engineer to investigate and resolve.\\n\\n**7. Escalation Notes:** Whether dev team involvement is needed and why."
 }`;
 
     // Step 4: Execute Claude Code CLI (from project dir so CLAUDE.md is loaded)
