@@ -2,7 +2,7 @@ import { config } from '../config';
 import { getSetting } from './settings.service';
 
 export async function sendSlackNotification(text: string): Promise<boolean> {
-  const url = getSetting('slack_webhook_url') || config.slackWebhookUrl;
+  const url = await getSetting('slack_webhook_url') || config.slackWebhookUrl;
   if (!url) return false;
   try {
     await fetch(url, {
@@ -19,7 +19,7 @@ export async function sendSlackNotification(text: string): Promise<boolean> {
 }
 
 export async function sendTeamsNotification(title: string, text: string): Promise<boolean> {
-  const url = getSetting('teams_webhook_url') || config.teamsWebhookUrl;
+  const url = await getSetting('teams_webhook_url') || config.teamsWebhookUrl;
   if (!url) return false;
   try {
     await fetch(url, {

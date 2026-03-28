@@ -20,10 +20,10 @@ interface WrapperConfig {
   timeout: number;   // ms
 }
 
-function getWrapperConfig(): WrapperConfig {
-  const s = getSettings('claude_wrapper_');
+async function getWrapperConfig(): Promise<WrapperConfig> {
+  const s = await getSettings('claude_wrapper_');
   return {
-    url: s['claude_wrapper_url'] || 'http://claude-support-2.telcobridges.lan:4002',
+    url: s['claude_wrapper_url'] || 'http://host.docker.internal:4002',
     authToken: s['claude_wrapper_auth_token'] || 'tb-claude-wrapper-secret',
     timeout: parseInt(s['claude_wrapper_timeout'] || '0'), // 0 = no timeout (analyses can take 30+ min)
   };

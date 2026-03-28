@@ -13,8 +13,8 @@ interface SshConfig {
   remotePath: string;
 }
 
-function getSshConfig(): SshConfig {
-  const s = getSettings('claude_ssh_');
+async function getSshConfig(): Promise<SshConfig> {
+  const s = await getSettings('claude_ssh_');
   return {
     host: s['claude_ssh_host'] || 'claude-support-2.telcobridges.lan',
     port: parseInt(s['claude_ssh_port'] || '22'),
@@ -32,7 +32,7 @@ export async function uploadFilesToClaude(
   ticketNumber: string,
   localFiles: { localPath: string; filename: string }[]
 ): Promise<{ success: boolean; remotePath: string; error?: string }> {
-  const cfg = getSshConfig();
+  const cfg = await getSshConfig();
   if (!cfg.host) {
     return { success: false, remotePath: '', error: 'SSH host not configured' };
   }
@@ -84,7 +84,7 @@ export async function runClaudeAnalysis(
   ticketNumber: string,
   prompt: string
 ): Promise<{ success: boolean; output: string; error?: string }> {
-  const cfg = getSshConfig();
+  const cfg = await getSshConfig();
   if (!cfg.host) {
     return { success: false, output: '', error: 'SSH host not configured' };
   }

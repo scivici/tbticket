@@ -26,11 +26,11 @@ const PRIORITY_MAP: Record<string, string> = {
 };
 
 export async function createJiraIssue(data: JiraIssueData): Promise<JiraResult> {
-  const baseUrl = getSetting('jira_base_url');
-  const email = getSetting('jira_api_email');
-  const token = getSetting('jira_api_token');
-  const projectKey = getSetting('jira_project_key');
-  const issueType = getSetting('jira_issue_type') || 'Bug';
+  const baseUrl = await getSetting('jira_base_url');
+  const email = await getSetting('jira_api_email');
+  const token = await getSetting('jira_api_token');
+  const projectKey = await getSetting('jira_project_key');
+  const issueType = await getSetting('jira_issue_type') || 'Bug';
 
   if (!baseUrl || !email || !token || !projectKey) {
     return { success: false, error: 'Jira integration not configured. Please set Jira settings in Setup.' };
@@ -111,16 +111,16 @@ export async function createJiraIssue(data: JiraIssueData): Promise<JiraResult> 
   }
 }
 
-export function isJiraConfigured(): boolean {
-  const baseUrl = getSetting('jira_base_url');
-  const token = getSetting('jira_api_token');
+export async function isJiraConfigured(): Promise<boolean> {
+  const baseUrl = await getSetting('jira_base_url');
+  const token = await getSetting('jira_api_token');
   return !!(baseUrl && token);
 }
 
 export async function getJiraIssueStatus(issueKey: string): Promise<{ status: string; summary: string; url: string } | null> {
-  const baseUrl = getSetting('jira_base_url');
-  const email = getSetting('jira_api_email');
-  const token = getSetting('jira_api_token');
+  const baseUrl = await getSetting('jira_base_url');
+  const email = await getSetting('jira_api_email');
+  const token = await getSetting('jira_api_token');
 
   if (!baseUrl || !email || !token) return null;
 

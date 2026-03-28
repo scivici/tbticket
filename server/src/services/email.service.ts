@@ -6,9 +6,9 @@ let transporter: nodemailer.Transporter | null = null;
 
 export function resetTransporter() { transporter = null; }
 
-function getTransporter() {
+async function getTransporter() {
   if (!transporter) {
-    const s = getSettings('smtp_');
+    const s = await getSettings('smtp_');
     const host = s['smtp_host'] || config.smtp.host;
     const port = parseInt(s['smtp_port'] || String(config.smtp.port));
     const user = s['smtp_user'] || config.smtp.user;
@@ -26,19 +26,19 @@ function getTransporter() {
   return transporter;
 }
 
-function getFromAddress(): string {
-  const s = getSettings('smtp_');
+async function getFromAddress(): Promise<string> {
+  const s = await getSettings('smtp_');
   return s['smtp_from'] || config.smtp.from;
 }
 
 export async function sendEmail(to: string, subject: string, html: string): Promise<boolean> {
-  const t = getTransporter();
+  const t = await getTransporter();
   if (!t) {
     console.log('[Email] SMTP not configured, skipping email to', to);
     return false;
   }
   try {
-    await t.sendMail({ from: getFromAddress(), to, subject, html });
+    await t.sendMail({ from: await getFromAddress(), to, subject, html });
     console.log('[Email] Sent to', to, ':', subject);
     return true;
   } catch (error) {

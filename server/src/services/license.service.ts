@@ -8,7 +8,7 @@ export interface LicenseCheckResult {
 }
 
 export async function checkLicense(productKey: string): Promise<LicenseCheckResult> {
-  const settings = getSettings('license_api_');
+  const settings = await getSettings('license_api_');
   const url = settings['license_api_url'];
 
   if (!url) {
