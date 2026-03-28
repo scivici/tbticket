@@ -132,10 +132,11 @@ export async function analyzeTicketViaWrapper(input: WrapperInput): Promise<Wrap
     const endpoint = `${wrapperConfig.url}/analyze`;
     console.log(`[Wrapper] Sending analysis request to ${endpoint} for ticket ${input.ticketNumber}...`);
 
+    // Use a very long timeout (2 hours) to support complex analyses
+    // Node.js fetch has a default 300s timeout that kills long-running requests
     const controller = new AbortController();
-    const timeoutId = wrapperConfig.timeout > 0
-      ? setTimeout(() => controller.abort(), wrapperConfig.timeout)
-      : null;
+    const timeoutMs = wrapperConfig.timeout > 0 ? wrapperConfig.timeout : 2 * 60 * 60 * 1000; // default 2 hours
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
     const response = await fetch(endpoint, {
       method: 'POST',
@@ -144,10 +145,10 @@ export async function analyzeTicketViaWrapper(input: WrapperInput): Promise<Wrap
         'x-auth-token': wrapperConfig.authToken,
       },
       body: JSON.stringify(payload),
-      signal: wrapperConfig.timeout > 0 ? controller.signal : undefined,
+      signal: controller.signal,
     });
 
-    if (timeoutId) clearTimeout(timeoutId);
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       const errorText = await response.text();
