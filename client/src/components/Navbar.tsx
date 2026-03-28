@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LayoutDashboard, LogOut, LogIn, UserPlus, Menu, X } from 'lucide-react';
+import { LayoutDashboard, LogOut, LogIn, UserPlus, Menu, X, BookOpen } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
 import NotificationBell from './NotificationBell';
 
@@ -20,6 +20,9 @@ export default function Navbar() {
       </Link>
       <Link to="/track" onClick={closeMobile} className="text-gray-600 dark:text-gray-300 hover:text-primary-500 dark:hover:text-accent-blue hover:bg-gray-100 dark:hover:bg-tb-bg px-3 py-2 rounded-lg text-sm font-medium transition-colors">
         Track Ticket
+      </Link>
+      <Link to="/knowledge-base" onClick={closeMobile} className="text-gray-600 dark:text-gray-300 hover:text-primary-500 dark:hover:text-accent-blue hover:bg-gray-100 dark:hover:bg-tb-bg px-3 py-2 rounded-lg text-sm font-medium transition-colors">
+        Knowledge Base
       </Link>
       {user && (
         <Link to="/my-tickets" onClick={closeMobile} className="text-gray-600 dark:text-gray-300 hover:text-primary-500 dark:hover:text-accent-blue hover:bg-gray-100 dark:hover:bg-tb-bg px-3 py-2 rounded-lg text-sm font-medium transition-colors">

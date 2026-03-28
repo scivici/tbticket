@@ -4,6 +4,7 @@ import * as notificationService from './notification.service';
 import * as emailService from './email.service';
 import * as activityService from './activity.service';
 import * as slaService from './sla.service';
+import { startEmailReceiver } from './email-receiver.service';
 
 const INTERVAL_MS = 5 * 60 * 1000; // Run every 5 minutes
 
@@ -12,6 +13,9 @@ export function startScheduler() {
   // Run once immediately, then on interval
   setTimeout(runScheduledTasks, 10_000); // 10s delay after startup
   setInterval(runScheduledTasks, INTERVAL_MS);
+
+  // Start email-to-ticket poller (has its own interval)
+  startEmailReceiver().catch(err => console.warn('[Scheduler] Email receiver start failed:', err.message));
 }
 
 async function runScheduledTasks() {

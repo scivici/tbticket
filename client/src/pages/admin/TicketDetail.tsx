@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
-import { tickets as ticketsApi, engineers as engineersApi, cannedResponses as cannedApi } from '../../api/client';
+import { tickets as ticketsApi, engineers as engineersApi, cannedResponses as cannedApi, customFields as cfApi } from '../../api/client';
 import { StatusBadge, PriorityBadge } from '../../components/StatusBadge';
 import {
   Brain, FileText, RefreshCw, MessageSquare, Send, Lock, Clock, ShieldAlert,
   Trash2, Tag, X, Plus, PlusCircle, ArrowRightCircle, UserCheck, AlertTriangle,
   MessageSquarePlus, Image as ImageIcon, Star, Upload, Paperclip, Link2, Users, ExternalLink,
-  Timer, Sparkles, BookOpen, Play, Square
+  Timer, Sparkles, BookOpen, Play, Square, Printer, Merge
 } from 'lucide-react';
 
 const ACTIVITY_TYPES = [
@@ -98,6 +98,11 @@ export default function TicketDetail() {
   const [jiraInput, setJiraInput] = useState('');
   const [editingJira, setEditingJira] = useState(false);
 
+  // Merge
+  const [showMergeModal, setShowMergeModal] = useState(false);
+  const [mergeSourceInput, setMergeSourceInput] = useState('');
+  const [merging, setMerging] = useState(false);
+
   // Time entries
   const [timeEntries, setTimeEntries] = useState<any[]>([]);
   const [showTimeForm, setShowTimeForm] = useState(false);
@@ -120,6 +125,11 @@ export default function TicketDetail() {
   // Jira live status
   const [jiraStatus, setJiraStatus] = useState<any>(null);
 
+  // Custom fields
+  const [allCustomFields, setAllCustomFields] = useState<any[]>([]);
+  const [customFieldValues, setCustomFieldValues] = useState<Record<number, string>>({});
+  const [savingCustomFields, setSavingCustomFields] = useState(false);
+
   // Support both numeric ID and ticket number (TKT-xxx)
   const isNumeric = /^\d+$/.test(id!);
 
@@ -138,12 +148,18 @@ export default function TicketDetail() {
         ticketsApi.getCcUsers(t.id).catch(() => []),
         ticketsApi.getLinkedTickets(t.id).catch(() => []),
         ticketsApi.getTimeEntries(t.id).catch(() => []),
+        cfApi.list().catch(() => []),
+        cfApi.getForTicket(t.id).catch(() => []),
       ]);
     })
-      .then(([e, r, tg, act, sat, cc, links, te]) => {
+      .then(([e, r, tg, act, sat, cc, links, te, cfAll, cfVals]) => {
         setEngineers(e); setResponses(r); setTags(tg); setActivities(act);
         if (sat && sat.rating) setSatisfaction(sat);
         setCcUsers(cc); setLinkedTickets(links); setTimeEntries(te);
+        setAllCustomFields(cfAll || []);
+        const valMap: Record<number, string> = {};
+        for (const v of (cfVals || [])) valMap[v.field_id] = v.value || '';
+        setCustomFieldValues(valMap);
       })
       .catch(console.error).finally(() => setLoading(false));
     // Fetch Jira status separately (async, non-blocking)
@@ -303,7 +319,14 @@ export default function TicketDetail() {
           <p className="text-sm text-gray-500 font-mono">{ticket.ticketNumber}</p>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{ticket.subject}</h1>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => window.open(`/admin/tickets/${ticket.id}/print`, '_blank')}
+            className="p-2 text-gray-400 hover:text-accent-blue hover:bg-accent-blue/10 rounded-lg transition-colors"
+            title="Print / PDF"
+          >
+            <Printer className="w-4 h-4" />
+          </button>
           <StatusBadge status={ticket.status} />
           <PriorityBadge priority={ticket.priority} />
         </div>
@@ -1080,6 +1103,11 @@ export default function TicketDetail() {
                   {actionLoading === 'jira' ? 'Creating...' : 'Escalate to Jira'}
                 </button>
               )}
+              <button onClick={() => { setMergeSourceInput(''); setShowMergeModal(true); }} disabled={!!actionLoading}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-cyan-500/20 text-cyan-400 rounded-lg text-sm font-medium hover:bg-cyan-500/30 disabled:opacity-50 transition-colors">
+                <Merge className="w-4 h-4" />
+                Merge Ticket
+              </button>
               <button onClick={handleDelete} disabled={!!actionLoading}
                 className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-500/20 text-red-500 rounded-lg text-sm font-medium hover:bg-red-500/30 disabled:opacity-50 transition-colors">
                 <Trash2 className="w-4 h-4" />
@@ -1168,6 +1196,57 @@ export default function TicketDetail() {
           {ticket?.aiAnalysis && (
             <p className="text-xs text-gray-400 mt-3">Previous analysis will be preserved in history.</p>
           )}
+        </div>
+      </div>
+    )}
+
+    {/* Merge Ticket Modal */}
+    {showMergeModal && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowMergeModal(false)}>
+        <div className="bg-white dark:bg-tb-card rounded-xl shadow-2xl p-6 w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
+          <div className="flex items-center gap-2 mb-4">
+            <Merge className="w-5 h-5 text-cyan-400" />
+            <h3 className="font-semibold text-gray-900 dark:text-white">Merge Ticket</h3>
+          </div>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">
+            Merge another ticket <strong>into</strong> this one ({ticket.ticketNumber}).
+          </p>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">
+            All responses, attachments, time entries, and tags from the source ticket will be moved here. The source ticket will be closed.
+          </p>
+          <input
+            type="text"
+            value={mergeSourceInput}
+            onChange={e => setMergeSourceInput(e.target.value)}
+            placeholder="Source ticket ID (e.g., 42)"
+            className="tb-input w-full mb-4 text-sm"
+            autoFocus
+          />
+          <div className="flex justify-end gap-3">
+            <button onClick={() => setShowMergeModal(false)} className="tb-btn-secondary text-sm">Cancel</button>
+            <button
+              onClick={async () => {
+                if (!mergeSourceInput.trim() || !ticket) return;
+                setMerging(true);
+                try {
+                  const sourceId = parseInt(mergeSourceInput.trim());
+                  if (isNaN(sourceId)) { alert('Please enter a valid ticket ID'); setMerging(false); return; }
+                  const result = await ticketsApi.mergeTicket(ticket.id, sourceId);
+                  alert(result.message || 'Tickets merged successfully');
+                  setShowMergeModal(false);
+                  load();
+                } catch (err: any) {
+                  alert(err.message || 'Failed to merge tickets');
+                }
+                setMerging(false);
+              }}
+              disabled={merging || !mergeSourceInput.trim()}
+              className="flex items-center gap-2 px-4 py-2 bg-cyan-600 text-white rounded-lg text-sm font-medium hover:bg-cyan-700 disabled:opacity-50 transition-colors"
+            >
+              <Merge className="w-4 h-4" />
+              {merging ? 'Merging...' : 'Merge'}
+            </button>
+          </div>
         </div>
       </div>
     )}

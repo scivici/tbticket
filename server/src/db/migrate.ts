@@ -60,4 +60,35 @@ export async function runMigrations(): Promise<void> {
     `);
     console.log('[DB] Migration: created active_timers table');
   }
+
+  // Migration: custom_fields table
+  const customFieldsTable = await query(
+    "SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename = 'custom_fields'"
+  );
+  if (customFieldsTable.rows.length === 0) {
+    await query(`
+      CREATE TABLE IF NOT EXISTS custom_fields (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        field_key TEXT UNIQUE NOT NULL,
+        field_type TEXT NOT NULL CHECK(field_type IN ('text', 'number', 'select', 'checkbox', 'date', 'textarea')),
+        options JSONB,
+        is_required BOOLEAN NOT NULL DEFAULT FALSE,
+        display_order INTEGER NOT NULL DEFAULT 0,
+        product_id INTEGER REFERENCES products(id),
+        is_active BOOLEAN NOT NULL DEFAULT TRUE,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await query(`
+      CREATE TABLE IF NOT EXISTS ticket_custom_field_values (
+        id SERIAL PRIMARY KEY,
+        ticket_id INTEGER NOT NULL REFERENCES tickets(id),
+        field_id INTEGER NOT NULL REFERENCES custom_fields(id),
+        value TEXT,
+        UNIQUE(ticket_id, field_id)
+      )
+    `);
+    console.log('[DB] Migration: created custom_fields and ticket_custom_field_values tables');
+  }
 }

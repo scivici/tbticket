@@ -12,6 +12,7 @@ import CustomerTicketDetail from './pages/CustomerTicketDetail';
 import ProfilePage from './pages/ProfilePage';
 import WizardContainer from './pages/TicketWizard/WizardContainer';
 import ReleaseNotes from './pages/ReleaseNotes';
+import KnowledgeBase from './pages/KnowledgeBase';
 import Dashboard from './pages/admin/Dashboard';
 import TicketList from './pages/admin/TicketList';
 import TicketDetail from './pages/admin/TicketDetail';
@@ -27,6 +28,9 @@ import CannedResponseManager from './pages/admin/CannedResponseManager';
 import EscalationManager from './pages/admin/EscalationManager';
 import RecurringTickets from './pages/admin/RecurringTickets';
 import TimeReports from './pages/admin/TimeReports';
+import CustomFieldManager from './pages/admin/CustomFieldManager';
+import SlaDashboard from './pages/admin/SlaDashboard';
+import TicketPrint from './pages/admin/TicketPrint';
 
 function AdminGuard() {
   const { isAdmin, loading } = useAuth();
@@ -45,6 +49,7 @@ export default function App() {
         <Route path="/submit" element={<WizardContainer />} />
         <Route path="/track" element={<TicketTracker />} />
         <Route path="/release-notes" element={<ReleaseNotes />} />
+        <Route path="/knowledge-base" element={<KnowledgeBase />} />
         <Route path="/my-tickets" element={<MyTickets />} />
         <Route path="/my-tickets/:id" element={<CustomerTicketDetail />} />
         <Route path="/profile" element={<ProfilePage />} />
@@ -65,6 +70,9 @@ export default function App() {
         <Route path="/admin/escalations" element={<EscalationManager />} />
         <Route path="/admin/recurring" element={<RecurringTickets />} />
         <Route path="/admin/time-reports" element={<TimeReports />} />
+        <Route path="/admin/custom-fields" element={<CustomFieldManager />} />
+        <Route path="/admin/sla-dashboard" element={<SlaDashboard />} />
+        <Route path="/admin/tickets/:id/print" element={<TicketPrint />} />
         <Route path="/admin/users" element={<Navigate to="/admin/setup" />} />
         <Route path="/admin/setup" element={<SetupPage />} />
       </Route>

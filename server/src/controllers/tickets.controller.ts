@@ -773,6 +773,79 @@ export async function deleteTicket(req: AuthenticatedRequest, res: Response): Pr
   }
 }
 
+export async function mergeTickets(req: AuthenticatedRequest, res: Response): Promise<void> {
+  try {
+    const targetId = parseInt(req.params.id);
+    const { sourceTicketId } = req.body;
+
+    if (!sourceTicketId) {
+      res.status(400).json({ error: 'sourceTicketId is required' });
+      return;
+    }
+
+    const sourceId = parseInt(sourceTicketId);
+    if (sourceId === targetId) {
+      res.status(400).json({ error: 'Cannot merge a ticket into itself' });
+      return;
+    }
+
+    const targetTicket = await ticketService.getTicketById(targetId);
+    const sourceTicket = await ticketService.getTicketById(sourceId);
+
+    if (!targetTicket) { res.status(404).json({ error: 'Target ticket not found' }); return; }
+    if (!sourceTicket) { res.status(404).json({ error: 'Source ticket not found' }); return; }
+
+    await transaction(async (client) => {
+      // Move responses from source to target
+      await clientQuery(client, 'UPDATE ticket_responses SET ticket_id = ? WHERE ticket_id = ?', [targetId, sourceId]);
+
+      // Move attachments from source to target
+      await clientQuery(client, 'UPDATE ticket_attachments SET ticket_id = ? WHERE ticket_id = ?', [targetId, sourceId]);
+
+      // Move time entries from source to target
+      await clientQuery(client, 'UPDATE time_entries SET ticket_id = ? WHERE ticket_id = ?', [targetId, sourceId]);
+
+      // Copy tags from source to target (skip duplicates)
+      const sourceTags = await clientQuery(client, 'SELECT tag FROM ticket_tags WHERE ticket_id = ?', [sourceId]);
+      for (const row of sourceTags.rows) {
+        const exists = await clientQuery(client, 'SELECT 1 FROM ticket_tags WHERE ticket_id = ? AND tag = ?', [targetId, row.tag]);
+        if (exists.rows.length === 0) {
+          await clientQuery(client, 'INSERT INTO ticket_tags (ticket_id, tag) VALUES (?, ?)', [targetId, row.tag]);
+        }
+      }
+      // Remove source tags after copying
+      await clientQuery(client, 'DELETE FROM ticket_tags WHERE ticket_id = ?', [sourceId]);
+
+      // Log activity on target
+      await clientQuery(client,
+        'INSERT INTO ticket_activity_log (ticket_id, actor_id, actor_name, action, details) VALUES (?, ?, ?, ?, ?)',
+        [targetId, req.user!.userId, req.user!.name || 'Admin', 'merged', `Merged ticket ${sourceTicket.ticketNumber} into this ticket`]
+      );
+
+      // Close source ticket and add note
+      await clientQuery(client,
+        "UPDATE tickets SET status = 'closed', updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+        [sourceId]
+      );
+      await clientQuery(client,
+        'INSERT INTO ticket_activity_log (ticket_id, actor_id, actor_name, action, details) VALUES (?, ?, ?, ?, ?)',
+        [sourceId, req.user!.userId, req.user!.name || 'Admin', 'merged', `Merged into ${targetTicket.ticketNumber}`]
+      );
+
+      // Add a response on source ticket as a note
+      await clientQuery(client,
+        "INSERT INTO ticket_responses (ticket_id, author_id, author_name, author_role, message, is_internal) VALUES (?, ?, ?, 'admin', ?, TRUE)",
+        [sourceId, req.user!.userId, req.user!.name || 'Admin', `This ticket has been merged into ${targetTicket.ticketNumber}. All responses, attachments, and time entries have been moved.`]
+      );
+    });
+
+    res.json({ message: `Ticket ${sourceTicket.ticketNumber} merged into ${targetTicket.ticketNumber}` });
+  } catch (error: any) {
+    console.error('[Tickets] Merge error:', error);
+    res.status(500).json({ error: 'Failed to merge tickets' });
+  }
+}
+
 export async function updatePriority(req: AuthenticatedRequest, res: Response): Promise<void> {
   const { id } = req.params;
   const { priority } = req.body;

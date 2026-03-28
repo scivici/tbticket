@@ -270,5 +270,14 @@ INSERT INTO settings (key, value, description) VALUES
 ('claude_ssh_port', '22', 'SSH port'),
 ('claude_ssh_user', 'support', 'SSH user'),
 ('claude_ssh_pass', 'support', 'SSH password'),
-('claude_ssh_remote_path', '/home/support/tickets', 'SSH remote path')
+('claude_ssh_remote_path', '/home/support/tickets', 'SSH remote path'),
+('email_to_ticket_enabled', 'false', 'Enable email-to-ticket IMAP polling'),
+('email_to_ticket_poll_interval', '5', 'Email polling interval in minutes'),
+('email_to_ticket_default_product_id', '1', 'Default product ID for email-created tickets'),
+('email_to_ticket_default_category_id', '1', 'Default category ID for email-created tickets'),
+('imap_host', '', 'IMAP server hostname'),
+('imap_port', '993', 'IMAP server port'),
+('imap_user', '', 'IMAP username'),
+('imap_pass', '', 'IMAP password'),
+('imap_tls', 'true', 'Use TLS for IMAP connection')
 ON CONFLICT DO NOTHING;

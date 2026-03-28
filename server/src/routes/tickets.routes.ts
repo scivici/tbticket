@@ -2,6 +2,7 @@ import { Router } from 'express';
 import * as ticketsController from '../controllers/tickets.controller';
 import { authenticate, optionalAuth, requireAdmin } from '../middleware/auth';
 import { upload } from '../middleware/upload';
+import { queryAll, query } from '../db/connection';
 
 const router = Router();
 
@@ -80,6 +81,42 @@ router.patch('/:id/jira', authenticate, requireAdmin, ticketsController.updateJi
 router.post('/:id/escalate-jira', authenticate, requireAdmin, ticketsController.escalateToJira);
 router.get('/:id/jira-status', authenticate, requireAdmin, ticketsController.getJiraStatus);
 router.post('/:id/analyze', authenticate, requireAdmin, ticketsController.reanalyzeTicket);
+router.post('/:id/merge', authenticate, requireAdmin, ticketsController.mergeTickets);
 router.delete('/:id', authenticate, requireAdmin, ticketsController.deleteTicket);
+
+// Custom field values for a ticket
+router.get('/:id/custom-fields', authenticate, async (req, res) => {
+  const values = await queryAll<any>(
+    `SELECT tcfv.id, tcfv.field_id, tcfv.value, cf.name, cf.field_key, cf.field_type, cf.options, cf.is_required
+     FROM ticket_custom_field_values tcfv
+     JOIN custom_fields cf ON tcfv.field_id = cf.id
+     WHERE tcfv.ticket_id = ?
+     ORDER BY cf.display_order ASC`,
+    [req.params.id]
+  );
+  res.json(values);
+});
+
+router.put('/:id/custom-fields', authenticate, requireAdmin, async (req, res) => {
+  const { fields } = req.body; // array of { fieldId, value }
+  if (!Array.isArray(fields)) { res.status(400).json({ error: 'fields array required' }); return; }
+  for (const f of fields) {
+    await query(
+      `INSERT INTO ticket_custom_field_values (ticket_id, field_id, value)
+       VALUES (?, ?, ?)
+       ON CONFLICT (ticket_id, field_id) DO UPDATE SET value = ?`,
+      [req.params.id, f.fieldId, f.value, f.value]
+    );
+  }
+  const values = await queryAll<any>(
+    `SELECT tcfv.id, tcfv.field_id, tcfv.value, cf.name, cf.field_key, cf.field_type, cf.options, cf.is_required
+     FROM ticket_custom_field_values tcfv
+     JOIN custom_fields cf ON tcfv.field_id = cf.id
+     WHERE tcfv.ticket_id = ?
+     ORDER BY cf.display_order ASC`,
+    [req.params.id]
+  );
+  res.json(values);
+});
 
 export default router;

@@ -142,6 +142,8 @@ export const tickets = {
     request<any>(`/tickets/${id}/satisfaction`, { method: 'POST', body: JSON.stringify({ rating, comment }) }),
   getSatisfaction: (id: number) =>
     request<any>(`/tickets/${id}/satisfaction`),
+  mergeTicket: (id: number, sourceTicketId: number) =>
+    request<any>(`/tickets/${id}/merge`, { method: 'POST', body: JSON.stringify({ sourceTicketId }) }),
 };
 
 // Engineers
@@ -215,6 +217,7 @@ export const admin = {
     if (daysBack) params.set('daysBack', String(daysBack));
     return request<any[]>(`/admin/recurring-tickets?${params}`);
   },
+  slaDashboard: () => request<any>('/admin/sla-dashboard'),
 };
 
 // Admin Manage
@@ -291,6 +294,27 @@ export const notifications = {
   unreadCount: () => request<{ count: number }>('/notifications/unread-count'),
   markAsRead: (id: number) => request<any>(`/notifications/${id}/read`, { method: 'PATCH' }),
   markAllAsRead: () => request<any>('/notifications/read-all', { method: 'PATCH' }),
+};
+
+// Knowledge Base (public)
+export const kb = {
+  list: () => request<any[]>('/kb'),
+  search: (q: string) => request<any[]>(`/kb/search?q=${encodeURIComponent(q)}`),
+  get: (id: number) => request<any>(`/kb/${id}`),
+};
+
+// Custom Fields
+export const customFields = {
+  list: () => request<any[]>(`${manage}/custom-fields`),
+  create: (data: any) =>
+    request<any>(`${manage}/custom-fields`, { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: number, data: any) =>
+    request<any>(`${manage}/custom-fields/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  delete: (id: number) =>
+    request<any>(`${manage}/custom-fields/${id}`, { method: 'DELETE' }),
+  getForTicket: (ticketId: number) => request<any[]>(`/tickets/${ticketId}/custom-fields`),
+  saveForTicket: (ticketId: number, fields: { fieldId: number; value: string }[]) =>
+    request<any[]>(`/tickets/${ticketId}/custom-fields`, { method: 'PUT', body: JSON.stringify({ fields }) }),
 };
 
 // Admin Users

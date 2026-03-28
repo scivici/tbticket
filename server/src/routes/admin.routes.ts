@@ -407,6 +407,143 @@ router.post('/notify-version-update', authenticate, requireAdmin, async (req: an
   res.json({ message: `Version update notification sent to ${notified} customers` });
 });
 
+// SLA Dashboard - comprehensive SLA data
+router.get('/sla-dashboard', authenticate, requireAdmin, async (_req: any, res: Response) => {
+  try {
+    const policies = await slaService.getAllSlaPolicies();
+
+    // Get all tickets with SLA info
+    const allTickets = await queryAll<any>(`
+      SELECT t.id, t.ticket_number, t.subject, t.priority, t.status,
+             t.created_at, t.resolved_at,
+             sp.response_time_hours, sp.resolution_time_hours,
+             e.name as engineer_name,
+             c.name as customer_name,
+             (SELECT MIN(tr.created_at) FROM ticket_responses tr WHERE tr.ticket_id = t.id AND tr.author_role = 'admin' AND tr.is_internal = FALSE) as first_response_at
+      FROM tickets t
+      LEFT JOIN sla_policies sp ON sp.priority = t.priority
+      LEFT JOIN engineers e ON t.assigned_engineer_id = e.id
+      LEFT JOIN customers c ON t.customer_id = c.id
+      WHERE sp.response_time_hours IS NOT NULL
+    `);
+
+    // Compliance per priority
+    const complianceByPriority: Record<string, { total: number; responseMet: number; resolutionMet: number; avgResponseHours: number; totalResponseHours: number; respondedCount: number }> = {};
+    for (const p of ['critical', 'high', 'medium', 'low']) {
+      complianceByPriority[p] = { total: 0, responseMet: 0, resolutionMet: 0, avgResponseHours: 0, totalResponseHours: 0, respondedCount: 0 };
+    }
+
+    const now = Date.now();
+    const breachedTickets: any[] = [];
+
+    for (const t of allTickets) {
+      if (!t.response_time_hours) continue;
+      const priority = t.priority;
+      if (!complianceByPriority[priority]) continue;
+
+      complianceByPriority[priority].total++;
+      const created = new Date(t.created_at).getTime();
+      const respDeadline = created + t.response_time_hours * 3600000;
+      const resolDeadline = created + t.resolution_time_hours * 3600000;
+
+      const firstResp = t.first_response_at ? new Date(t.first_response_at).getTime() : null;
+      const resolved = t.resolved_at ? new Date(t.resolved_at).getTime() : null;
+
+      const respBreached = firstResp ? firstResp > respDeadline : now > respDeadline;
+      const resolBreached = resolved ? resolved > resolDeadline : (t.status !== 'resolved' && t.status !== 'closed' && now > resolDeadline);
+
+      if (!respBreached) complianceByPriority[priority].responseMet++;
+      if (!resolBreached) complianceByPriority[priority].resolutionMet++;
+
+      if (firstResp) {
+        complianceByPriority[priority].totalResponseHours += (firstResp - created) / 3600000;
+        complianceByPriority[priority].respondedCount++;
+      }
+
+      // Currently breached (open tickets only)
+      if ((respBreached || resolBreached) && t.status !== 'resolved' && t.status !== 'closed') {
+        const overdueHours = respBreached && !firstResp
+          ? (now - respDeadline) / 3600000
+          : resolBreached ? (now - resolDeadline) / 3600000 : 0;
+        breachedTickets.push({
+          ticketId: t.id,
+          ticketNumber: t.ticket_number,
+          subject: t.subject,
+          priority: t.priority,
+          status: t.status,
+          engineerName: t.engineer_name,
+          customerName: t.customer_name,
+          createdAt: t.created_at,
+          responseBreached: respBreached && !firstResp,
+          resolutionBreached: resolBreached,
+          overdueHours: Math.round(overdueHours * 10) / 10,
+        });
+      }
+    }
+
+    // Compute avg response time per priority
+    const complianceCards = Object.entries(complianceByPriority).map(([priority, data]) => {
+      const policy = policies.find((p: any) => p.priority === priority);
+      return {
+        priority,
+        total: data.total,
+        responseCompliance: data.total > 0 ? Math.round((data.responseMet / data.total) * 100) : 100,
+        resolutionCompliance: data.total > 0 ? Math.round((data.resolutionMet / data.total) * 100) : 100,
+        avgResponseHours: data.respondedCount > 0 ? Math.round((data.totalResponseHours / data.respondedCount) * 10) / 10 : null,
+        targetResponseHours: policy?.response_time_hours || null,
+        targetResolutionHours: policy?.resolution_time_hours || null,
+      };
+    });
+
+    // Trend: breaches per day over last 30 days
+    const thirtyDaysAgo = new Date(now - 30 * 24 * 3600000);
+    const trend: Record<string, number> = {};
+    for (let i = 0; i < 30; i++) {
+      const d = new Date(thirtyDaysAgo.getTime() + i * 24 * 3600000);
+      trend[d.toISOString().split('T')[0]] = 0;
+    }
+
+    for (const t of allTickets) {
+      if (!t.response_time_hours) continue;
+      const created = new Date(t.created_at).getTime();
+      const respDeadline = created + t.response_time_hours * 3600000;
+      const resolDeadline = created + t.resolution_time_hours * 3600000;
+
+      const firstResp = t.first_response_at ? new Date(t.first_response_at).getTime() : null;
+      const resolved = t.resolved_at ? new Date(t.resolved_at).getTime() : null;
+
+      // Check if response SLA was breached and when
+      if (firstResp && firstResp > respDeadline) {
+        const breachDate = new Date(respDeadline).toISOString().split('T')[0];
+        if (trend[breachDate] !== undefined) trend[breachDate]++;
+      } else if (!firstResp && now > respDeadline) {
+        const breachDate = new Date(respDeadline).toISOString().split('T')[0];
+        if (trend[breachDate] !== undefined) trend[breachDate]++;
+      }
+
+      if (resolved && resolved > resolDeadline) {
+        const breachDate = new Date(resolDeadline).toISOString().split('T')[0];
+        if (trend[breachDate] !== undefined) trend[breachDate]++;
+      } else if (!resolved && t.status !== 'resolved' && t.status !== 'closed' && now > resolDeadline) {
+        const breachDate = new Date(resolDeadline).toISOString().split('T')[0];
+        if (trend[breachDate] !== undefined) trend[breachDate]++;
+      }
+    }
+
+    const trendData = Object.entries(trend).map(([date, breaches]) => ({ date, breaches }));
+
+    res.json({
+      complianceCards,
+      breachedTickets: breachedTickets.sort((a, b) => b.overdueHours - a.overdueHours),
+      trendData,
+      policies,
+    });
+  } catch (error: any) {
+    console.error('[SLA Dashboard] Error:', error);
+    res.status(500).json({ error: 'Failed to load SLA dashboard' });
+  }
+});
+
 router.get('/recurring-tickets', authenticate, requireAdmin, async (req: any, res: Response) => {
   const minCount = parseInt(req.query.minCount as string) || 2;
   const daysBack = parseInt(req.query.daysBack as string) || 90;
