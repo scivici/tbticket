@@ -61,7 +61,7 @@ export interface WrapperResponse {
 }
 
 export async function analyzeTicketViaWrapper(input: WrapperInput): Promise<WrapperResponse> {
-  const wrapperConfig = getWrapperConfig();
+  const wrapperConfig = await getWrapperConfig();
 
   if (!wrapperConfig.url) {
     return { success: false, analysis: null, rawOutput: '', error: 'Wrapper URL not configured' };
@@ -190,7 +190,7 @@ export async function analyzeTicketViaWrapper(input: WrapperInput): Promise<Wrap
  * Cleanup ticket files on the wrapper server after analysis
  */
 export async function cleanupWrapperFiles(ticketNumber: string): Promise<void> {
-  const wrapperConfig = getWrapperConfig();
+  const wrapperConfig = await getWrapperConfig();
   try {
     await fetch(`${wrapperConfig.url}/tickets/${ticketNumber}`, {
       method: 'DELETE',
