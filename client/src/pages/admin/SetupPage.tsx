@@ -234,7 +234,7 @@ export default function SetupPage() {
                   <p className="font-medium text-gray-700 dark:text-gray-300 mb-1">How it works:</p>
                   <ol className="list-decimal ml-4 space-y-0.5">
                     <li>Customer uploads files with ticket</li>
-                    <li>Files are transferred via SFTP to <code>{get('claude_ssh_remote_path') || '/home/support/tickets'}/TKT-XXXX/</code></li>
+                    <li>Files are transferred via SFTP to <code>{get('claude_ssh_remote_path') || '/home/support/tickets'}/TBT-XXXX/</code></li>
                     <li>Claude Code CLI runs: <code>cd ticket_dir && claude -p "analyze..."</code></li>
                     <li>Report is captured and saved to ticket</li>
                     <li>Engineer is auto-assigned based on report</li>

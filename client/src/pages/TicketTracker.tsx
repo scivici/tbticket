@@ -33,7 +33,7 @@ export default function TicketTracker() {
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
           <input type="text" value={ticketNumber} onChange={e => setTicketNumber(e.target.value)}
-            placeholder="Enter ticket number (e.g., TKT-...)"
+            placeholder="Enter ticket number (e.g., TBT-...)"
             className="tb-input pl-10" />
         </div>
         <button type="submit" disabled={loading} className="tb-btn-primary px-6">
