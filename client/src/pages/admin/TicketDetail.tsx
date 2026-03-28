@@ -242,6 +242,7 @@ export default function TicketDetail() {
   const aiAnalysis = ticket.aiAnalysis ? (typeof ticket.aiAnalysis === 'string' ? JSON.parse(ticket.aiAnalysis) : ticket.aiAnalysis) : null;
 
   return (
+    <>
     <div className="space-y-6">
       <div className="flex items-start justify-between">
         <div>
@@ -1056,6 +1057,7 @@ export default function TicketDetail() {
         </div>
       </div>
     )}
+    </>
   );
 }
 
