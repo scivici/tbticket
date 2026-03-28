@@ -10,9 +10,47 @@
 
 import fs from 'fs';
 import path from 'path';
+import http from 'http';
 import { getSettings } from './settings.service';
 import { config } from '../config';
 import type { ClaudeAnalysisResult } from './claude.service';
+
+/**
+ * Make an HTTP request with no socket timeout (supports long-running analyses).
+ * Node.js fetch has an implicit ~300s TCP timeout that cannot be overridden.
+ */
+function httpPost(url: string, body: string, headers: Record<string, string>): Promise<{ status: number; body: string }> {
+  return new Promise((resolve, reject) => {
+    const parsed = new URL(url);
+    const req = http.request({
+      hostname: parsed.hostname,
+      port: parsed.port || 80,
+      path: parsed.pathname,
+      method: 'POST',
+      headers: {
+        ...headers,
+        'Content-Length': Buffer.byteLength(body),
+      },
+      timeout: 0, // no timeout
+    }, (res) => {
+      let data = '';
+      res.on('data', (chunk: string) => { data += chunk; });
+      res.on('end', () => resolve({ status: res.statusCode || 500, body: data }));
+    });
+
+    req.on('error', reject);
+    req.on('timeout', () => { req.destroy(new Error('Request timeout')); });
+
+    // Disable socket timeout completely for long-running analyses
+    req.on('socket', (socket) => {
+      socket.setTimeout(0);
+      socket.setKeepAlive(true, 30000); // send keepalive every 30s
+    });
+
+    req.write(body);
+    req.end();
+  });
+}
 
 interface WrapperConfig {
   url: string;       // e.g. http://claude-support-2.telcobridges.lan:4002
@@ -132,30 +170,17 @@ export async function analyzeTicketViaWrapper(input: WrapperInput): Promise<Wrap
     const endpoint = `${wrapperConfig.url}/analyze`;
     console.log(`[Wrapper] Sending analysis request to ${endpoint} for ticket ${input.ticketNumber}...`);
 
-    // Use a very long timeout (2 hours) to support complex analyses
-    // Node.js fetch has a default 300s timeout that kills long-running requests
-    const controller = new AbortController();
-    const timeoutMs = wrapperConfig.timeout > 0 ? wrapperConfig.timeout : 2 * 60 * 60 * 1000; // default 2 hours
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-auth-token': wrapperConfig.authToken,
-      },
-      body: JSON.stringify(payload),
-      signal: controller.signal,
+    const jsonBody = JSON.stringify(payload);
+    const httpResponse = await httpPost(endpoint, jsonBody, {
+      'Content-Type': 'application/json',
+      'x-auth-token': wrapperConfig.authToken,
     });
 
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Wrapper returned ${response.status}: ${errorText}`);
+    if (httpResponse.status >= 400) {
+      throw new Error(`Wrapper returned ${httpResponse.status}: ${httpResponse.body}`);
     }
 
-    const data = await response.json() as any;
+    const data = JSON.parse(httpResponse.body) as any;
 
     if (data.success && data.analysis) {
       console.log(`[Wrapper] Analysis complete for ${input.ticketNumber} in ${data.executionTimeSeconds}s`);
@@ -178,11 +203,7 @@ export async function analyzeTicketViaWrapper(input: WrapperInput): Promise<Wrap
       throw new Error(data.error || 'Unknown wrapper error');
     }
   } catch (error: any) {
-    if (error.name === 'AbortError') {
-      console.error(`[Wrapper] Request timed out for ${input.ticketNumber}`);
-      return { success: false, analysis: null, rawOutput: '', error: 'Wrapper request timed out' };
-    }
-    console.error(`[Wrapper] Analysis failed for ${input.ticketNumber}:`, error.message);
+      console.error(`[Wrapper] Analysis failed for ${input.ticketNumber}:`, error.message);
     return { success: false, analysis: null, rawOutput: '', error: error.message };
   }
 }
