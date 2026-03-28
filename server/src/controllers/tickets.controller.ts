@@ -1076,7 +1076,6 @@ Write a professional, helpful reply. Be concise and technical. Do not include gr
     // For simplicity, use wrapper or SSH service
     if (analysisMode === 'wrapper') {
       const { analyzeTicketViaWrapper } = await import('../services/claude-wrapper.service');
-      // We'll reuse the wrapper with a custom prompt
       const result = await analyzeTicketViaWrapper({
         ticketNumber: ticket.ticketNumber,
         productName: ticket.product.name,
@@ -1088,7 +1087,22 @@ Write a professional, helpful reply. Be concise and technical. Do not include gr
         attachments: [],
         engineers: [],
       });
-      res.json({ suggestion: result.rawOutput || result.analysis?.rootCauseHypothesis || 'Unable to generate suggestion.' });
+
+      // Extract the actual text from Claude CLI JSON envelope
+      let suggestion = '';
+      if (result.rawOutput) {
+        try {
+          const envelope = JSON.parse(result.rawOutput);
+          suggestion = envelope?.result || envelope?.content?.[0]?.text || '';
+        } catch {
+          suggestion = result.rawOutput;
+        }
+      }
+      // Remove any JSON blocks from the suggestion (in case Claude returned analysis JSON)
+      suggestion = suggestion.replace(/\{[\s\S]*"classification"[\s\S]*\}/g, '').trim();
+      if (!suggestion) suggestion = result.analysis?.fullReport || result.analysis?.rootCauseHypothesis || 'Unable to generate suggestion.';
+
+      res.json({ suggestion });
     } else {
       // Fallback: return similar tickets' responses as suggestion
       const fallbackSuggestion = similarTickets
