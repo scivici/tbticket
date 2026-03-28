@@ -36,31 +36,34 @@ const CLAUDE_PROJECT_DIR = process.env.CLAUDE_PROJECT_DIR || '/opt/claude-suppor
 const AUTH_TOKEN = process.env.AUTH_TOKEN || 'tb-claude-wrapper-secret'; // Change in production
 const ANALYSIS_TIMEOUT = parseInt(process.env.ANALYSIS_TIMEOUT || '0'); // 0 = no timeout (complex analyses can take 30+ min)
 
-// Allowed tools aligned with support team CLAUDE.md
-// Read-only shell commands: gdb, cat, grep, ls, tar, strings, file, sort, sed, awk,
-// readelf, objdump, addr2line, nm, etc.
-// Blocked: network tools (curl, wget, ssh), shell escapes (bash, sh), package management (yum, rpm, pip)
-// Blocked: Write, Edit, NotebookEdit (read-only environment)
+// Allowed tools — mirrors the support team settings.json permissions
+// Claude Code will use these tools iteratively (multi-turn) to analyze files
 const ALLOWED_TOOLS = process.env.ALLOWED_TOOLS || [
   'Read', 'Grep', 'Glob',
   // File inspection
   'Bash(cat:*)', 'Bash(head:*)', 'Bash(tail:*)', 'Bash(wc:*)',
   'Bash(file:*)', 'Bash(strings:*)', 'Bash(hexdump:*)', 'Bash(od:*)',
   // Search and text processing
-  'Bash(grep:*)', 'Bash(sort:*)', 'Bash(sed:*)', 'Bash(awk:*)',
+  'Bash(grep:*)', 'Bash(zgrep:*)', 'Bash(zcat:*)',
+  'Bash(sort:*)', 'Bash(sed:*)', 'Bash(awk:*)',
   'Bash(uniq:*)', 'Bash(cut:*)', 'Bash(tr:*)', 'Bash(diff:*)',
   // Directory and file listing
   'Bash(ls:*)', 'Bash(find:*)', 'Bash(du:*)', 'Bash(stat:*)',
   // Archive extraction (to /tmp)
-  'Bash(tar:*)', 'Bash(gunzip:*)', 'Bash(zcat:*)',
-  // Filesystem operations (for /tmp extraction)
-  'Bash(mkdir:*)', 'Bash(cp:*)', 'Bash(rm:*)',
+  'Bash(tar:*)', 'Bash(gunzip:*)',
+  'Bash(mkdir:*)', 'Bash(mkdir -p /tmp/*)', 'Bash(mkdir /tmp/*)',
+  'Bash(cp:*)', 'Bash(rm:*)',
   // Binary analysis and debugging
   'Bash(gdb:*)', 'Bash(addr2line:*)', 'Bash(objdump:*)',
   'Bash(readelf:*)', 'Bash(nm:*)',
-  // Log analysis helpers
+  // Log and data analysis
   'Bash(date:*)', 'Bash(basename:*)', 'Bash(dirname:*)',
-  'Bash(tee:*)', 'Bash(xargs:*)',
+  'Bash(tee:*)', 'Bash(xargs:*)', 'Bash(echo:*)',
+  'Bash(for:*)', 'Bash(for *)',
+  // TelcoBridges tools (if available)
+  'Bash(tbconfig:*)', 'Bash(tbstatus:*)',
+  // MCP tools
+  'mcp__tb-log-tools__list_logs', 'mcp__tb-log-tools__merge_logs',
 ].join(',');
 
 // --- File upload for attachments ---
@@ -191,75 +194,56 @@ ${engineersText || 'No engineers available.'}
     // Step 3: Build the Claude CLI prompt
     // This prompt works in conjunction with the project CLAUDE.md which provides
     // detailed rules about the environment, available resources, and analysis approach.
-    const prompt = `You are performing automated first-line triage for a TelcoBridges support ticket.
-Your analysis will be read by support engineers and potentially shared with the customer. Be thorough.
+    const prompt = `You are performing first-line triage for a TelcoBridges support ticket.
+Your analysis will be read by support engineers and potentially shared with the customer.
 
-## Ticket Information
-Read the full ticket context at: ${ticketDir}/_ticket_context.md
+IMPORTANT: Take your time. Use tools iteratively — read files, analyze what you find, then dig deeper.
+Do NOT rush to produce output. Analyze as thoroughly as you would in an interactive support session.
 
-## Analysis Instructions — Follow ALL steps in order
+## Your Task
 
-### Step 1: Read Required Documentation FIRST
-Before analyzing the ticket, you MUST read these files to ground your analysis:
-- Read bmad_docs/project-context.md — critical architecture, components, glossary
-- Read bmad_docs/log-analysis.md — log formats, levels (TBLV0-3), analysis techniques
-- Identify the target system from the product name:
-  * ISDN, CAS, GR-303, H.248, streamserver, TDM, SS7, trunks → TMG (read bmad_docs/component-inventory-host-backend.md)
-  * tbrouter, tbsip, DPDK, SRTP, software transcoding → SBC (read bmad_docs/prosbc-core-applications.md)
-  * Unknown or unspecified → assume SBC
+1. Read the ticket context at: ${ticketDir}/_ticket_context.md
+2. Analyze ALL attached files in ${ticketDir}/ — extract archives to ${tmpDir}/ first if needed:
+   \`mkdir -p ${tmpDir} && tar xzf <file> -C ${tmpDir}\`
+3. For EVERY file you find, read it and analyze it:
+   - Log files: search for errors (TBLV0), warnings (TBLV1), crashes, anomalies. Quote exact lines.
+   - pcap files: use \`strings\` and \`hexdump\` to extract SIP messages, look at SDP bodies for codec/ptime/IP info, identify RTP streams from headers
+   - Config files: check for misconfigurations
+   - Core dumps: use gdb if available
+   - tbreport contents: examine ALL files in the extracted archive
+4. Cross-reference with bmad_docs/ and source code — grep for error messages, read relevant components
+5. Select the best engineer from the list in the ticket context
 
-### Step 2: Read the Ticket
-Read ${ticketDir}/_ticket_context.md for full ticket details including customer description, questionnaire responses, and engineer list.
+## Analysis Approach — Work like an expert support engineer
 
-### Step 3: Deep File Analysis
-Analyze ALL attached files in ${ticketDir}/:
-- **Archives (.tar.gz, .tgz, tbreport):** Extract to ${tmpDir}/ using \`mkdir -p ${tmpDir} && tar xzf <file> -C ${tmpDir}\`. Then examine ALL extracted files — logs, configs, status dumps, core files.
-- **Log files:** Search for TBLV0 (critical errors), TBLV1 (warnings), crash indicators, call flow anomalies. Quote exact log lines as evidence. Use the log format: \`<day>, <time><timezone> <level> <module>: <message>\`
-- **Core dumps:** Use gdb for backtrace (\`bt\`), check registers (\`info registers\`), disassemble crash point (\`x/i\`). Note: matching binary may not be available — work with raw addresses first.
-- **Config files:** Check for misconfigurations, deprecated settings, incompatible combinations. Reference docs.prosbc.com parameters where applicable.
-- **Status/diagnostic files:** Parse tbstatus output, interface states, route tables, NAP configurations.
+- Read each file multiple times if needed — first scan for obvious issues, then deep dive
+- For pcap files: extract SIP INVITE/200OK messages with \`strings <file> | grep -A20 "INVITE sip:\\|SIP/2.0 200\\|Content-Type: application/sdp" \` to find SDP negotiation details (codecs, ptime, IPs, ports)
+- For pcap files: look for RTP analysis clues — \`hexdump -C <file> | grep -c "80 00\\|80 08\\|80 12"\` to estimate packet counts by codec
+- Compare good vs bad captures if both are provided
+- Look for ptime mismatches, codec mismatches, NAT issues, one-way media paths
+- Consult bmad_docs/project-context.md and relevant component docs
+- If you find something interesting, investigate further — read source code to understand the behavior
 
-### Step 4: Cross-Reference with Source Code
-After analyzing the files, search the source code repository for relevant code:
-- If you found error messages in logs, grep for those messages in the source to understand the code path
-- If you identified a failing component, read its source to understand the failure mode
-- Reference specific file paths and function names in your report (e.g., "In apps/s2gw/apps/demo/gateway/...")
+## Cite Your Sources
+For EVERY finding: quote the exact evidence (log line, SDP body, config value) and where you found it.
+Mark inferences explicitly: "Based on [evidence], this suggests [inference]"
 
-### Step 5: Cite Your Sources
-For EVERY claim in your analysis, cite the source:
-- Log evidence: quote the exact log line with timestamp
-- Architecture claims: reference the specific bmad_docs file and section
-- Code references: cite the source file path and function name
-- Configuration issues: reference docs.prosbc.com parameter documentation
-- If a claim is based on inference rather than direct evidence, explicitly mark it as inference
+## Output Format
+After completing your full analysis, produce your final answer as a JSON object.
+No markdown fences around the JSON. The JSON must be the very last thing you output.
 
-### Step 6: Select Engineer
-Choose the best engineer based on:
-- Skill match to the issue type (SIP, SS7, Security, Cloud, Hardware)
-- Product expertise match (ProSBC vs TMG vs TSG)
-- Current workload (prefer engineers with lower workload)
-
-## Honesty Rules (CRITICAL)
-- If you cannot determine the root cause, say "root cause could not be determined from available evidence"
-- Separate observations ("the log shows X at timestamp Y") from inferences ("this suggests Z")
-- Do NOT fabricate missing evidence — note gaps explicitly
-- If the issue requires development team escalation, say so in suggestedActions with a clear summary of what is known and what remains unknown
-- Do NOT give generic telecom advice — ground everything in THIS codebase's architecture
-
-## Required Output
-Respond with ONLY a JSON object (no markdown fences, no extra text):
 {
-  "classification": "Brief technical classification (e.g., 'NAP activation failure — all NAPs down on primary server')",
+  "classification": "Specific technical classification of the issue",
   "severity": "low|medium|high|critical",
-  "rootCauseHypothesis": "Detailed root cause assessment with evidence citations. If uncertain, state what is known vs unknown.",
-  "recommendedEngineerId": <engineer ID number>,
-  "recommendedEngineerName": "<engineer name>",
+  "rootCauseHypothesis": "Detailed root cause with evidence citations",
+  "recommendedEngineerId": <ID>,
+  "recommendedEngineerName": "<name>",
   "confidence": <0.0 to 1.0>,
-  "reasoning": "Detailed explanation of why this engineer was chosen, citing their specific skills and expertise match",
+  "reasoning": "Why this engineer, citing their specific skills match",
   "suggestedSkills": ["skill1", "skill2"],
   "estimatedComplexity": "low|medium|high",
-  "suggestedActions": ["Specific actionable step 1 with context", "Step 2...", "Step 3..."],
-  "fullReport": "COMPREHENSIVE multi-paragraph technical report. Must include:\\n\\n**1. Summary:** One paragraph overview.\\n\\n**2. Evidence Found:** List every relevant finding from logs/files with exact quotes and timestamps. Cite source file for each.\\n\\n**3. Architecture Context:** How the affected component works, citing bmad_docs and source code paths.\\n\\n**4. Root Cause Analysis:** What the evidence points to, clearly separating observations from inferences.\\n\\n**5. Impact Assessment:** What is affected and scope of the issue.\\n\\n**6. Recommended Actions:** Numbered steps for the engineer to investigate and resolve.\\n\\n**7. Escalation Notes:** Whether dev team involvement is needed and why."
+  "suggestedActions": ["Specific step 1", "Step 2", "..."],
+  "fullReport": "DETAILED technical report with sections: Summary, Evidence Found (with exact quotes), Architecture Context (citing bmad_docs), Root Cause Analysis (observations vs inferences), Impact Assessment, Recommended Actions, Escalation Notes"
 }`;
 
     // Step 4: Execute Claude Code CLI (from project dir so CLAUDE.md is loaded)
