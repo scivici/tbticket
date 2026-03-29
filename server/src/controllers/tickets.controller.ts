@@ -41,8 +41,6 @@ export async function createTicket(req: AuthenticatedRequest, res: Response): Pr
 
     const { productId, categoryId, subject, description, productKey } = req.body;
     let answers = req.body.answers;
-    let customFieldValues = req.body.customFieldValues;
-
     if (!productId || !categoryId || !subject || !description) {
       res.status(400).json({ error: 'productId, categoryId, subject, and description are required' });
       return;
@@ -51,11 +49,6 @@ export async function createTicket(req: AuthenticatedRequest, res: Response): Pr
     // Parse answers if it's a string (from multipart form)
     if (typeof answers === 'string') {
       answers = JSON.parse(answers);
-    }
-
-    // Parse custom field values if string (from multipart form)
-    if (typeof customFieldValues === 'string') {
-      try { customFieldValues = JSON.parse(customFieldValues); } catch { customFieldValues = []; }
     }
 
     const files = req.files as Express.Multer.File[] | undefined;
@@ -70,20 +63,6 @@ export async function createTicket(req: AuthenticatedRequest, res: Response): Pr
       answers: answers || [],
       files,
     });
-
-    // Save custom field values if provided
-    if (Array.isArray(customFieldValues) && customFieldValues.length > 0) {
-      for (const cf of customFieldValues) {
-        if (cf.fieldId && cf.value !== undefined) {
-          await query(
-            `INSERT INTO ticket_custom_field_values (ticket_id, field_id, value)
-             VALUES (?, ?, ?)
-             ON CONFLICT (ticket_id, field_id) DO UPDATE SET value = ?`,
-            [result.ticketId, cf.fieldId, cf.value, cf.value]
-          );
-        }
-      }
-    }
 
     // Trigger async AI analysis
     await ticketService.updateTicketStatus(result.ticketId, 'analyzing');

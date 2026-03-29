@@ -5,7 +5,7 @@ import ThemeToggle from './ThemeToggle';
 import {
   LayoutDashboard, Ticket, Users, Package, FolderOpen,
   HelpCircle, Wrench, UserCog, LogOut, ChevronLeft, Settings,
-  UserCheck, MessageSquarePlus, Menu, X, AlertTriangle, Repeat, Clock, ShieldAlert, SlidersHorizontal,
+  UserCheck, MessageSquarePlus, Menu, X, AlertTriangle, Repeat, Clock, ShieldAlert,
   Keyboard, Activity
 } from 'lucide-react';
 
@@ -23,7 +23,6 @@ const navItems = [
   { to: '/admin/recurring', icon: Repeat, label: 'Recurring' },
   { to: '/admin/time-reports', icon: Clock, label: 'Time Reports' },
   { to: '/admin/sla-dashboard', icon: ShieldAlert, label: 'SLA Dashboard' },
-  { to: '/admin/custom-fields', icon: SlidersHorizontal, label: 'Custom Fields' },
   { to: '/admin/health', icon: Activity, label: 'System Health' },
   { to: '/admin/setup', icon: Settings, label: 'Setup' },
 ];

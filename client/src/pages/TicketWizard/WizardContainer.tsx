@@ -25,7 +25,6 @@ export interface WizardData {
   files: File[];
   email: string;
   name: string;
-  customFieldValues: Record<number, string>;
 }
 
 export default function WizardContainer() {
@@ -33,7 +32,6 @@ export default function WizardContainer() {
   const [data, setData] = useState<WizardData>({
     product: null, category: null, answers: {}, questions: [],
     subject: '', description: '', productKey: '', files: [], email: '', name: '',
-    customFieldValues: {},
   });
 
   const next = () => setCurrentStep(s => Math.min(s + 1, steps.length - 1));

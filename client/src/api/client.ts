@@ -53,7 +53,6 @@ export const products = {
   categories: (productId: number) => request<any[]>(`/products/${productId}/categories`),
   questions: (categoryId: number) => request<any[]>(`/products/categories/${categoryId}/questions`),
   releaseNotes: () => request<any[]>('/products/release-notes'),
-  customFields: (productId: number) => request<any[]>(`/products/${productId}/custom-fields`),
 };
 
 // Tickets
@@ -332,20 +331,6 @@ export const kb = {
   list: () => request<any[]>('/kb'),
   search: (q: string) => request<any[]>(`/kb/search?q=${encodeURIComponent(q)}`),
   get: (id: number) => request<any>(`/kb/${id}`),
-};
-
-// Custom Fields
-export const customFields = {
-  list: () => request<any[]>(`${manage}/custom-fields`),
-  create: (data: any) =>
-    request<any>(`${manage}/custom-fields`, { method: 'POST', body: JSON.stringify(data) }),
-  update: (id: number, data: any) =>
-    request<any>(`${manage}/custom-fields/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
-  delete: (id: number) =>
-    request<any>(`${manage}/custom-fields/${id}`, { method: 'DELETE' }),
-  getForTicket: (ticketId: number) => request<any[]>(`/tickets/${ticketId}/custom-fields`),
-  saveForTicket: (ticketId: number, fields: { fieldId: number; value: string }[]) =>
-    request<any[]>(`/tickets/${ticketId}/custom-fields`, { method: 'PUT', body: JSON.stringify({ fields }) }),
 };
 
 // Admin Users

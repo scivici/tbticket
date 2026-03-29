@@ -61,7 +61,7 @@ export async function runMigrations(): Promise<void> {
     console.log('[DB] Migration: created active_timers table');
   }
 
-  // Migration: custom_fields table
+  // Migration: custom_fields table (feature removed - duplicates Question Templates; tables kept for backward compatibility)
   const customFieldsTable = await query(
     "SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename = 'custom_fields'"
   );

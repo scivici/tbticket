@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
-import { tickets as ticketsApi, engineers as engineersApi, cannedResponses as cannedApi, customFields as cfApi } from '../../api/client';
+import { tickets as ticketsApi, engineers as engineersApi, cannedResponses as cannedApi } from '../../api/client';
 import { StatusBadge, PriorityBadge } from '../../components/StatusBadge';
 import { useToast } from '../../context/ToastContext';
 import { useAuth } from '../../context/AuthContext';
@@ -10,7 +10,7 @@ import {
   Brain, FileText, RefreshCw, MessageSquare, Send, Lock, Clock, ShieldAlert,
   Trash2, Tag, X, Plus, PlusCircle, ArrowRightCircle, UserCheck, AlertTriangle,
   MessageSquarePlus, Image as ImageIcon, Star, Upload, Paperclip, Link2, Users, ExternalLink,
-  Timer, Sparkles, BookOpen, Play, Square, Printer, Merge, SlidersHorizontal
+  Timer, Sparkles, BookOpen, Play, Square, Printer, Merge
 } from 'lucide-react';
 
 const ACTIVITY_TYPES = [
@@ -130,11 +130,6 @@ export default function TicketDetail() {
   // Jira live status
   const [jiraStatus, setJiraStatus] = useState<any>(null);
 
-  // Custom fields
-  const [allCustomFields, setAllCustomFields] = useState<any[]>([]);
-  const [customFieldValues, setCustomFieldValues] = useState<Record<number, string>>({});
-  const [savingCustomFields, setSavingCustomFields] = useState(false);
-
   // Support both numeric ID and ticket number (TKT-xxx)
   const isNumeric = /^\d+$/.test(id!);
 
@@ -153,18 +148,12 @@ export default function TicketDetail() {
         ticketsApi.getCcUsers(t.id).catch(() => []),
         ticketsApi.getLinkedTickets(t.id).catch(() => []),
         ticketsApi.getTimeEntries(t.id).catch(() => []),
-        cfApi.list().catch(() => []),
-        cfApi.getForTicket(t.id).catch(() => []),
       ]);
     })
-      .then(([e, r, tg, act, sat, cc, links, te, cfAll, cfVals]) => {
+      .then(([e, r, tg, act, sat, cc, links, te]) => {
         setEngineers(e); setResponses(r); setTags(tg); setActivities(act);
         if (sat && sat.rating) setSatisfaction(sat);
         setCcUsers(cc); setLinkedTickets(links); setTimeEntries(te);
-        setAllCustomFields(cfAll || []);
-        const valMap: Record<number, string> = {};
-        for (const v of (cfVals || [])) valMap[v.field_id] = v.value || '';
-        setCustomFieldValues(valMap);
       })
       .catch(console.error).finally(() => setLoading(false));
     // Fetch Jira status separately (async, non-blocking)
@@ -1033,90 +1022,6 @@ export default function TicketDetail() {
               </button>
             </div>
           </div>
-
-          {/* Custom Fields Card */}
-          {allCustomFields.filter(cf => cf.is_active && (!cf.product_id || cf.product_id === ticket.productId)).length > 0 && (
-            <div className="tb-card p-6">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <SlidersHorizontal className="w-4 h-4 text-accent-blue" />
-                  <h3 className="font-semibold text-gray-900 dark:text-white">Custom Fields</h3>
-                </div>
-                <button
-                  onClick={async () => {
-                    if (!ticket) return;
-                    setSavingCustomFields(true);
-                    try {
-                      const fields = Object.entries(customFieldValues).map(([fieldId, value]) => ({
-                        fieldId: parseInt(fieldId),
-                        value,
-                      }));
-                      await cfApi.saveForTicket(ticket.id, fields);
-                    } catch (err: any) { console.error(err); }
-                    setSavingCustomFields(false);
-                  }}
-                  disabled={savingCustomFields}
-                  className="text-xs text-accent-blue hover:underline disabled:opacity-50"
-                >
-                  {savingCustomFields ? 'Saving...' : 'Save'}
-                </button>
-              </div>
-              <div className="space-y-3">
-                {allCustomFields
-                  .filter(cf => cf.is_active && (!cf.product_id || cf.product_id === ticket.productId))
-                  .map((cf: any) => (
-                    <div key={cf.id}>
-                      <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
-                        {cf.name}{cf.is_required && <span className="text-red-400 ml-0.5">*</span>}
-                      </label>
-                      {cf.field_type === 'select' && cf.options ? (
-                        <select
-                          value={customFieldValues[cf.id] || ''}
-                          onChange={e => setCustomFieldValues(prev => ({ ...prev, [cf.id]: e.target.value }))}
-                          className="tb-select w-full text-sm"
-                        >
-                          <option value="">Select...</option>
-                          {(Array.isArray(cf.options) ? cf.options : []).map((opt: string) => (
-                            <option key={opt} value={opt}>{opt}</option>
-                          ))}
-                        </select>
-                      ) : cf.field_type === 'checkbox' ? (
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={customFieldValues[cf.id] === 'true'}
-                            onChange={e => setCustomFieldValues(prev => ({ ...prev, [cf.id]: e.target.checked ? 'true' : 'false' }))}
-                            className="rounded"
-                          />
-                          <span className="text-sm text-gray-700 dark:text-gray-300">Yes</span>
-                        </label>
-                      ) : cf.field_type === 'textarea' ? (
-                        <textarea
-                          value={customFieldValues[cf.id] || ''}
-                          onChange={e => setCustomFieldValues(prev => ({ ...prev, [cf.id]: e.target.value }))}
-                          rows={2}
-                          className="tb-input w-full text-sm"
-                        />
-                      ) : cf.field_type === 'date' ? (
-                        <input
-                          type="date"
-                          value={customFieldValues[cf.id] || ''}
-                          onChange={e => setCustomFieldValues(prev => ({ ...prev, [cf.id]: e.target.value }))}
-                          className="tb-input w-full text-sm"
-                        />
-                      ) : (
-                        <input
-                          type={cf.field_type === 'number' ? 'number' : 'text'}
-                          value={customFieldValues[cf.id] || ''}
-                          onChange={e => setCustomFieldValues(prev => ({ ...prev, [cf.id]: e.target.value }))}
-                          className="tb-input w-full text-sm"
-                        />
-                      )}
-                    </div>
-                  ))}
-              </div>
-            </div>
-          )}
 
           {/* Jira Issue Card */}
           <div className="tb-card p-6">

@@ -28,7 +28,6 @@ import CannedResponseManager from './pages/admin/CannedResponseManager';
 import EscalationManager from './pages/admin/EscalationManager';
 import RecurringTickets from './pages/admin/RecurringTickets';
 import TimeReports from './pages/admin/TimeReports';
-import CustomFieldManager from './pages/admin/CustomFieldManager';
 import SlaDashboard from './pages/admin/SlaDashboard';
 import HealthDashboard from './pages/admin/HealthDashboard';
 import TicketPrint from './pages/admin/TicketPrint';
@@ -72,7 +71,6 @@ export default function App() {
         <Route path="/admin/escalations" element={<EscalationManager />} />
         <Route path="/admin/recurring" element={<RecurringTickets />} />
         <Route path="/admin/time-reports" element={<TimeReports />} />
-        <Route path="/admin/custom-fields" element={<CustomFieldManager />} />
         <Route path="/admin/sla-dashboard" element={<SlaDashboard />} />
         <Route path="/admin/health" element={<HealthDashboard />} />
         <Route path="/admin/tickets/:id/print" element={<TicketPrint />} />
