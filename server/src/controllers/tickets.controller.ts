@@ -90,9 +90,10 @@ export async function createTicket(req: AuthenticatedRequest, res: Response): Pr
       ).catch(() => {});
     }
     // Webhook notifications
-    const cust = await queryOne<any>('SELECT name FROM customers WHERE id = ?', [customerId]);
+    const cust = await queryOne<any>('SELECT name, company FROM customers WHERE id = ?', [customerId]);
     const prod = await queryOne<any>('SELECT name FROM products WHERE id = ?', [parseInt(productId)]);
-    webhookService.notifyNewTicket(result.ticketNumber, prod?.name || productId, subject, cust?.name || 'Unknown');
+    const customerLabel = cust?.company ? `${cust.name} (${cust.company})` : (cust?.name || 'Unknown');
+    webhookService.notifyNewTicket(result.ticketNumber, prod?.name || productId, subject, customerLabel);
   } catch (error: any) {
     console.error('[Tickets] Create error:', error);
     res.status(500).json({ error: 'Failed to create ticket' });
