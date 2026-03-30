@@ -119,7 +119,7 @@ export default function TicketList() {
 
   const exportCSV = () => {
     if (!data?.tickets?.length) return;
-    const headers = ['Ticket Number', 'Subject', 'Product', 'Customer', 'Status', 'Priority', 'Engineer', 'AI Confidence', 'Created'];
+    const headers = ['Ticket Number', 'Subject', 'Product', 'Customer', 'Status', 'Priority', 'Support Specialist', 'AI Confidence', 'Created'];
     const rows = data.tickets.map((t: any) => [
       t.ticketNumber, t.subject, t.productName, t.customerName || '', t.status, t.priority,
       t.engineerName || '', t.aiConfidence != null ? (t.aiConfidence * 100).toFixed(0) + '%' : '',
@@ -235,9 +235,9 @@ export default function TicketList() {
 
             {/* Engineer filter */}
             <div className="min-w-[180px]">
-              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Assigned Engineer</label>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Assigned Support Specialist</label>
               <select value={filters.engineerId || ''} onChange={e => setFilters(f => ({ ...f, engineerId: e.target.value }))} className="tb-select w-full text-sm">
-                <option value="">All Engineers</option>
+                <option value="">All Support Specialists</option>
                 {engineers.map((e: any) => <option key={e.id} value={e.id}>{e.name}</option>)}
               </select>
             </div>
@@ -341,7 +341,7 @@ export default function TicketList() {
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Product</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Priority</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Engineer</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Support Specialist</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">AI</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Created</th>
                 <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>

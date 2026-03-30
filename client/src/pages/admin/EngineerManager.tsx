@@ -143,19 +143,19 @@ export default function EngineerManager() {
     try { await engineersApi.delete(id); if (expanded === id) { setExpanded(null); setDetail(null); } load(); } catch (err: any) { toast.error(err.message); }
   };
 
-  if (loading) return <div className="text-center py-12 text-gray-500">Loading engineers...</div>;
+  if (loading) return <div className="text-center py-12 text-gray-500">Loading support specialists...</div>;
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Engineer Management</h1>
-        <button onClick={startCreate} className="tb-btn-primary flex items-center gap-2"><Plus className="w-4 h-4" /> Add Engineer</button>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Support Specialist Management</h1>
+        <button onClick={startCreate} className="tb-btn-primary flex items-center gap-2"><Plus className="w-4 h-4" /> Add Support Specialist</button>
       </div>
 
       {/* Create/Edit Form */}
       {(creating || editing) && (
         <div className="tb-card border-primary-500/30 p-6 mb-6">
-          <h3 className="font-semibold text-gray-900 dark:text-white mb-4">{creating ? 'New Engineer' : 'Edit Engineer'}</h3>
+          <h3 className="font-semibold text-gray-900 dark:text-white mb-4">{creating ? 'New Support Specialist' : 'Edit Support Specialist'}</h3>
           {error && <div className="mb-4 p-3 bg-status-expired-bg text-status-expired-text rounded-lg text-sm">{error}</div>}
           <div className="grid sm:grid-cols-2 gap-4">
             <div><label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Name *</label><input type="text" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className="tb-input" /></div>

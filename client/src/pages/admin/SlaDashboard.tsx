@@ -171,7 +171,7 @@ export default function SlaDashboard() {
                   <th className="text-left py-2 px-3 text-gray-500 font-medium">Subject</th>
                   <th className="text-left py-2 px-3 text-gray-500 font-medium">Priority</th>
                   <th className="text-left py-2 px-3 text-gray-500 font-medium">Status</th>
-                  <th className="text-left py-2 px-3 text-gray-500 font-medium">Engineer</th>
+                  <th className="text-left py-2 px-3 text-gray-500 font-medium">Support Specialist</th>
                   <th className="text-left py-2 px-3 text-gray-500 font-medium">Breach Type</th>
                   <th className="text-right py-2 px-3 text-gray-500 font-medium">Overdue</th>
                 </tr>

@@ -259,7 +259,7 @@ export default function ChatWidget({ ticketId, currentUser }: ChatWidgetProps) {
                       }`}>
                         {msg.author_name}
                         <span className="ml-1 opacity-60">
-                          ({msg.author_role === 'admin' ? 'Engineer' : 'Customer'})
+                          ({msg.author_role === 'admin' ? 'Support Specialist' : 'Customer'})
                         </span>
                       </p>
                     )}

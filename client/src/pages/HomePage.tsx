@@ -13,7 +13,7 @@ export default function HomePage() {
         </h1>
         <p className="text-lg text-gray-500 dark:text-gray-400 max-w-2xl mx-auto mb-8">
           Report issues with your SBC, media gateway, or signaling equipment. Our AI-powered system
-          analyzes your ticket and assigns the best engineer based on expertise and availability.
+          analyzes your ticket and assigns the best support specialist based on expertise and availability.
         </p>
         <div className="flex justify-center gap-4">
           <Link to="/submit" className="inline-flex items-center px-6 py-3 bg-primary-500 text-white rounded-lg font-medium hover:bg-primary-400 transition-colors">
@@ -44,7 +44,7 @@ export default function HomePage() {
           </div>
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Smart Assignment</h3>
           <p className="text-gray-500 dark:text-gray-400 text-sm">
-            Automatically assigns the best engineer based on skills, product expertise, workload, and availability.
+            Automatically assigns the best support specialist based on skills, product expertise, workload, and availability.
           </p>
         </div>
         <div className="tb-card p-6">

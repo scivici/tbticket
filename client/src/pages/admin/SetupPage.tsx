@@ -133,7 +133,7 @@ export default function SetupPage() {
             <Brain className="w-5 h-5" /> Claude AI Configuration
           </h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-            Configure Claude AI for ticket analysis and automatic engineer assignment.
+            Configure Claude AI for ticket analysis and automatic support specialist assignment.
           </p>
 
           <div className="space-y-4">
@@ -191,7 +191,7 @@ export default function SetupPage() {
                     <li>Wrapper service saves files and runs <code>claude -p "..." --allowedTools "..." --output-format json</code></li>
                     <li>Claude Code CLI has full access to source code, docs, and analysis tools</li>
                     <li>Structured JSON analysis returned to ticket system</li>
-                    <li>Engineer auto-assigned based on confidence threshold</li>
+                    <li>Support specialist auto-assigned based on confidence threshold</li>
                   </ol>
                   <p className="mt-2 text-accent-green font-medium">Recommended: Best analysis quality with full server capabilities.</p>
                 </div>
@@ -240,7 +240,7 @@ export default function SetupPage() {
                     <li>Files are transferred via SFTP to <code>{get('claude_ssh_remote_path') || '/home/support/tickets'}/TBT-XXXX/</code></li>
                     <li>Claude Code CLI runs: <code>cd ticket_dir && claude -p "analyze..."</code></li>
                     <li>Report is captured and saved to ticket</li>
-                    <li>Engineer is auto-assigned based on report</li>
+                    <li>Support specialist is auto-assigned based on report</li>
                   </ol>
                 </div>
               </div>

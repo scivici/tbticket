@@ -431,7 +431,7 @@ export default function TicketDetail() {
               <div className="grid grid-cols-2 gap-4 text-sm mb-4">
                 <div><p className="text-gray-500 text-xs uppercase tracking-wide mb-1">Classification</p><p className="font-medium text-gray-700 dark:text-gray-200">{aiAnalysis.classification}</p></div>
                 <div><p className="text-gray-500 text-xs uppercase tracking-wide mb-1">Severity</p><PriorityBadge priority={aiAnalysis.severity} /></div>
-                <div><p className="text-gray-500 text-xs uppercase tracking-wide mb-1">Recommended Engineer</p><p className="font-medium text-gray-700 dark:text-gray-200">{aiAnalysis.recommendedEngineerName}</p></div>
+                <div><p className="text-gray-500 text-xs uppercase tracking-wide mb-1">Recommended Support Specialist</p><p className="font-medium text-gray-700 dark:text-gray-200">{aiAnalysis.recommendedEngineerName}</p></div>
                 <div><p className="text-gray-500 text-xs uppercase tracking-wide mb-1">Complexity</p><p className="font-medium text-gray-700 dark:text-gray-200 capitalize">{aiAnalysis.estimatedComplexity}</p></div>
               </div>
 
@@ -455,7 +455,7 @@ export default function TicketDetail() {
               {/* Reasoning */}
               {aiAnalysis.reasoning && (
                 <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800/30 rounded-lg">
-                  <p className="text-xs uppercase tracking-wide text-blue-500 dark:text-blue-400 font-semibold mb-2">Engineer Selection Reasoning</p>
+                  <p className="text-xs uppercase tracking-wide text-blue-500 dark:text-blue-400 font-semibold mb-2">Support Specialist Selection Reasoning</p>
                   <p className="text-sm text-gray-600 dark:text-gray-300">{aiAnalysis.reasoning}</p>
                 </div>
               )}
@@ -856,7 +856,7 @@ export default function TicketDetail() {
                 <div><p className="text-gray-500">Company</p><p className="font-medium text-gray-700 dark:text-gray-200">{ticket.customer.company}</p></div>
               )}
               <div><p className="text-gray-500">Contact Person</p><p className="font-medium text-gray-700 dark:text-gray-200">{ticket.customer.name}</p><p className="text-xs text-gray-500">{ticket.customer.email}</p></div>
-              <div><p className="text-gray-500">Assigned Engineer</p><p className="font-medium text-gray-700 dark:text-gray-200">{ticket.assignedEngineer?.name || 'Unassigned'}</p></div>
+              <div><p className="text-gray-500">Assigned Support Specialist</p><p className="font-medium text-gray-700 dark:text-gray-200">{ticket.assignedEngineer?.name || 'Unassigned'}</p></div>
               <div><p className="text-gray-500">Created</p><p className="font-medium text-gray-700 dark:text-gray-200">{new Date(ticket.createdAt).toLocaleString()}</p></div>
               {ticket.resolvedAt && (
                 <div><p className="text-gray-500">Resolved</p><p className="font-medium text-gray-700 dark:text-gray-200">{new Date(ticket.resolvedAt).toLocaleString()}</p></div>
@@ -1073,9 +1073,9 @@ export default function TicketDetail() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Assign Engineer</label>
+                <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Assign Support Specialist</label>
                 <select value={ticket.assignedEngineerId || ''} onChange={e => handleAssign(parseInt(e.target.value))} disabled={!!actionLoading} className="tb-select w-full">
-                  <option value="">Select engineer...</option>
+                  <option value="">Select support specialist...</option>
                   {engineers.map((e: any) => <option key={e.id} value={e.id}>{e.name} ({e.currentWorkload}/{e.maxWorkload})</option>)}
                 </select>
               </div>

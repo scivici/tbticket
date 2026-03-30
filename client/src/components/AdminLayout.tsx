@@ -12,7 +12,7 @@ import {
 const navItems = [
   { to: '/admin', icon: LayoutDashboard, label: 'Dashboard', exact: true },
   { to: '/admin/tickets', icon: Ticket, label: 'Tickets' },
-  { to: '/admin/engineers', icon: Users, label: 'Engineers' },
+  { to: '/admin/engineers', icon: Users, label: 'Support Specialists' },
   { to: '/admin/customers', icon: UserCheck, label: 'Customers' },
   { to: '/admin/products', icon: Package, label: 'Products' },
   { to: '/admin/categories', icon: FolderOpen, label: 'Categories' },

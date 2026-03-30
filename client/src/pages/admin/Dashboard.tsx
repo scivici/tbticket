@@ -176,15 +176,15 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Engineer Performance Table */}
+      {/* Support Specialist Performance Table */}
       <div className="tb-card p-6 mb-8">
-        <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Engineer Performance</h3>
+        <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Support Specialist Performance</h3>
         {(stats.engineerPerformance || []).length > 0 ? (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
               <thead>
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Engineer Name</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Support Specialist</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Resolved Tickets</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Avg Resolution Time (hrs)</th>
                 </tr>
@@ -200,11 +200,11 @@ export default function Dashboard() {
               </tbody>
             </table>
           </div>
-        ) : <p className="text-gray-500 text-center py-6">No engineer performance data yet</p>}
+        ) : <p className="text-gray-500 text-center py-6">No support specialist performance data yet</p>}
       </div>
 
       <div className="tb-card p-6">
-        <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Engineer Workloads</h3>
+        <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Support Specialist Workloads</h3>
         <div className="space-y-3">
           {(stats.engineerWorkloads || []).map((eng: any, i: number) => (
             <div key={i} className="flex items-center gap-4">

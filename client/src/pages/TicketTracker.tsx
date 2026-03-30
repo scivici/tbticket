@@ -65,7 +65,7 @@ export default function TicketTracker() {
               <p className="font-medium text-gray-900 dark:text-white">{ticket.categoryName}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-500">Assigned Engineer</p>
+              <p className="text-sm text-gray-500">Assigned Support Specialist</p>
               <p className="font-medium text-gray-900 dark:text-white">{ticket.engineerName || 'Pending assignment'}</p>
             </div>
             <div>

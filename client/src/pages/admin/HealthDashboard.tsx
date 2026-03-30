@@ -118,7 +118,7 @@ export default function HealthDashboard() {
     { label: 'Node.js', icon: Server, value: data.nodeVersion },
     { label: 'Total Tickets', icon: Ticket, value: String(data.stats.tickets) },
     { label: 'Customers', icon: Users, value: String(data.stats.customers) },
-    { label: 'Engineers', icon: Users, value: String(data.stats.engineers) },
+    { label: 'Support Specialists', icon: Users, value: String(data.stats.engineers) },
     { label: 'Active Timers', icon: Timer, value: String(data.stats.activeTimers) },
   ];
 

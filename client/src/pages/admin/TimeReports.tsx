@@ -72,7 +72,7 @@ export default function TimeReports() {
 
   const exportCSV = () => {
     if (!sortedEntries.length) return;
-    const headers = ['Date', 'Ticket#', 'Subject', 'Engineer', 'Activity Type', 'Hours', 'Chargeable', 'Description'];
+    const headers = ['Date', 'Ticket#', 'Subject', 'Support Specialist', 'Activity Type', 'Hours', 'Chargeable', 'Description'];
     const rows = sortedEntries.map((e: any) => [
       e.date,
       e.ticket_number || '',
@@ -96,7 +96,7 @@ export default function TimeReports() {
   const overall = report?.overall || { total_hours: 0, chargeable_hours: 0, non_chargeable_hours: 0, ticket_count: 0 };
 
   const tabs: { key: Tab; label: string }[] = [
-    { key: 'engineer', label: 'By Engineer' },
+    { key: 'engineer', label: 'By Support Specialist' },
     { key: 'customer', label: 'By Customer' },
     { key: 'activity', label: 'By Activity' },
   ];
@@ -106,7 +106,7 @@ export default function TimeReports() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Time Reports</h1>
-          <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">Analyze time entries across engineers, customers, and activities.</p>
+          <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">Analyze time entries across support specialists, customers, and activities.</p>
         </div>
         <button onClick={exportCSV} disabled={!sortedEntries.length}
           className="tb-btn-primary flex items-center gap-2 px-4 py-2 text-sm disabled:opacity-50">
@@ -130,9 +130,9 @@ export default function TimeReports() {
             <input type="date" value={toDate} onChange={e => setToDate(e.target.value)} className="tb-input w-40" />
           </div>
           <div>
-            <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">Engineer</label>
+            <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">Support Specialist</label>
             <select value={engineerId} onChange={e => setEngineerId(e.target.value)} className="tb-select w-44">
-              <option value="">All Engineers</option>
+              <option value="">All Support Specialists</option>
               {engineers.map((eng: any) => (
                 <option key={eng.id} value={eng.id}>{eng.name}</option>
               ))}
@@ -200,7 +200,7 @@ export default function TimeReports() {
                 <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                   <thead>
                     <tr>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Engineer</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Support Specialist</th>
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Total Hours</th>
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Chargeable</th>
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Tickets</th>
@@ -293,7 +293,7 @@ export default function TimeReports() {
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Date</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Ticket#</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Subject</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Engineer</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Support Specialist</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Activity</th>
                     <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Hours</th>
                     <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Chargeable</th>

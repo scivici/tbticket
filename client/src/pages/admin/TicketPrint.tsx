@@ -87,7 +87,7 @@ export default function TicketPrint() {
             <p style={{ margin: '0.15rem 0 0' }}>{ticket.customer.name} ({ticket.customer.email})</p>
           </div>
           <div>
-            <span style={{ color: '#666', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Engineer</span>
+            <span style={{ color: '#666', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Support Specialist</span>
             <p style={{ margin: '0.15rem 0 0' }}>{ticket.assignedEngineer?.name || 'Unassigned'}</p>
           </div>
           <div>
@@ -192,7 +192,7 @@ export default function TicketPrint() {
               <thead>
                 <tr style={{ borderBottom: '1px solid #ddd' }}>
                   <th style={{ textAlign: 'left', padding: '0.35rem 0.5rem', color: '#666' }}>Date</th>
-                  <th style={{ textAlign: 'left', padding: '0.35rem 0.5rem', color: '#666' }}>Engineer</th>
+                  <th style={{ textAlign: 'left', padding: '0.35rem 0.5rem', color: '#666' }}>Support Specialist</th>
                   <th style={{ textAlign: 'right', padding: '0.35rem 0.5rem', color: '#666' }}>Hours</th>
                   <th style={{ textAlign: 'left', padding: '0.35rem 0.5rem', color: '#666' }}>Type</th>
                   <th style={{ textAlign: 'left', padding: '0.35rem 0.5rem', color: '#666' }}>Description</th>
