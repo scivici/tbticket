@@ -173,9 +173,45 @@ export default function TicketList() {
               type="text"
               value={searchText}
               onChange={e => setSearchText(e.target.value)}
-              placeholder="Search tickets (subject, description, ticket number)..."
+              placeholder="Search everything (subject, description, AI analysis, responses)..."
               className="tb-input w-full pl-10"
             />
+          </div>
+
+          {/* Search scope: Open / Closed / All */}
+          <div className="flex rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden shrink-0">
+            {([
+              { key: '_not_closed', label: 'Open' },
+              { key: 'closed', label: 'Closed' },
+              { key: '', label: 'All' },
+            ] as const).map(opt => {
+              const isActive = opt.key === 'closed'
+                ? filters.status === 'closed'
+                : opt.key === '_not_closed'
+                  ? !!filters.excludeStatus && !filters.status
+                  : !filters.status && !filters.excludeStatus;
+              return (
+                <button
+                  key={opt.key}
+                  onClick={() => {
+                    if (opt.key === '_not_closed') {
+                      setFilters(f => { const { status, ...rest } = f; return { ...rest, excludeStatus: 'closed' }; });
+                    } else if (opt.key === 'closed') {
+                      setFilters(f => { const { excludeStatus, ...rest } = f; return { ...rest, status: 'closed' }; });
+                    } else {
+                      setFilters(f => { const { status, excludeStatus, ...rest } = f; return rest; });
+                    }
+                  }}
+                  className={`px-3 py-2 text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-accent-blue text-white'
+                      : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
           </div>
 
           {/* Status filter */}

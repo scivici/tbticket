@@ -195,9 +195,9 @@ export async function listTickets(filters: {
     params.push(filters.tag.toLowerCase());
   }
   if (filters.search) {
-    conditions.push('(t.subject LIKE ? OR t.description LIKE ? OR t.ticket_number LIKE ?)');
+    conditions.push(`(t.subject LIKE ? OR t.description LIKE ? OR t.ticket_number LIKE ? OR CAST(t.ai_analysis AS TEXT) LIKE ? OR EXISTS (SELECT 1 FROM ticket_responses tr WHERE tr.ticket_id = t.id AND tr.message LIKE ?))`);
     const term = `%${filters.search}%`;
-    params.push(term, term, term);
+    params.push(term, term, term, term, term);
   }
   if (filters.fromDate) {
     conditions.push('t.created_at >= ?');
