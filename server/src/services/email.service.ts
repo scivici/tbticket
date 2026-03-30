@@ -1,6 +1,6 @@
 import nodemailer from 'nodemailer';
 import { config } from '../config';
-import { getSetting, getSettings } from './settings.service';
+import { getSettings } from './settings.service';
 import { createLogger } from './logger.service';
 
 const log = createLogger('Email');
@@ -322,11 +322,9 @@ export async function sendTicketStatusEmail(email: string, ticketNumber: string,
 
   // Build survey link for resolved tickets
   let surveyHtml = '';
-  if (newStatus === 'resolved') {
-    const surveyBaseUrl = await getSetting('satisfaction_survey_url');
-    if (surveyBaseUrl) {
-      const surveyUrl = ticketId ? `${surveyBaseUrl}?ticket=${ticketId}` : surveyBaseUrl;
-      surveyHtml = `
+  if (newStatus === 'resolved' && ticketId) {
+    const surveyUrl = `${config.appUrl}/my-tickets/${ticketId}`;
+    surveyHtml = `
     <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:20px 0">
       <tr>
         <td align="center">
@@ -344,7 +342,6 @@ export async function sendTicketStatusEmail(email: string, ticketNumber: string,
         </td>
       </tr>
     </table>`;
-    }
   }
 
   const body = `

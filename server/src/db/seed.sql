@@ -279,6 +279,5 @@ INSERT INTO settings (key, value, description) VALUES
 ('imap_port', '993', 'IMAP server port'),
 ('imap_user', '', 'IMAP username'),
 ('imap_pass', '', 'IMAP password'),
-('imap_tls', 'true', 'Use TLS for IMAP connection'),
-('satisfaction_survey_url', '', 'Satisfaction survey URL sent to customers when ticket is resolved (leave empty to disable)')
+('imap_tls', 'true', 'Use TLS for IMAP connection')
 ON CONFLICT DO NOTHING;
