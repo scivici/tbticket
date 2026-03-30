@@ -219,6 +219,11 @@ export const admin = {
     return request<any[]>(`/admin/recurring-tickets?${params}`);
   },
   slaDashboard: () => request<any>('/admin/sla-dashboard'),
+  updateSlaPolicy: (priority: string, responseTimeHours: number, resolutionTimeHours: number) =>
+    request<any>(`/admin/sla-policies/${priority}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ responseTimeHours, resolutionTimeHours }),
+    }),
   healthDashboard: () => request<any>('/admin/health-dashboard'),
   exportTicketsCsv: async () => {
     const token = localStorage.getItem('token');

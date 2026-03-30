@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { admin } from '../../api/client';
 import { StatusBadge, PriorityBadge } from '../../components/StatusBadge';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { ShieldAlert, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
+import { ShieldAlert, AlertTriangle, CheckCircle, Clock, Pencil, Save, X } from 'lucide-react';
 
 const PRIORITY_COLORS: Record<string, string> = {
   critical: '#dc2626',
@@ -15,13 +15,41 @@ const PRIORITY_COLORS: Record<string, string> = {
 export default function SlaDashboard() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [editingPolicy, setEditingPolicy] = useState<string | null>(null);
+  const [editValues, setEditValues] = useState<{ response: number; resolution: number }>({ response: 0, resolution: 0 });
+  const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
+  const loadData = () => {
     admin.slaDashboard()
       .then(setData)
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, []);
+  };
+
+  useEffect(() => { loadData(); }, []);
+
+  const startEdit = (policy: any) => {
+    setEditingPolicy(policy.priority);
+    setEditValues({ response: policy.response_time_hours, resolution: policy.resolution_time_hours });
+  };
+
+  const cancelEdit = () => {
+    setEditingPolicy(null);
+  };
+
+  const savePolicy = async () => {
+    if (!editingPolicy || editValues.response < 1 || editValues.resolution < 1) return;
+    setSaving(true);
+    try {
+      await admin.updateSlaPolicy(editingPolicy, editValues.response, editValues.resolution);
+      setEditingPolicy(null);
+      loadData();
+    } catch (err) {
+      console.error('Failed to update SLA policy', err);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   if (loading) return <div className="text-center py-12 text-gray-500">Loading SLA dashboard...</div>;
   if (!data) return <div className="text-center py-12 text-red-400">Failed to load SLA dashboard</div>;
@@ -175,11 +203,12 @@ export default function SlaDashboard() {
         )}
       </div>
 
-      {/* SLA Policies */}
+      {/* SLA Policies - Editable */}
       <div className="tb-card p-6">
         <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
           <ShieldAlert className="w-5 h-5 text-accent-blue" />
           SLA Policies
+          <span className="text-xs font-normal text-gray-400 ml-2">Click edit to adjust targets</span>
         </h3>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -188,14 +217,68 @@ export default function SlaDashboard() {
                 <th className="text-left py-2 px-3 text-gray-500 font-medium">Priority</th>
                 <th className="text-right py-2 px-3 text-gray-500 font-medium">Response Time (hours)</th>
                 <th className="text-right py-2 px-3 text-gray-500 font-medium">Resolution Time (hours)</th>
+                <th className="text-right py-2 px-3 text-gray-500 font-medium w-24">Actions</th>
               </tr>
             </thead>
             <tbody>
               {data.policies.map((p: any) => (
                 <tr key={p.priority} className="border-b border-gray-100 dark:border-gray-800">
                   <td className="py-3 px-3"><PriorityBadge priority={p.priority} /></td>
-                  <td className="py-3 px-3 text-right font-medium text-gray-700 dark:text-gray-200">{p.response_time_hours}h</td>
-                  <td className="py-3 px-3 text-right font-medium text-gray-700 dark:text-gray-200">{p.resolution_time_hours}h</td>
+                  {editingPolicy === p.priority ? (
+                    <>
+                      <td className="py-3 px-3 text-right">
+                        <input
+                          type="number"
+                          min={1}
+                          value={editValues.response}
+                          onChange={(e) => setEditValues(v => ({ ...v, response: Number(e.target.value) }))}
+                          className="w-20 px-2 py-1 text-right rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-accent-blue focus:border-transparent"
+                        />
+                      </td>
+                      <td className="py-3 px-3 text-right">
+                        <input
+                          type="number"
+                          min={1}
+                          value={editValues.resolution}
+                          onChange={(e) => setEditValues(v => ({ ...v, resolution: Number(e.target.value) }))}
+                          className="w-20 px-2 py-1 text-right rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-accent-blue focus:border-transparent"
+                        />
+                      </td>
+                      <td className="py-3 px-3 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={savePolicy}
+                            disabled={saving}
+                            className="p-1.5 rounded-md bg-green-500/10 text-green-600 dark:text-green-400 hover:bg-green-500/20 transition-colors disabled:opacity-50"
+                            title="Save"
+                          >
+                            <Save className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={cancelEdit}
+                            className="p-1.5 rounded-md bg-gray-500/10 text-gray-600 dark:text-gray-400 hover:bg-gray-500/20 transition-colors"
+                            title="Cancel"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </>
+                  ) : (
+                    <>
+                      <td className="py-3 px-3 text-right font-medium text-gray-700 dark:text-gray-200">{p.response_time_hours}h</td>
+                      <td className="py-3 px-3 text-right font-medium text-gray-700 dark:text-gray-200">{p.resolution_time_hours}h</td>
+                      <td className="py-3 px-3 text-right">
+                        <button
+                          onClick={() => startEdit(p)}
+                          className="p-1.5 rounded-md bg-accent-blue/10 text-accent-blue hover:bg-accent-blue/20 transition-colors"
+                          title="Edit SLA policy"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </>
+                  )}
                 </tr>
               ))}
             </tbody>
