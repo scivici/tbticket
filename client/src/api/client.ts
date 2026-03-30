@@ -169,6 +169,7 @@ export const admin = {
   slaBreached: () => request<any[]>('/admin/sla-breached'),
   customers: () => request<any[]>('/admin/customers'),
   getCustomer: (id: number) => request<any>(`/admin/customers/${id}`),
+  customerTickets: (id: number) => request<any[]>(`/admin/customers/${id}/tickets`),
   updateCustomer: (id: number, data: any) =>
     request<any>(`/admin/customers/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   escalationRules: () => request<any[]>('/admin/escalation-rules'),

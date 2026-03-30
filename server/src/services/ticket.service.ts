@@ -60,7 +60,7 @@ export async function getTicketById(ticketId: number) {
            p.name as product_name, p.model as product_model, p.description as product_description,
            pc.name as category_name, pc.description as category_description,
            e.name as engineer_name, e.email as engineer_email, e.location as engineer_location,
-           c.email as customer_email, c.name as customer_name
+           c.email as customer_email, c.name as customer_name, c.company as customer_company
     FROM tickets t
     JOIN products p ON t.product_id = p.id
     JOIN product_categories pc ON t.category_id = pc.id
@@ -125,6 +125,7 @@ export async function getTicketById(ticketId: number) {
       id: ticket.customer_id,
       email: ticket.customer_email,
       name: ticket.customer_name,
+      company: ticket.customer_company || null,
     },
   };
 }

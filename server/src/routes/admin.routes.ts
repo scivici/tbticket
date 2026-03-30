@@ -54,6 +54,19 @@ router.patch('/customers/:id', authenticate, requireAdmin, async (req: any, res:
   res.json({ message: 'Customer updated' });
 });
 
+// Customer tickets
+router.get('/customers/:id/tickets', authenticate, requireAdmin, async (req: any, res: Response) => {
+  const tickets = await queryAll<any>(`
+    SELECT t.id, t.ticket_number, t.subject, t.status, t.priority, t.created_at, t.resolved_at,
+           p.name as product_name
+    FROM tickets t
+    LEFT JOIN products p ON t.product_id = p.id
+    WHERE t.customer_id = ?
+    ORDER BY t.created_at DESC
+  `, [req.params.id]);
+  res.json(tickets);
+});
+
 router.get('/sla-policies', authenticate, requireAdmin, async (_req: any, res: Response) => {
   res.json(await slaService.getAllSlaPolicies());
 });

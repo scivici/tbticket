@@ -852,7 +852,10 @@ export default function TicketDetail() {
             <div className="space-y-3 text-sm">
               <div><p className="text-gray-500">Product</p><p className="font-medium text-gray-700 dark:text-gray-200">{ticket.product.name} ({ticket.product.model})</p></div>
               <div><p className="text-gray-500">Category</p><p className="font-medium text-gray-700 dark:text-gray-200">{ticket.category.name}</p></div>
-              <div><p className="text-gray-500">Customer</p><p className="font-medium text-gray-700 dark:text-gray-200">{ticket.customer.name}</p><p className="text-gray-500">{ticket.customer.email}</p></div>
+              {ticket.customer.company && (
+                <div><p className="text-gray-500">Company</p><p className="font-medium text-gray-700 dark:text-gray-200">{ticket.customer.company}</p></div>
+              )}
+              <div><p className="text-gray-500">Contact Person</p><p className="font-medium text-gray-700 dark:text-gray-200">{ticket.customer.name}</p><p className="text-xs text-gray-500">{ticket.customer.email}</p></div>
               <div><p className="text-gray-500">Assigned Engineer</p><p className="font-medium text-gray-700 dark:text-gray-200">{ticket.assignedEngineer?.name || 'Unassigned'}</p></div>
               <div><p className="text-gray-500">Created</p><p className="font-medium text-gray-700 dark:text-gray-200">{new Date(ticket.createdAt).toLocaleString()}</p></div>
               {ticket.resolvedAt && (
