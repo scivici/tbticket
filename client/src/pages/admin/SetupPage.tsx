@@ -689,11 +689,26 @@ export default function SetupPage() {
                 placeholder="support@example.com"
               />
             </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Satisfaction Survey URL</label>
+              <input
+                type="url"
+                value={get('satisfaction_survey_url')}
+                onChange={e => set('satisfaction_survey_url', e.target.value)}
+                className="tb-input"
+                placeholder="https://your-domain.com/my-tickets"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                When a ticket is resolved, this link is sent to the customer via email. Leave empty to disable.
+                The ticket ID will be appended as <code className="text-xs bg-gray-200 dark:bg-gray-700 px-1 rounded">?ticket=ID</code>.
+              </p>
+            </div>
           </div>
 
           <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
             <button
-              onClick={() => saveKeys(['company_name', 'support_email'])}
+              onClick={() => saveKeys(['company_name', 'support_email', 'satisfaction_survey_url'])}
               disabled={saving}
               className="tb-btn-success flex items-center gap-2"
             >

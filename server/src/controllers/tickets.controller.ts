@@ -573,7 +573,7 @@ export async function updateStatus(req: AuthenticatedRequest, res: Response): Pr
         statusLabels[status],
         `Ticket ${ticket.ticketNumber} status changed to "${status.replace('_', ' ')}"`
       );
-      emailService.sendTicketStatusEmail(ticket.customer.email, ticket.ticketNumber, status).catch(() => {});
+      emailService.sendTicketStatusEmail(ticket.customer.email, ticket.ticketNumber, status, ticket.id).catch(() => {});
     }
     if (status === 'resolved') {
       await notificationService.createNotification(

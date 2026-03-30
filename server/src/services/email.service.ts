@@ -1,6 +1,6 @@
 import nodemailer from 'nodemailer';
 import { config } from '../config';
-import { getSettings } from './settings.service';
+import { getSetting, getSettings } from './settings.service';
 import { createLogger } from './logger.service';
 
 const log = createLogger('Email');
@@ -302,7 +302,7 @@ export function sendEngineerAssignedEmail(
   );
 }
 
-export function sendTicketStatusEmail(email: string, ticketNumber: string, newStatus: string) {
+export async function sendTicketStatusEmail(email: string, ticketNumber: string, newStatus: string, ticketId?: number) {
   const statusLabels: Record<string, { label: string; color: string; bg: string }> = {
     new:               { label: 'New',           color: '#0ea5e9', bg: '#e0f2fe' },
     analyzing:         { label: 'Analyzing',     color: '#8b5cf6', bg: '#ede9fe' },
@@ -319,6 +319,33 @@ export function sendTicketStatusEmail(email: string, ticketNumber: string, newSt
     color: '#64748b',
     bg: '#f1f5f9',
   };
+
+  // Build survey link for resolved tickets
+  let surveyHtml = '';
+  if (newStatus === 'resolved') {
+    const surveyBaseUrl = await getSetting('satisfaction_survey_url');
+    if (surveyBaseUrl) {
+      const surveyUrl = ticketId ? `${surveyBaseUrl}?ticket=${ticketId}` : surveyBaseUrl;
+      surveyHtml = `
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:20px 0">
+      <tr>
+        <td align="center">
+          <!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" style="height:44px;v-text-anchor:middle;width:260px" arcsize="14%" fillcolor="#0ea5e9" stroke="f"><v:textbox><center style="color:#ffffff;font-family:${FONT_STACK};font-size:15px;font-weight:600">Rate Your Experience</center></v:textbox></v:roundrect><![endif]-->
+          <!--[if !mso]><!-->
+          <a href="${surveyUrl}" target="_blank" style="display:inline-block;padding:12px 32px;background-color:#0ea5e9;color:#ffffff;font-size:15px;font-weight:600;border-radius:8px;text-decoration:none;font-family:${FONT_STACK}">
+            Rate Your Experience
+          </a>
+          <!--<![endif]-->
+        </td>
+      </tr>
+      <tr>
+        <td align="center" style="padding:8px 0 0 0">
+          <p style="margin:0;color:#94a3b8;font-size:12px;font-family:${FONT_STACK}">Your feedback helps us improve our support.</p>
+        </td>
+      </tr>
+    </table>`;
+    }
+  }
 
   const body = `
     <p style="margin:0 0 20px 0;color:#334155;font-size:15px;line-height:1.6;font-family:${FONT_STACK}">
@@ -341,7 +368,7 @@ export function sendTicketStatusEmail(email: string, ticketNumber: string, newSt
       If this issue has been resolved to your satisfaction, no further action is needed.
       The ticket will be automatically closed after a period of inactivity.
       If the issue persists, please reply through the support portal and we will reopen the investigation.
-    </p>` : ''}
+    </p>${surveyHtml}` : ''}
     ${newStatus === 'pending_info' ? `
     <p style="margin:0;color:#475569;font-size:14px;line-height:1.6;font-family:${FONT_STACK}">
       We need additional information from you to continue working on this ticket.
