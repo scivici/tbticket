@@ -10,11 +10,15 @@ const STATUS_OPTIONS = ['new', 'analyzing', 'assigned', 'in_progress', 'pending_
 export default function TicketList() {
   const [searchParams] = useSearchParams();
   const initialStatus = searchParams.get('status');
+  const initialScope = searchParams.get('scope');
 
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState<Record<string, string>>(
-    initialStatus ? { status: initialStatus } : { excludeStatus: 'closed' }
+    initialStatus ? { status: initialStatus }
+      : initialScope === 'all' ? {}
+      : initialScope === 'open' ? { excludeStatus: 'closed' }
+      : { excludeStatus: 'closed' }
   );
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [engineers, setEngineers] = useState<any[]>([]);
