@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { tickets as ticketsApi, engineers as engineersApi, products as productsApi, admin } from '../../api/client';
 import { StatusBadge, PriorityBadge } from '../../components/StatusBadge';
 import { RefreshCw, Download, Trash2, CheckSquare, Search, Filter, X } from 'lucide-react';
@@ -8,9 +8,14 @@ import Pagination from '../../components/Pagination';
 const STATUS_OPTIONS = ['new', 'analyzing', 'assigned', 'in_progress', 'pending_info', 'escalated_to_jira', 'resolved', 'closed'];
 
 export default function TicketList() {
+  const [searchParams] = useSearchParams();
+  const initialStatus = searchParams.get('status');
+
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState<Record<string, string>>({ excludeStatus: 'closed' });
+  const [filters, setFilters] = useState<Record<string, string>>(
+    initialStatus ? { status: initialStatus } : { excludeStatus: 'closed' }
+  );
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [engineers, setEngineers] = useState<any[]>([]);
   const [productsList, setProductsList] = useState<any[]>([]);

@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom';
 import { admin, tickets as ticketsApi } from '../../api/client';
 import { StatusBadge } from '../../components/StatusBadge';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
-import { Ticket, Users, CheckCircle, Clock, AlertTriangle, Star } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Ticket, Users, CheckCircle, Clock, AlertTriangle, Star, Inbox, UserCheck, PlayCircle, CircleCheck, XCircle } from 'lucide-react';
 
 const COLORS = ['#0ea5e9', '#059669', '#D39340', '#832d2d', '#8b5cf6', '#ec4899', '#6b7280'];
 
@@ -19,6 +20,7 @@ function timeAgo(dateStr: string) {
 }
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const [stats, setStats] = useState<any>(null);
   const [breached, setBreached] = useState<any[]>([]);
   const [recentTickets, setRecentTickets] = useState<any[]>([]);
@@ -51,13 +53,39 @@ export default function Dashboard() {
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
         <StatCard icon={<Ticket className="w-5 h-5" />} label="Total Tickets" value={stats.totalTickets} color="blue" />
         <StatCard icon={<Clock className="w-5 h-5" />} label="Open Tickets" value={stats.openTickets} color="amber" />
         <StatCard icon={<CheckCircle className="w-5 h-5" />} label="Resolved" value={stats.resolvedTickets} color="green" />
         <StatCard icon={<Users className="w-5 h-5" />} label="Avg Resolution (hrs)" value={stats.avgResolutionTime || '\u2014'} color="purple" />
         <StatCard icon={<Star className="w-5 h-5" />} label="Avg Satisfaction" value={stats.avgSatisfaction ? `${Number(stats.avgSatisfaction).toFixed(1)} / 5` : '\u2014'} color="amber" />
         <StatCard icon={<AlertTriangle className="w-5 h-5" />} label="Escalation Alerts" value={escalationAlerts.length} color={escalationAlerts.length > 0 ? 'red' : 'green'} />
+      </div>
+
+      {/* Status Quick Filters */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-8">
+        {[
+          { status: 'new', label: 'New', icon: <Inbox className="w-4 h-4" />, bg: 'bg-sky-500/10 hover:bg-sky-500/20', text: 'text-sky-500', border: 'border-sky-500/30' },
+          { status: 'assigned', label: 'Assigned', icon: <UserCheck className="w-4 h-4" />, bg: 'bg-blue-500/10 hover:bg-blue-500/20', text: 'text-blue-500', border: 'border-blue-500/30' },
+          { status: 'in_progress', label: 'In Progress', icon: <PlayCircle className="w-4 h-4" />, bg: 'bg-amber-500/10 hover:bg-amber-500/20', text: 'text-amber-500', border: 'border-amber-500/30' },
+          { status: 'resolved', label: 'Resolved', icon: <CircleCheck className="w-4 h-4" />, bg: 'bg-green-500/10 hover:bg-green-500/20', text: 'text-green-500', border: 'border-green-500/30' },
+          { status: 'closed', label: 'Closed', icon: <XCircle className="w-4 h-4" />, bg: 'bg-gray-500/10 hover:bg-gray-500/20', text: 'text-gray-400', border: 'border-gray-500/30' },
+        ].map(s => {
+          const count = stats.ticketsByStatus?.[s.status] || 0;
+          return (
+            <button
+              key={s.status}
+              onClick={() => navigate(`/admin/tickets?status=${s.status}`)}
+              className={`flex items-center gap-3 px-4 py-3 rounded-lg border ${s.border} ${s.bg} transition-colors cursor-pointer`}
+            >
+              <span className={s.text}>{s.icon}</span>
+              <div className="text-left">
+                <p className={`text-lg font-bold ${s.text}`}>{count}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{s.label}</p>
+              </div>
+            </button>
+          );
+        })}
       </div>
 
       {/* Recent Tickets */}
