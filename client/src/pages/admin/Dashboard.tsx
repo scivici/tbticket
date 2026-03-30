@@ -55,7 +55,7 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-4 mb-8">
         <StatCard icon={<Ticket className="w-5 h-5" />} label="Total Tickets" value={stats.totalTickets} color="blue" onClick={() => navigate('/admin/tickets?scope=all')} />
-        <StatCard icon={<Clock className="w-5 h-5" />} label="Open Tickets" value={stats.openTickets} color="amber" onClick={() => navigate('/admin/tickets?scope=open')} />
+        <StatCard icon={<Clock className="w-5 h-5" />} label="Open Tickets" value={stats.openTickets} color="amber" onClick={() => navigate('/admin/tickets?scope=active')} />
         <StatCard icon={<Inbox className="w-5 h-5" />} label="New" value={stats.ticketsByStatus?.new || 0} color="sky" onClick={() => navigate('/admin/tickets?status=new')} />
         <StatCard icon={<UserCheck className="w-5 h-5" />} label="Assigned" value={stats.ticketsByStatus?.assigned || 0} color="blue" onClick={() => navigate('/admin/tickets?status=assigned')} />
         <StatCard icon={<PlayCircle className="w-5 h-5" />} label="In Progress" value={stats.ticketsByStatus?.in_progress || 0} color="amber" onClick={() => navigate('/admin/tickets?status=in_progress')} />

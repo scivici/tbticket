@@ -160,8 +160,14 @@ export async function listTickets(filters: {
     params.push(filters.status);
   }
   if (filters.excludeStatus) {
-    conditions.push('t.status != ?');
-    params.push(filters.excludeStatus);
+    const excluded = filters.excludeStatus.split(',').map(s => s.trim()).filter(Boolean);
+    if (excluded.length === 1) {
+      conditions.push('t.status != ?');
+      params.push(excluded[0]);
+    } else if (excluded.length > 1) {
+      conditions.push(`t.status NOT IN (${excluded.map(() => '?').join(',')})`);
+      params.push(...excluded);
+    }
   }
   if (filters.priority) {
     conditions.push('t.priority = ?');

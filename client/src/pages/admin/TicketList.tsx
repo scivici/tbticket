@@ -17,7 +17,7 @@ export default function TicketList() {
   const [filters, setFilters] = useState<Record<string, string>>(
     initialStatus ? { status: initialStatus }
       : initialScope === 'all' ? {}
-      : initialScope === 'open' ? { excludeStatus: 'closed' }
+      : initialScope === 'active' ? { excludeStatus: 'resolved,closed' }
       : { excludeStatus: 'closed' }
   );
   const [selected, setSelected] = useState<Set<number>>(new Set());
