@@ -268,20 +268,6 @@ export default function TicketDetail() {
     setTimeout(load, 5000); setActionLoading('');
   };
 
-  const [escalationDoc, setEscalationDoc] = useState<string | null>(null);
-
-  const handleEscalationDoc = async () => {
-    if (!ticket) return;
-    setActionLoading('escalation');
-    try {
-      const result = await ticketsApi.generateEscalationDoc(ticket.id);
-      setEscalationDoc(result.document || result.error || 'Failed to generate document');
-    } catch (err: any) {
-      setEscalationDoc('Error: ' + err.message);
-    }
-    setActionLoading('');
-  };
-
   const handleDelete = async () => {
     if (!ticket || !window.confirm(`Delete ticket ${ticket.ticketNumber}? This cannot be undone.`)) return;
     setActionLoading('delete');
@@ -1095,11 +1081,6 @@ export default function TicketDetail() {
                 <RefreshCw className={`w-4 h-4 ${actionLoading === 'analyze' ? 'animate-spin' : ''}`} />
                 {actionLoading === 'analyze' ? 'AI Analyzing...' : 'Re-analyze with AI'}
               </button>
-              <button onClick={handleEscalationDoc} disabled={!!actionLoading}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-500/20 text-red-400 rounded-lg text-sm font-medium hover:bg-red-500/30 disabled:opacity-50 transition-colors">
-                <AlertTriangle className={`w-4 h-4 ${actionLoading === 'escalation' ? 'animate-pulse' : ''}`} />
-                {actionLoading === 'escalation' ? 'Generating...' : 'Developer Escalation'}
-              </button>
               {ticket.status !== 'escalated_to_jira' && !ticket.jiraIssueKey && (
                 <button onClick={async () => {
                   if (!ticket || !window.confirm('Escalate this ticket to Jira? This will create a Jira issue and change the status.')) return;
@@ -1209,50 +1190,6 @@ export default function TicketDetail() {
           {ticket?.aiAnalysis && (
             <p className="text-xs text-gray-400 mt-3">Previous analysis will be preserved in history.</p>
           )}
-        </div>
-      </div>
-    )}
-
-    {/* Escalation Document Modal */}
-    {escalationDoc !== null && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setEscalationDoc(null)}>
-        <div className="bg-white dark:bg-tb-card rounded-xl shadow-2xl w-full max-w-4xl mx-4 max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
-          <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-red-400" />
-              <h3 className="font-semibold text-gray-900 dark:text-white">Developer Escalation Document</h3>
-            </div>
-            <div className="flex items-center gap-2">
-              <button onClick={() => {
-                const blob = new Blob([escalationDoc], { type: 'text/markdown' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url; a.download = `escalation-${ticket?.ticketNumber || 'doc'}.md`;
-                a.click(); URL.revokeObjectURL(url);
-              }} className="px-3 py-1.5 bg-accent-blue/20 text-accent-blue rounded-lg text-sm hover:bg-accent-blue/30 transition-colors">
-                Download .md
-              </button>
-              <button onClick={() => {
-                navigator.clipboard.writeText(escalationDoc);
-                toast.info('Copied to clipboard');
-              }} className="px-3 py-1.5 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-sm hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">
-                Copy
-              </button>
-              <button onClick={() => setEscalationDoc(null)} className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-white">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
-          <div className="overflow-y-auto p-6 prose prose-sm dark:prose-invert max-w-none
-            prose-headings:text-gray-900 dark:prose-headings:text-white
-            prose-strong:text-gray-800 dark:prose-strong:text-gray-200
-            prose-code:bg-gray-200 dark:prose-code:bg-gray-700 prose-code:px-1 prose-code:rounded
-            prose-pre:bg-gray-900 prose-pre:text-gray-100
-            prose-table:border-collapse prose-th:border prose-th:border-gray-300 dark:prose-th:border-gray-600 prose-th:px-3 prose-th:py-1 prose-th:bg-gray-100 dark:prose-th:bg-gray-800
-            prose-td:border prose-td:border-gray-300 dark:prose-td:border-gray-600 prose-td:px-3 prose-td:py-1
-          ">
-            <ReactMarkdown>{escalationDoc}</ReactMarkdown>
-          </div>
         </div>
       </div>
     )}

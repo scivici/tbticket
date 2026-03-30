@@ -62,9 +62,6 @@ router.delete('/:id/timer', authenticate, requireAdmin, ticketsController.cancel
 // AI suggested reply
 router.post('/:id/suggest-reply', authenticate, requireAdmin, ticketsController.suggestReply);
 
-// Developer escalation document
-router.post('/:id/escalation-doc', authenticate, requireAdmin, ticketsController.generateEscalationDoc);
-
 // Convert to KB article
 router.post('/:id/create-kb-article', authenticate, requireAdmin, ticketsController.createKbArticle);
 
