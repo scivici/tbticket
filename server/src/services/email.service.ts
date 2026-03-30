@@ -224,6 +224,84 @@ export function sendTicketResponseEmail(email: string, ticketNumber: string, aut
   );
 }
 
+export function sendEngineerAssignedEmail(
+  engineerEmail: string,
+  engineerName: string,
+  ticketNumber: string,
+  subject: string,
+  customerName: string,
+  customerCompany: string | null,
+  createdAt: string,
+  priority: string,
+  aiAnalyzed: boolean,
+  slaResponseHours: number | null,
+  slaResolutionHours: number | null,
+) {
+  const priorityColors: Record<string, { color: string; bg: string }> = {
+    critical: { color: '#dc2626', bg: '#fee2e2' },
+    high:     { color: '#D39340', bg: '#fef3c7' },
+    medium:   { color: '#0ea5e9', bg: '#e0f2fe' },
+    low:      { color: '#059669', bg: '#dcfce7' },
+  };
+  const pc = priorityColors[priority] || { color: '#64748b', bg: '#f1f5f9' };
+  const createdDate = new Date(createdAt).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
+  const customer = customerCompany ? `${customerName} (${customerCompany})` : customerName;
+
+  const body = `
+    <p style="margin:0 0 16px 0;color:#334155;font-size:15px;line-height:1.6;font-family:${FONT_STACK}">
+      Hi ${engineerName}, a ticket has been assigned to you.
+    </p>
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 20px 0;background-color:#f8fafc;border-radius:8px">
+      <tr>
+        <td style="padding:20px">
+          <table width="100%" cellpadding="0" cellspacing="0" border="0">
+            <tr>
+              <td style="padding:6px 0;color:#64748b;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;font-family:${FONT_STACK};width:140px">Customer</td>
+              <td style="padding:6px 0;color:#1a2332;font-size:14px;font-weight:500;font-family:${FONT_STACK}">${customer}</td>
+            </tr>
+            <tr>
+              <td style="padding:6px 0;color:#64748b;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;font-family:${FONT_STACK}">Subject</td>
+              <td style="padding:6px 0;color:#1a2332;font-size:14px;font-weight:500;font-family:${FONT_STACK}">${subject}</td>
+            </tr>
+            <tr>
+              <td style="padding:6px 0;color:#64748b;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;font-family:${FONT_STACK}">Created</td>
+              <td style="padding:6px 0;color:#1a2332;font-size:14px;font-family:${FONT_STACK}">${createdDate}</td>
+            </tr>
+            <tr>
+              <td style="padding:6px 0;color:#64748b;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;font-family:${FONT_STACK}">Priority</td>
+              <td style="padding:6px 0">
+                <span style="display:inline-block;padding:3px 12px;background-color:${pc.bg};color:${pc.color};font-size:12px;font-weight:600;border-radius:12px;text-transform:capitalize;font-family:${FONT_STACK}">${priority}</span>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:6px 0;color:#64748b;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;font-family:${FONT_STACK}">AI Analysis</td>
+              <td style="padding:6px 0;color:#1a2332;font-size:14px;font-family:${FONT_STACK}">${aiAnalyzed ? '<span style="color:#22c55e;font-weight:500">Completed</span>' : '<span style="color:#f59e0b;font-weight:500">Not available</span>'}</td>
+            </tr>
+            ${slaResponseHours !== null ? `
+            <tr>
+              <td style="padding:6px 0;color:#64748b;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;font-family:${FONT_STACK}">SLA Response</td>
+              <td style="padding:6px 0;color:#1a2332;font-size:14px;font-weight:600;font-family:${FONT_STACK}">${slaResponseHours} hours</td>
+            </tr>` : ''}
+            ${slaResolutionHours !== null ? `
+            <tr>
+              <td style="padding:6px 0;color:#64748b;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;font-family:${FONT_STACK}">SLA Resolution</td>
+              <td style="padding:6px 0;color:#1a2332;font-size:14px;font-weight:600;font-family:${FONT_STACK}">${slaResolutionHours} hours</td>
+            </tr>` : ''}
+          </table>
+        </td>
+      </tr>
+    </table>
+    <p style="margin:0;color:#475569;font-size:14px;line-height:1.6;font-family:${FONT_STACK}">
+      Please review the ticket details in the admin panel and respond within the SLA target.
+    </p>`;
+
+  return sendEmail(
+    engineerEmail,
+    `[${ticketNumber}] Assigned to You — ${subject}`,
+    emailTemplate('New Ticket Assigned to You', body, ticketNumber),
+  );
+}
+
 export function sendTicketStatusEmail(email: string, ticketNumber: string, newStatus: string) {
   const statusLabels: Record<string, { label: string; color: string; bg: string }> = {
     new:               { label: 'New',           color: '#0ea5e9', bg: '#e0f2fe' },

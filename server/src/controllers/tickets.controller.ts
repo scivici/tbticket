@@ -148,6 +148,31 @@ async function checkMissingInfo(ticketId: number, productId: number, productKey:
   }
 }
 
+async function sendAutoAssignEmail(ticketId: number, engineerId: number) {
+  try {
+    const ticket = await ticketService.getTicketById(ticketId);
+    if (!ticket) return;
+    const engineer = await queryOne<any>('SELECT name, email FROM engineers WHERE id = ?', [engineerId]);
+    if (!engineer?.email) return;
+    const slaPolicy = await slaService.getSlaPolicy(ticket.priority);
+    emailService.sendEngineerAssignedEmail(
+      engineer.email,
+      engineer.name,
+      ticket.ticketNumber,
+      ticket.subject,
+      ticket.customer.name,
+      ticket.customer.company,
+      ticket.createdAt,
+      ticket.priority,
+      !!ticket.aiAnalysis,
+      slaPolicy?.response_time_hours ?? null,
+      slaPolicy?.resolution_time_hours ?? null,
+    );
+  } catch (err) {
+    console.error(`[Email] Failed to send engineer assignment email for ticket ${ticketId}:`, err);
+  }
+}
+
 async function triggerAnalysis(ticketId: number, productId: number, categoryId: number, customPrompt?: string) {
   try {
     const analysisMode = await getSetting('claude_analysis_mode') || 'ssh';
@@ -173,6 +198,7 @@ async function triggerAnalysis(ticketId: number, productId: number, categoryId: 
       if (analysis.confidence >= await getAutoAssignThreshold()) {
         await ticketService.assignTicket(ticketId, analysis.recommendedEngineerId);
         console.log(`[AI] Auto-assigned ticket ${ticketId} to engineer ${analysis.recommendedEngineerName} (confidence: ${analysis.confidence})`);
+        sendAutoAssignEmail(ticketId, analysis.recommendedEngineerId);
       } else {
         await ticketService.updateTicketStatus(ticketId, 'new');
         console.log(`[AI] Ticket ${ticketId} flagged for manual review (confidence: ${analysis.confidence})`);
@@ -272,6 +298,7 @@ async function triggerSshAnalysis(ticketId: number) {
         if (confidence >= await getAutoAssignThreshold() && analysisJson.recommendedEngineerId) {
           await ticketService.assignTicket(ticketId, analysisJson.recommendedEngineerId);
           console.log(`[SSH-AI] Auto-assigned ticket ${ticketId} to ${analysisJson.recommendedEngineerName} (confidence: ${confidence})`);
+          sendAutoAssignEmail(ticketId, analysisJson.recommendedEngineerId);
         } else {
           await ticketService.updateTicketStatus(ticketId, 'new');
           console.log(`[SSH-AI] Ticket ${ticketId} flagged for manual review (confidence: ${confidence})`);
@@ -370,6 +397,7 @@ async function triggerWrapperAnalysis(ticketId: number, productId: number, categ
       if (confidence >= await getAutoAssignThreshold() && result.analysis.recommendedEngineerId) {
         await ticketService.assignTicket(ticketId, result.analysis.recommendedEngineerId);
         console.log(`[Wrapper-AI] Auto-assigned ticket ${ticketId} to ${result.analysis.recommendedEngineerName} (confidence: ${confidence})`);
+        sendAutoAssignEmail(ticketId, result.analysis.recommendedEngineerId);
       } else {
         await ticketService.updateTicketStatus(ticketId, 'new');
         console.log(`[Wrapper-AI] Ticket ${ticketId} flagged for manual review (confidence: ${confidence})`);
@@ -589,6 +617,24 @@ export async function assignEngineer(req: AuthenticatedRequest, res: Response): 
       'Engineer assigned to your ticket',
       `${engineer?.name || 'An engineer'} has been assigned to ticket ${ticket.ticketNumber}`
     );
+
+    // Send email to engineer
+    if (engineer?.email) {
+      const slaPolicy = await slaService.getSlaPolicy(ticket.priority);
+      emailService.sendEngineerAssignedEmail(
+        engineer.email,
+        engineer.name,
+        ticket.ticketNumber,
+        ticket.subject,
+        ticket.customer.name,
+        ticket.customer.company,
+        ticket.createdAt,
+        ticket.priority,
+        !!ticket.aiAnalysis,
+        slaPolicy?.response_time_hours ?? null,
+        slaPolicy?.resolution_time_hours ?? null,
+      );
+    }
   }
 
   res.json({ message: 'Engineer assigned' });
