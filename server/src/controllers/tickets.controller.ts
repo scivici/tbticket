@@ -388,7 +388,7 @@ async function triggerWrapperAnalysis(ticketId: number, productId: number, categ
     if (result.success && result.analysis) {
       const analysis = {
         ...result.analysis,
-        fullReport: result.rawOutput,
+        fullReport: result.analysis.fullReport || result.rawOutput,
         analysisMode: 'wrapper',
         executionTimeSeconds: result.executionTimeSeconds,
       };
@@ -414,12 +414,17 @@ async function triggerWrapperAnalysis(ticketId: number, productId: number, categ
         result.analysis.recommendedEngineerName || '',
       );
     } else if (result.success && result.rawOutput) {
-      // Got raw output but no structured analysis
+      // Got raw output but no structured analysis — try to extract readable text from CLI JSON
+      let reportText = result.rawOutput;
+      try {
+        const parsed = JSON.parse(result.rawOutput);
+        if (parsed.result) reportText = parsed.result;
+      } catch { /* not JSON, use as-is */ }
       const fallback = {
         classification: 'Analyzed by Claude Code Wrapper (see full report)',
         severity: 'medium',
         rootCauseHypothesis: 'See full report below',
-        fullReport: result.rawOutput,
+        fullReport: reportText,
         confidence: 0.5,
         analysisMode: 'wrapper',
       };
