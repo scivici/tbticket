@@ -10,8 +10,151 @@ import {
   Brain, FileText, RefreshCw, MessageSquare, Send, Lock, Clock, ShieldAlert,
   Trash2, Tag, X, Plus, PlusCircle, ArrowRightCircle, UserCheck, AlertTriangle,
   MessageSquarePlus, Image as ImageIcon, Star, Upload, Paperclip, Link2, Users, ExternalLink,
-  Timer, Sparkles, BookOpen, Play, Square, Printer, Merge
+  Timer, Sparkles, BookOpen, Play, Square, Printer, Merge,
+  Search, Server, Zap, Target, Activity, Shield, ListChecks, Info, ChevronDown
 } from 'lucide-react';
+
+/* ── Full Report Section Parser & Renderer ── */
+interface ReportSection {
+  title: string;
+  content: string;
+}
+
+const SECTION_STYLES: Record<string, { icon: React.ReactNode; border: string; bg: string; titleColor: string }> = {
+  'summary': {
+    icon: <Info className="w-4 h-4" />,
+    border: 'border-blue-300 dark:border-blue-700/50',
+    bg: 'bg-blue-50 dark:bg-blue-900/10',
+    titleColor: 'text-blue-600 dark:text-blue-400',
+  },
+  'evidence': {
+    icon: <Search className="w-4 h-4" />,
+    border: 'border-amber-300 dark:border-amber-700/50',
+    bg: 'bg-amber-50 dark:bg-amber-900/10',
+    titleColor: 'text-amber-600 dark:text-amber-400',
+  },
+  'architecture context': {
+    icon: <Server className="w-4 h-4" />,
+    border: 'border-indigo-300 dark:border-indigo-700/50',
+    bg: 'bg-indigo-50 dark:bg-indigo-900/10',
+    titleColor: 'text-indigo-600 dark:text-indigo-400',
+  },
+  'root cause analysis': {
+    icon: <Target className="w-4 h-4" />,
+    border: 'border-red-300 dark:border-red-700/50',
+    bg: 'bg-red-50 dark:bg-red-900/10',
+    titleColor: 'text-red-600 dark:text-red-400',
+  },
+  'impact': {
+    icon: <Zap className="w-4 h-4" />,
+    border: 'border-orange-300 dark:border-orange-700/50',
+    bg: 'bg-orange-50 dark:bg-orange-900/10',
+    titleColor: 'text-orange-600 dark:text-orange-400',
+  },
+  'recommended actions': {
+    icon: <ListChecks className="w-4 h-4" />,
+    border: 'border-green-300 dark:border-green-700/50',
+    bg: 'bg-green-50 dark:bg-green-900/10',
+    titleColor: 'text-green-600 dark:text-green-400',
+  },
+  'escalation notes': {
+    icon: <Shield className="w-4 h-4" />,
+    border: 'border-purple-300 dark:border-purple-700/50',
+    bg: 'bg-purple-50 dark:bg-purple-900/10',
+    titleColor: 'text-purple-600 dark:text-purple-400',
+  },
+};
+
+const DEFAULT_SECTION_STYLE = {
+  icon: <Activity className="w-4 h-4" />,
+  border: 'border-gray-300 dark:border-gray-600',
+  bg: 'bg-gray-50 dark:bg-gray-800/30',
+  titleColor: 'text-gray-600 dark:text-gray-400',
+};
+
+function parseReportSections(report: string): { preamble: string; sections: ReportSection[] } {
+  const lines = report.split('\n');
+  const sections: ReportSection[] = [];
+  let preamble = '';
+  let currentTitle = '';
+  let currentContent: string[] = [];
+
+  for (const line of lines) {
+    const headingMatch = line.match(/^##\s+(.+)$/);
+    if (headingMatch) {
+      if (currentTitle) {
+        sections.push({ title: currentTitle, content: currentContent.join('\n').trim() });
+      } else if (currentContent.length > 0) {
+        preamble = currentContent.join('\n').trim();
+      }
+      currentTitle = headingMatch[1].trim();
+      currentContent = [];
+    } else {
+      currentContent.push(line);
+    }
+  }
+  if (currentTitle) {
+    sections.push({ title: currentTitle, content: currentContent.join('\n').trim() });
+  } else if (currentContent.length > 0 && !preamble) {
+    preamble = currentContent.join('\n').trim();
+  }
+
+  return { preamble, sections };
+}
+
+function getSectionStyle(title: string) {
+  const key = title.toLowerCase();
+  for (const [pattern, style] of Object.entries(SECTION_STYLES)) {
+    if (key.includes(pattern)) return style;
+  }
+  return DEFAULT_SECTION_STYLE;
+}
+
+const markdownProseClasses = `prose prose-sm dark:prose-invert max-w-none
+  prose-headings:text-gray-900 dark:prose-headings:text-white
+  prose-strong:text-gray-800 dark:prose-strong:text-gray-200
+  prose-code:bg-gray-200 dark:prose-code:bg-gray-700 prose-code:px-1 prose-code:rounded
+  prose-pre:bg-gray-900 prose-pre:text-gray-100
+  prose-table:border-collapse prose-th:border prose-th:border-gray-300 dark:prose-th:border-gray-600 prose-th:px-3 prose-th:py-1 prose-th:bg-gray-100 dark:prose-th:bg-gray-800
+  prose-td:border prose-td:border-gray-300 dark:prose-td:border-gray-600 prose-td:px-3 prose-td:py-1`;
+
+function FullReportCategorized({ report }: { report: string }) {
+  const { preamble, sections } = parseReportSections(report);
+
+  // Fallback: if no ## sections found, render as plain markdown
+  if (sections.length === 0) {
+    return (
+      <div className={`mt-2 p-4 bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 rounded-lg overflow-x-auto ${markdownProseClasses}`}>
+        <ReactMarkdown>{report}</ReactMarkdown>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-2 space-y-3">
+      {preamble && (
+        <div className={`p-4 bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 rounded-lg overflow-x-auto ${markdownProseClasses}`}>
+          <ReactMarkdown>{preamble}</ReactMarkdown>
+        </div>
+      )}
+      {sections.map((section, i) => {
+        const style = getSectionStyle(section.title);
+        return (
+          <details key={i} open className="group/section">
+            <summary className={`cursor-pointer flex items-center gap-2 p-3 rounded-t-lg border ${style.border} ${style.bg} select-none`}>
+              <span className={style.titleColor}>{style.icon}</span>
+              <span className={`text-sm font-semibold uppercase tracking-wide ${style.titleColor}`}>{section.title}</span>
+              <ChevronDown className={`w-4 h-4 ml-auto ${style.titleColor} transition-transform group-open/section:rotate-0 rotate-[-90deg]`} />
+            </summary>
+            <div className={`p-4 border border-t-0 ${style.border} rounded-b-lg bg-white dark:bg-[#1a1a1a] overflow-x-auto ${markdownProseClasses}`}>
+              <ReactMarkdown>{section.content}</ReactMarkdown>
+            </div>
+          </details>
+        );
+      })}
+    </div>
+  );
+}
 
 const ACTIVITY_TYPES = [
   { value: 'general', label: 'General', color: 'gray' },
@@ -472,7 +615,7 @@ export default function TicketDetail() {
                 </div>
               )}
 
-              {/* Full Report - Markdown rendered */}
+              {/* Full Report - Categorized */}
               {aiAnalysis.fullReport && (
                 <details className="group">
                   <summary className="cursor-pointer flex items-center gap-2 text-sm font-semibold text-purple-400 hover:text-purple-300 py-2">
@@ -480,16 +623,7 @@ export default function TicketDetail() {
                     <span>Full Technical Report</span>
                     <span className="text-xs text-gray-500 group-open:hidden">(click to expand)</span>
                   </summary>
-                  <div className="mt-2 p-4 bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 rounded-lg prose prose-sm dark:prose-invert max-w-none overflow-x-auto
-                    prose-headings:text-gray-900 dark:prose-headings:text-white
-                    prose-strong:text-gray-800 dark:prose-strong:text-gray-200
-                    prose-code:bg-gray-200 dark:prose-code:bg-gray-700 prose-code:px-1 prose-code:rounded
-                    prose-pre:bg-gray-900 prose-pre:text-gray-100
-                    prose-table:border-collapse prose-th:border prose-th:border-gray-300 dark:prose-th:border-gray-600 prose-th:px-3 prose-th:py-1 prose-th:bg-gray-100 dark:prose-th:bg-gray-800
-                    prose-td:border prose-td:border-gray-300 dark:prose-td:border-gray-600 prose-td:px-3 prose-td:py-1
-                  ">
-                    <ReactMarkdown>{aiAnalysis.fullReport}</ReactMarkdown>
-                  </div>
+                  <FullReportCategorized report={aiAnalysis.fullReport} />
                 </details>
               )}
 
