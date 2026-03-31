@@ -32,20 +32,44 @@ async function detectJiraApiVersion(baseUrl: string, auth: string): Promise<stri
   const cached = apiVersionCache[baseUrl];
   if (cached && Date.now() - cached.ts < 3600000) return cached.version; // cache 1 hour
 
+  const headers = { 'Authorization': `Basic ${auth}`, 'Accept': 'application/json' };
+
+  // Try v3 (Cloud)
   try {
-    // Try v3 (Cloud) - returns 200 on Cloud, 404 on Server
-    const res = await fetch(`${baseUrl}/rest/api/3/serverInfo`, {
-      headers: { 'Authorization': `Basic ${auth}`, 'Accept': 'application/json' },
-    });
+    const res = await fetch(`${baseUrl}/rest/api/3/serverInfo`, { headers });
     if (res.ok) {
       apiVersionCache[baseUrl] = { version: '3', ts: Date.now() };
       console.log(`[Jira] Detected API v3 (Cloud) for ${baseUrl}`);
       return '3';
     }
-  } catch { /* ignore */ }
+    console.log(`[Jira] v3 serverInfo returned ${res.status} for ${baseUrl}`);
+  } catch (e: any) { console.log(`[Jira] v3 check failed for ${baseUrl}: ${e.message}`); }
 
+  // Try v2 (Server/Data Center)
+  try {
+    const res = await fetch(`${baseUrl}/rest/api/2/serverInfo`, { headers });
+    if (res.ok) {
+      const info = await res.json();
+      console.log(`[Jira] Detected API v2 (Server) for ${baseUrl} — version: ${info.version || 'unknown'}`);
+      apiVersionCache[baseUrl] = { version: '2', ts: Date.now() };
+      return '2';
+    }
+    console.log(`[Jira] v2 serverInfo returned ${res.status} for ${baseUrl}`);
+  } catch (e: any) { console.log(`[Jira] v2 check failed for ${baseUrl}: ${e.message}`); }
+
+  // Try /rest/api/latest as last resort
+  try {
+    const res = await fetch(`${baseUrl}/rest/api/latest/serverInfo`, { headers });
+    if (res.ok) {
+      console.log(`[Jira] Using API 'latest' for ${baseUrl}`);
+      apiVersionCache[baseUrl] = { version: 'latest', ts: Date.now() };
+      return 'latest';
+    }
+    console.log(`[Jira] 'latest' serverInfo returned ${res.status} for ${baseUrl}`);
+  } catch (e: any) { console.log(`[Jira] 'latest' check failed for ${baseUrl}: ${e.message}`); }
+
+  console.warn(`[Jira] Could not detect API version for ${baseUrl}, defaulting to v2`);
   apiVersionCache[baseUrl] = { version: '2', ts: Date.now() };
-  console.log(`[Jira] Using API v2 (Server/Data Center) for ${baseUrl}`);
   return '2';
 }
 
@@ -128,7 +152,9 @@ export async function createJiraIssue(data: JiraIssueData, engineerId?: number):
   };
 
   try {
-    const response = await fetch(url, {
+    console.log(`[Jira] Creating issue: POST ${url} (API v${apiVersion}, project: ${projectKey})`);
+
+    let response = await fetch(url, {
       method: 'POST',
       headers: {
         'Authorization': `Basic ${auth}`,
@@ -138,9 +164,24 @@ export async function createJiraIssue(data: JiraIssueData, engineerId?: number):
       body: JSON.stringify(body),
     });
 
+    // If v2 also 404s, try latest (some Jira versions use /rest/api/latest)
+    if (response.status === 404) {
+      const latestUrl = `${base}/rest/api/latest/issue`;
+      console.log(`[Jira] v${apiVersion} returned 404, retrying: POST ${latestUrl}`);
+      response = await fetch(latestUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Basic ${auth}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
+    }
+
     if (!response.ok) {
       const errorBody = await response.text();
-      console.error('[Jira] Create issue failed:', response.status, errorBody);
+      console.error(`[Jira] Create issue failed: ${response.status} at ${url}`, errorBody.substring(0, 300));
       return { success: false, error: `Jira API error (${response.status}): ${errorBody.substring(0, 200)}` };
     }
 
