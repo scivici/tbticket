@@ -393,15 +393,20 @@ async function triggerWrapperAnalysis(ticketId: number, productId: number, categ
         executionTimeSeconds: result.executionTimeSeconds,
       };
       const confidence = result.analysis.confidence || 0.5;
+      const engineerId = result.analysis.recommendedEngineerId;
+      const threshold = await getAutoAssignThreshold();
       await ticketService.updateAiAnalysis(ticketId, JSON.stringify(analysis), confidence);
 
-      if (confidence >= await getAutoAssignThreshold() && result.analysis.recommendedEngineerId) {
-        await ticketService.assignTicket(ticketId, result.analysis.recommendedEngineerId);
+      console.log(`[Wrapper-AI] Ticket ${ticketId}: confidence=${confidence}, threshold=${threshold}, engineerId=${engineerId} (type: ${typeof engineerId})`);
+
+      if (confidence >= threshold && engineerId) {
+        const numericEngineerId = typeof engineerId === 'string' ? parseInt(engineerId, 10) : engineerId;
+        await ticketService.assignTicket(ticketId, numericEngineerId);
         console.log(`[Wrapper-AI] Auto-assigned ticket ${ticketId} to ${result.analysis.recommendedEngineerName} (confidence: ${confidence})`);
-        sendAutoAssignEmail(ticketId, result.analysis.recommendedEngineerId);
+        sendAutoAssignEmail(ticketId, numericEngineerId);
       } else {
         await ticketService.updateTicketStatus(ticketId, 'new');
-        console.log(`[Wrapper-AI] Ticket ${ticketId} flagged for manual review (confidence: ${confidence})`);
+        console.log(`[Wrapper-AI] Ticket ${ticketId} flagged for manual review (confidence: ${confidence}, threshold: ${threshold}, engineerId: ${engineerId})`);
       }
 
       await activityService.logActivity(ticketId, null, 'Claude AI', 'ai_analysis', `AI analysis completed via wrapper service (${result.executionTimeSeconds}s)`);

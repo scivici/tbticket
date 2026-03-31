@@ -631,74 +631,9 @@ export default function TicketDetail() {
                 </div>
               </div>
 
-              {/* ── Root Cause Hypothesis ── */}
-              <div className="rounded-2xl border border-red-200 dark:border-red-800/40 border-l-4 border-l-red-500 bg-white dark:bg-[#1e1e1e] shadow-sm overflow-hidden">
-                <div className="flex items-center gap-3 px-5 py-3.5 bg-red-50/50 dark:bg-red-900/10">
-                  <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400"><Target className="w-4 h-4" /></span>
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-red-700 dark:text-red-400 m-0">Root Cause Hypothesis</h3>
-                </div>
-                <div className={`px-5 py-4 ${reportProseClasses}`}>
-                  <ReactMarkdown>{aiAnalysis.rootCauseHypothesis || ''}</ReactMarkdown>
-                </div>
-              </div>
-
-              {/* ── Specialist Selection Reasoning ── */}
-              {aiAnalysis.reasoning && (
-                <div className="rounded-2xl border border-blue-200 dark:border-blue-800/40 border-l-4 border-l-blue-500 bg-white dark:bg-[#1e1e1e] shadow-sm overflow-hidden">
-                  <div className="flex items-center gap-3 px-5 py-3.5 bg-blue-50/50 dark:bg-blue-900/10">
-                    <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"><UserCheck className="w-4 h-4" /></span>
-                    <h3 className="text-sm font-bold uppercase tracking-wider text-blue-700 dark:text-blue-400 m-0">Support Specialist Selection Reasoning</h3>
-                  </div>
-                  <div className="px-5 py-4 text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{aiAnalysis.reasoning}</div>
-                </div>
-              )}
-
-              {/* ── Suggested Skills ── */}
-              {aiAnalysis.suggestedSkills?.length > 0 && (
-                <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1e1e1e] shadow-sm overflow-hidden">
-                  <div className="flex items-center gap-3 px-5 py-3.5 bg-gray-50/50 dark:bg-gray-800/20">
-                    <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400"><BookOpen className="w-4 h-4" /></span>
-                    <h3 className="text-sm font-bold uppercase tracking-wider text-gray-700 dark:text-gray-400 m-0">Suggested Skills</h3>
-                  </div>
-                  <div className="px-5 py-4 flex flex-wrap gap-2">
-                    {aiAnalysis.suggestedSkills.map((s: string) => (
-                      <span key={s} className="px-3 py-1.5 rounded-full bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-600 text-sm font-semibold text-gray-700 dark:text-gray-300">{s}</span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* ── Recommended Actions ── */}
-              {aiAnalysis.suggestedActions?.length > 0 && (
-                <div className="rounded-2xl border border-green-200 dark:border-green-800/40 border-l-4 border-l-green-500 bg-white dark:bg-[#1e1e1e] shadow-sm overflow-hidden">
-                  <div className="flex items-center gap-3 px-5 py-3.5 bg-green-50/50 dark:bg-green-900/10">
-                    <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400"><ListChecks className="w-4 h-4" /></span>
-                    <h3 className="text-sm font-bold uppercase tracking-wider text-green-700 dark:text-green-400 m-0">Recommended Actions</h3>
-                  </div>
-                  <div className="px-5 py-4">
-                    <ol className="list-none m-0 p-0 space-y-2.5">
-                      {aiAnalysis.suggestedActions.map((action: string, i: number) => (
-                        <li key={i} className="flex gap-3 text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
-                          <span className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs font-bold mt-0.5">{i + 1}</span>
-                          <span>{action}</span>
-                        </li>
-                      ))}
-                    </ol>
-                  </div>
-                </div>
-              )}
-
-              {/* ── Full Technical Report (categorized cards) ── */}
+              {/* ── Full Technical Report (always visible, categorized cards) ── */}
               {aiAnalysis.fullReport && (
-                <details className="group">
-                  <summary className="cursor-pointer flex items-center gap-2.5 text-sm font-semibold text-purple-500 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 py-2 transition-colors">
-                    <FileText className="w-4 h-4" />
-                    <span>Full Technical Report</span>
-                    <span className="text-xs text-gray-400 dark:text-gray-500 group-open:hidden">(click to expand)</span>
-                    <ChevronDown className="w-4 h-4 ml-auto transition-transform group-open:rotate-0 -rotate-90" />
-                  </summary>
-                  <FullReportCategorized report={aiAnalysis.fullReport} />
-                </details>
+                <FullReportCategorized report={aiAnalysis.fullReport} />
               )}
 
               {/* ── Jira Escalation ── */}
