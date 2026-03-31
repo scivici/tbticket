@@ -25,6 +25,30 @@ interface JiraResult {
   error?: string;
 }
 
+// Cache detected API version per base URL
+const apiVersionCache: Record<string, { version: string; ts: number }> = {};
+
+async function detectJiraApiVersion(baseUrl: string, auth: string): Promise<string> {
+  const cached = apiVersionCache[baseUrl];
+  if (cached && Date.now() - cached.ts < 3600000) return cached.version; // cache 1 hour
+
+  try {
+    // Try v3 (Cloud) - returns 200 on Cloud, 404 on Server
+    const res = await fetch(`${baseUrl}/rest/api/3/serverInfo`, {
+      headers: { 'Authorization': `Basic ${auth}`, 'Accept': 'application/json' },
+    });
+    if (res.ok) {
+      apiVersionCache[baseUrl] = { version: '3', ts: Date.now() };
+      console.log(`[Jira] Detected API v3 (Cloud) for ${baseUrl}`);
+      return '3';
+    }
+  } catch { /* ignore */ }
+
+  apiVersionCache[baseUrl] = { version: '2', ts: Date.now() };
+  console.log(`[Jira] Using API v2 (Server/Data Center) for ${baseUrl}`);
+  return '2';
+}
+
 const PRIORITY_MAP: Record<string, string> = {
   critical: 'Highest',
   high: 'High',
@@ -68,46 +92,35 @@ export async function createJiraIssue(data: JiraIssueData, engineerId?: number):
   const { baseUrl, email, apiToken: token, projectKey } = creds;
   const issueType = await getSetting('jira_issue_type') || 'Bug';
 
-  const url = `${baseUrl.replace(/\/$/, '')}/rest/api/3/issue`;
+  const base = baseUrl.replace(/\/$/, '');
   const auth = Buffer.from(`${email}:${token}`).toString('base64');
+
+  // Detect Jira version: try v3 (Cloud) first, fall back to v2 (Server/Data Center)
+  const apiVersion = await detectJiraApiVersion(base, auth);
+  const url = `${base}/rest/api/${apiVersion}/issue`;
+
+  const descriptionText = `Ticket: ${data.ticketNumber}\nProduct: ${data.productName} / ${data.categoryName}\nCustomer: ${data.customerName} (${data.customerEmail})\n\n${data.description}`;
+
+  // API v3 (Cloud) uses ADF format, v2 (Server) uses plain string
+  const description = apiVersion === '3'
+    ? {
+        type: 'doc',
+        version: 1,
+        content: [
+          { type: 'paragraph', content: [{ type: 'text', text: `Ticket: ${data.ticketNumber}` }] },
+          { type: 'paragraph', content: [{ type: 'text', text: `Product: ${data.productName} / ${data.categoryName}` }] },
+          { type: 'paragraph', content: [{ type: 'text', text: `Customer: ${data.customerName} (${data.customerEmail})` }] },
+          { type: 'rule' },
+          { type: 'paragraph', content: [{ type: 'text', text: data.description }] },
+        ],
+      }
+    : descriptionText;
 
   const body = {
     fields: {
       project: { key: projectKey },
       summary: `[${data.ticketNumber}] ${data.subject}`,
-      description: {
-        type: 'doc',
-        version: 1,
-        content: [
-          {
-            type: 'paragraph',
-            content: [
-              { type: 'text', text: `Ticket: ${data.ticketNumber}` },
-            ],
-          },
-          {
-            type: 'paragraph',
-            content: [
-              { type: 'text', text: `Product: ${data.productName} / ${data.categoryName}` },
-            ],
-          },
-          {
-            type: 'paragraph',
-            content: [
-              { type: 'text', text: `Customer: ${data.customerName} (${data.customerEmail})` },
-            ],
-          },
-          {
-            type: 'rule',
-          },
-          {
-            type: 'paragraph',
-            content: [
-              { type: 'text', text: data.description },
-            ],
-          },
-        ],
-      },
+      description,
       issuetype: { name: issueType },
       priority: { name: PRIORITY_MAP[data.priority] || 'Medium' },
       labels: ['support-ticket', data.ticketNumber],
@@ -153,8 +166,10 @@ export async function getJiraIssueStatus(issueKey: string, engineerId?: number):
   if (!creds) return null;
 
   const { baseUrl, email, apiToken: token } = creds;
-  const url = `${baseUrl.replace(/\/$/, '')}/rest/api/3/issue/${issueKey}?fields=status,summary`;
+  const base = baseUrl.replace(/\/$/, '');
   const auth = Buffer.from(`${email}:${token}`).toString('base64');
+  const apiVersion = await detectJiraApiVersion(base, auth);
+  const url = `${base}/rest/api/${apiVersion}/issue/${issueKey}?fields=status,summary`;
 
   try {
     const response = await fetch(url, {

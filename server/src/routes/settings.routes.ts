@@ -70,10 +70,17 @@ router.post('/test-jira', authenticate, requireAdmin, async (req: any, res: Resp
   }
 
   const auth = Buffer.from(`${jiraEmail}:${jiraToken}`).toString('base64');
+  const base = jiraUrl.replace(/\/$/, '');
   try {
-    const response = await fetch(`${jiraUrl.replace(/\/$/, '')}/rest/api/3/project`, {
+    // Try v3 (Cloud) first, fall back to v2 (Server/Data Center)
+    let response = await fetch(`${base}/rest/api/3/project`, {
       headers: { 'Authorization': `Basic ${auth}`, 'Accept': 'application/json' },
     });
+    if (response.status === 404) {
+      response = await fetch(`${base}/rest/api/2/project`, {
+        headers: { 'Authorization': `Basic ${auth}`, 'Accept': 'application/json' },
+      });
+    }
     if (!response.ok) {
       const body = await response.text();
       res.json({ success: false, error: `Jira API error (${response.status}): ${body.substring(0, 200)}` });
