@@ -754,54 +754,7 @@ export default function SetupPage() {
       )}
 
       {/* Tab: Jira */}
-      {activeTab === 'jira' && (
-        <div className="tb-card p-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-1 flex items-center gap-2">
-            <ExternalLink className="w-5 h-5" /> Jira Integration
-          </h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-            Connect to your Jira instance to create and track issues from tickets.
-          </p>
-
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Jira Base URL</label>
-              <input type="url" value={get('jira_base_url')} onChange={e => set('jira_base_url', e.target.value)}
-                className="tb-input" placeholder="https://yourcompany.atlassian.net" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">API Email</label>
-              <input type="email" value={get('jira_api_email')} onChange={e => set('jira_api_email', e.target.value)}
-                className="tb-input" placeholder="you@company.com" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">API Token</label>
-              <input type="password" value={get('jira_api_token')} onChange={e => set('jira_api_token', e.target.value)}
-                className="tb-input" placeholder="Jira API token" />
-              <p className="text-xs text-gray-500 mt-1">Generate at: id.atlassian.com/manage-profile/security/api-tokens</p>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Default Project Key</label>
-                <input type="text" value={get('jira_project_key')} onChange={e => set('jira_project_key', e.target.value.toUpperCase())}
-                  className="tb-input font-mono" placeholder="SUP" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Default Issue Type</label>
-                <input type="text" value={get('jira_issue_type')} onChange={e => set('jira_issue_type', e.target.value)}
-                  className="tb-input" placeholder="Bug" />
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-            <button onClick={() => saveKeys(['jira_base_url', 'jira_api_email', 'jira_api_token', 'jira_project_key', 'jira_issue_type'])}
-              disabled={saving} className="tb-btn-success flex items-center gap-2">
-              <Save className="w-4 h-4" /> {saving ? 'Saving...' : 'Save Jira Settings'}
-            </button>
-          </div>
-        </div>
-      )}
+      {activeTab === 'jira' && <JiraPanel get={get} set={set} saving={saving} saveKeys={saveKeys} toast={toast} />}
 
       {/* Tab: Admin Users */}
       {activeTab === 'users' && <UsersPanel />}
@@ -901,6 +854,138 @@ export default function SetupPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ============ Jira Panel ============
+
+function JiraPanel({ get, set, saving, saveKeys, toast }: {
+  get: (k: string) => string; set: (k: string, v: string) => void;
+  saving: boolean; saveKeys: (keys: string[]) => void; toast: any;
+}) {
+  const [testing, setTesting] = useState(false);
+  const [jiraProjects, setJiraProjects] = useState<{ key: string; name: string }[]>([]);
+  const [testResult, setTestResult] = useState<{ success: boolean; error?: string } | null>(null);
+
+  const testConnection = async () => {
+    setTesting(true);
+    setTestResult(null);
+    setJiraProjects([]);
+    try {
+      const res = await settingsApi.testJira({
+        baseUrl: get('jira_base_url'),
+        email: get('jira_api_email'),
+        token: get('jira_api_token'),
+      });
+      if (res.success) {
+        setJiraProjects(res.projects || []);
+        setTestResult({ success: true });
+        toast.success(`Connection successful! ${res.projects?.length || 0} projects found.`);
+      } else {
+        setTestResult({ success: false, error: res.error });
+        toast.error(res.error || 'Connection failed');
+      }
+    } catch (err: any) {
+      setTestResult({ success: false, error: err.message });
+      toast.error(err.message);
+    }
+    setTesting(false);
+  };
+
+  return (
+    <div className="tb-card p-6">
+      <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-1 flex items-center gap-2">
+        <ExternalLink className="w-5 h-5" /> Jira Integration
+      </h2>
+      <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+        Connect to your Jira instance to create and track issues from tickets. These are the default (global) credentials. Each Support Specialist can also configure their own Jira credentials in their profile.
+      </p>
+
+      <div className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Jira Base URL</label>
+          <input type="url" value={get('jira_base_url')} onChange={e => set('jira_base_url', e.target.value)}
+            className="tb-input" placeholder="https://yourcompany.atlassian.net" />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">API Email</label>
+          <input type="email" value={get('jira_api_email')} onChange={e => set('jira_api_email', e.target.value)}
+            className="tb-input" placeholder="you@company.com" />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">API Token</label>
+          <input type="password" value={get('jira_api_token')} onChange={e => set('jira_api_token', e.target.value)}
+            className="tb-input" placeholder="Jira API token" />
+          <p className="text-xs text-gray-500 mt-1">
+            Generate at: <a href="https://id.atlassian.com/manage-profile/security/api-tokens" target="_blank" rel="noopener noreferrer" className="text-accent-blue hover:underline">id.atlassian.com/manage-profile/security/api-tokens</a>
+          </p>
+        </div>
+
+        {/* Test Connection */}
+        <div className="flex items-center gap-3">
+          <button onClick={testConnection} disabled={testing || !get('jira_base_url') || !get('jira_api_email') || !get('jira_api_token')}
+            className="tb-btn-secondary flex items-center gap-2 disabled:opacity-50">
+            <TestTube className="w-4 h-4" /> {testing ? 'Testing...' : 'Test Connection & Fetch Projects'}
+          </button>
+          {testResult && (
+            <span className={`text-sm font-medium ${testResult.success ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>
+              {testResult.success ? `Connected (${jiraProjects.length} projects)` : testResult.error}
+            </span>
+          )}
+        </div>
+
+        {/* Project selection */}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Default Project</label>
+            {jiraProjects.length > 0 ? (
+              <select value={get('jira_project_key')} onChange={e => set('jira_project_key', e.target.value)}
+                className="tb-select font-mono">
+                <option value="">Select a project...</option>
+                {jiraProjects.map(p => (
+                  <option key={p.key} value={p.key}>{p.key} — {p.name}</option>
+                ))}
+              </select>
+            ) : (
+              <input type="text" value={get('jira_project_key')} onChange={e => set('jira_project_key', e.target.value.toUpperCase())}
+                className="tb-input font-mono" placeholder="TB" />
+            )}
+            <p className="text-xs text-gray-500 mt-1">Click "Test Connection" to load available projects as a dropdown.</p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Default Issue Type</label>
+            <input type="text" value={get('jira_issue_type')} onChange={e => set('jira_issue_type', e.target.value)}
+              className="tb-input" placeholder="Bug" />
+          </div>
+        </div>
+
+        {/* Show fetched projects as info */}
+        {jiraProjects.length > 0 && (
+          <div className="p-3 bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-800/40 rounded-lg">
+            <p className="text-xs font-semibold text-green-700 dark:text-green-400 mb-2">Available Jira Projects ({jiraProjects.length})</p>
+            <div className="flex flex-wrap gap-2">
+              {jiraProjects.map(p => (
+                <button key={p.key} onClick={() => set('jira_project_key', p.key)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-mono font-semibold border transition-colors cursor-pointer ${
+                    get('jira_project_key') === p.key
+                      ? 'bg-green-600 text-white border-green-600'
+                      : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:border-green-400'
+                  }`}>
+                  {p.key} <span className="font-sans font-normal text-[0.65rem] opacity-75">({p.name})</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+        <button onClick={() => saveKeys(['jira_base_url', 'jira_api_email', 'jira_api_token', 'jira_project_key', 'jira_issue_type'])}
+          disabled={saving} className="tb-btn-success flex items-center gap-2">
+          <Save className="w-4 h-4" /> {saving ? 'Saving...' : 'Save Jira Settings'}
+        </button>
+      </div>
     </div>
   );
 }

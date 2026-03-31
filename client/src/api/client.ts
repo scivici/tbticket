@@ -320,6 +320,8 @@ export const settings = {
     request<any>('/settings/check-license', { method: 'POST', body: JSON.stringify({ productKey }) }),
   testLicenseApi: (productKey: string) =>
     request<any>('/settings/test-license-api', { method: 'POST', body: JSON.stringify({ productKey }) }),
+  testJira: (data?: { baseUrl?: string; email?: string; token?: string }) =>
+    request<any>('/settings/test-jira', { method: 'POST', body: JSON.stringify(data || {}) }),
 };
 
 // Notifications

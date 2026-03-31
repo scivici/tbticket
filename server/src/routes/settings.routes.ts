@@ -55,4 +55,38 @@ router.post('/test-license-api', authenticate, requireAdmin, async (req: any, re
   res.json(result);
 });
 
+// Test Jira connection and fetch projects (admin)
+router.post('/test-jira', authenticate, requireAdmin, async (req: any, res: Response) => {
+  const { baseUrl, email, token } = req.body;
+
+  // Use provided values or fall back to saved settings
+  const jiraUrl = baseUrl || await settingsService.getSetting('jira_base_url');
+  const jiraEmail = email || await settingsService.getSetting('jira_api_email');
+  const jiraToken = token || await settingsService.getSetting('jira_api_token');
+
+  if (!jiraUrl || !jiraEmail || !jiraToken) {
+    res.status(400).json({ success: false, error: 'Jira Base URL, Email, and API Token are required' });
+    return;
+  }
+
+  const auth = Buffer.from(`${jiraEmail}:${jiraToken}`).toString('base64');
+  try {
+    const response = await fetch(`${jiraUrl.replace(/\/$/, '')}/rest/api/3/project`, {
+      headers: { 'Authorization': `Basic ${auth}`, 'Accept': 'application/json' },
+    });
+    if (!response.ok) {
+      const body = await response.text();
+      res.json({ success: false, error: `Jira API error (${response.status}): ${body.substring(0, 200)}` });
+      return;
+    }
+    const projects = await response.json();
+    res.json({
+      success: true,
+      projects: projects.map((p: any) => ({ key: p.key, name: p.name, projectTypeKey: p.projectTypeKey })),
+    });
+  } catch (err: any) {
+    res.json({ success: false, error: err.message });
+  }
+});
+
 export default router;
