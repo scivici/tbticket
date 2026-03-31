@@ -1,6 +1,6 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { WizardData } from './WizardContainer';
-import { Upload, X, FileText, Image, Info, AlertTriangle } from 'lucide-react';
+import { Upload, X, FileText, Image, Info, AlertTriangle, Clipboard } from 'lucide-react';
 
 interface Props {
   data: WizardData;
@@ -16,6 +16,8 @@ export default function FileUpload({ data, onUpdate, onNext, onPrev }: Props) {
   const [dragActive, setDragActive] = useState(false);
   const [error, setError] = useState('');
   const [showNoFilesWarning, setShowNoFilesWarning] = useState(false);
+  const [pasteFlash, setPasteFlash] = useState(false);
+  const pasteCountRef = useRef(0);
 
   const addFiles = useCallback((newFiles: FileList | File[]) => {
     setError('');
@@ -31,6 +33,35 @@ export default function FileUpload({ data, onUpdate, onNext, onPrev }: Props) {
     e.preventDefault(); setDragActive(false);
     if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
   };
+
+  // Clipboard paste support for screenshots
+  const handlePaste = useCallback((e: ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    const imageFiles: File[] = [];
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.startsWith('image/')) {
+        const file = items[i].getAsFile();
+        if (file) {
+          pasteCountRef.current += 1;
+          const ext = file.type.split('/')[1] || 'png';
+          const named = new File([file], `screenshot-${pasteCountRef.current}.${ext}`, { type: file.type });
+          imageFiles.push(named);
+        }
+      }
+    }
+    if (imageFiles.length > 0) {
+      e.preventDefault();
+      addFiles(imageFiles);
+      setPasteFlash(true);
+      setTimeout(() => setPasteFlash(false), 1500);
+    }
+  }, [addFiles]);
+
+  useEffect(() => {
+    document.addEventListener('paste', handlePaste);
+    return () => document.removeEventListener('paste', handlePaste);
+  }, [handlePaste]);
 
   const formatSize = (bytes: number) => {
     if (bytes < 1024) return bytes + ' B';
@@ -76,17 +107,30 @@ export default function FileUpload({ data, onUpdate, onNext, onPrev }: Props) {
       </div>
 
       <div onDragOver={e => { e.preventDefault(); setDragActive(true); }} onDragLeave={() => setDragActive(false)} onDrop={handleDrop}
-        className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors ${
+        className={`border-2 border-dashed rounded-xl p-8 text-center transition-all duration-300 ${
+          pasteFlash ? 'border-green-500 bg-green-500/10' :
           dragActive ? 'border-primary-500 bg-primary-500/10' : 'border-gray-300 dark:border-gray-600 hover:border-primary-400'
         }`}>
-        <Upload className="w-10 h-10 text-gray-500 mx-auto mb-3" />
-        <p className="text-gray-500 dark:text-gray-400 mb-2">Drag and drop files here, or</p>
-        <label className="inline-flex items-center px-4 py-2 bg-white dark:bg-tb-card border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer transition-colors">
-          Browse Files
-          <input type="file" multiple className="hidden" accept="image/*,.pdf,.txt,.csv,.log,.json,.zip,.pcap"
-            onChange={e => e.target.files && addFiles(e.target.files)} />
-        </label>
-        <p className="text-xs text-gray-500 mt-2">PDF, images, text, log, JSON, PCAP, ZIP</p>
+        {pasteFlash ? (
+          <>
+            <Clipboard className="w-10 h-10 text-green-500 mx-auto mb-3" />
+            <p className="text-green-600 dark:text-green-400 font-medium">Screenshot pasted!</p>
+          </>
+        ) : (
+          <>
+            <Upload className="w-10 h-10 text-gray-500 mx-auto mb-3" />
+            <p className="text-gray-500 dark:text-gray-400 mb-2">Drag and drop files here, or</p>
+            <label className="inline-flex items-center px-4 py-2 bg-white dark:bg-tb-card border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer transition-colors">
+              Browse Files
+              <input type="file" multiple className="hidden" accept="image/*,.pdf,.txt,.csv,.log,.json,.zip,.pcap,.xls,.xlsx,.tar.gz,.tgz,.tar,.gz"
+                onChange={e => e.target.files && addFiles(e.target.files)} />
+            </label>
+            <p className="text-xs text-gray-500 mt-2">PDF, images, text, log, JSON, PCAP, ZIP, Excel, tar.gz</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 flex items-center justify-center gap-1">
+              <Clipboard className="w-3 h-3" /> You can also paste screenshots with <kbd className="px-1.5 py-0.5 bg-gray-200 dark:bg-gray-700 rounded text-[0.65rem] font-mono">Ctrl+V</kbd>
+            </p>
+          </>
+        )}
       </div>
 
       {error && <p className="text-red-400 text-sm mt-2">{error}</p>}

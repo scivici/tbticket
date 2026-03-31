@@ -29,11 +29,13 @@ const fileFilter = (_req: Express.Request, file: Express.Multer.File, cb: multer
     'application/x-compressed', 'application/x-7z-compressed',
     'application/octet-stream',
     'application/vnd.tcpdump.pcap',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   ];
 
   const allowedExtensions = ['.log', '.cfg', '.conf', '.pcap', '.pcapng', '.cap',
     '.gz', '.tgz', '.tar', '.7z', '.rar', '.csv', '.xml', '.yaml', '.yml',
-    '.ini', '.txt', '.md', '.sip', '.sdp'];
+    '.ini', '.txt', '.md', '.sip', '.sdp', '.xls', '.xlsx'];
 
   const ext = file.originalname.toLowerCase().substring(file.originalname.lastIndexOf('.'));
 
