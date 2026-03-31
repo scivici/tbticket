@@ -14,62 +14,78 @@ import {
   Search, Server, Zap, Target, Activity, Shield, ListChecks, Info, ChevronDown
 } from 'lucide-react';
 
-/* ── Full Report Section Parser & Renderer ── */
+/* ── Full Report Section Parser & Renderer (ticket_analysis.html format) ── */
 interface ReportSection {
   title: string;
   content: string;
 }
 
-const SECTION_STYLES: Record<string, { icon: React.ReactNode; border: string; bg: string; titleColor: string }> = {
+const SECTION_THEMES: Record<string, { icon: React.ReactNode; accent: string; accentBorder: string; bg: string; titleColor: string; iconBg: string }> = {
   'summary': {
     icon: <Info className="w-4 h-4" />,
-    border: 'border-blue-300 dark:border-blue-700/50',
-    bg: 'bg-blue-50 dark:bg-blue-900/10',
-    titleColor: 'text-blue-600 dark:text-blue-400',
+    accent: 'border-l-blue-500',
+    accentBorder: 'border-blue-200 dark:border-blue-800/40',
+    bg: 'bg-blue-50/50 dark:bg-blue-900/10',
+    titleColor: 'text-blue-700 dark:text-blue-400',
+    iconBg: 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400',
   },
   'evidence': {
     icon: <Search className="w-4 h-4" />,
-    border: 'border-amber-300 dark:border-amber-700/50',
-    bg: 'bg-amber-50 dark:bg-amber-900/10',
-    titleColor: 'text-amber-600 dark:text-amber-400',
+    accent: 'border-l-amber-500',
+    accentBorder: 'border-amber-200 dark:border-amber-800/40',
+    bg: 'bg-amber-50/50 dark:bg-amber-900/10',
+    titleColor: 'text-amber-700 dark:text-amber-400',
+    iconBg: 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400',
   },
-  'architecture context': {
+  'architecture': {
     icon: <Server className="w-4 h-4" />,
-    border: 'border-indigo-300 dark:border-indigo-700/50',
-    bg: 'bg-indigo-50 dark:bg-indigo-900/10',
-    titleColor: 'text-indigo-600 dark:text-indigo-400',
+    accent: 'border-l-indigo-500',
+    accentBorder: 'border-indigo-200 dark:border-indigo-800/40',
+    bg: 'bg-indigo-50/50 dark:bg-indigo-900/10',
+    titleColor: 'text-indigo-700 dark:text-indigo-400',
+    iconBg: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400',
   },
-  'root cause analysis': {
+  'root cause': {
     icon: <Target className="w-4 h-4" />,
-    border: 'border-red-300 dark:border-red-700/50',
-    bg: 'bg-red-50 dark:bg-red-900/10',
-    titleColor: 'text-red-600 dark:text-red-400',
+    accent: 'border-l-red-500',
+    accentBorder: 'border-red-200 dark:border-red-800/40',
+    bg: 'bg-red-50/50 dark:bg-red-900/10',
+    titleColor: 'text-red-700 dark:text-red-400',
+    iconBg: 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400',
   },
   'impact': {
     icon: <Zap className="w-4 h-4" />,
-    border: 'border-orange-300 dark:border-orange-700/50',
-    bg: 'bg-orange-50 dark:bg-orange-900/10',
-    titleColor: 'text-orange-600 dark:text-orange-400',
+    accent: 'border-l-orange-500',
+    accentBorder: 'border-orange-200 dark:border-orange-800/40',
+    bg: 'bg-orange-50/50 dark:bg-orange-900/10',
+    titleColor: 'text-orange-700 dark:text-orange-400',
+    iconBg: 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400',
   },
   'recommended actions': {
     icon: <ListChecks className="w-4 h-4" />,
-    border: 'border-green-300 dark:border-green-700/50',
-    bg: 'bg-green-50 dark:bg-green-900/10',
-    titleColor: 'text-green-600 dark:text-green-400',
+    accent: 'border-l-green-500',
+    accentBorder: 'border-green-200 dark:border-green-800/40',
+    bg: 'bg-green-50/50 dark:bg-green-900/10',
+    titleColor: 'text-green-700 dark:text-green-400',
+    iconBg: 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400',
   },
-  'escalation notes': {
+  'escalation': {
     icon: <Shield className="w-4 h-4" />,
-    border: 'border-purple-300 dark:border-purple-700/50',
-    bg: 'bg-purple-50 dark:bg-purple-900/10',
-    titleColor: 'text-purple-600 dark:text-purple-400',
+    accent: 'border-l-purple-500',
+    accentBorder: 'border-purple-200 dark:border-purple-800/40',
+    bg: 'bg-purple-50/50 dark:bg-purple-900/10',
+    titleColor: 'text-purple-700 dark:text-purple-400',
+    iconBg: 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400',
   },
 };
 
-const DEFAULT_SECTION_STYLE = {
+const DEFAULT_THEME = {
   icon: <Activity className="w-4 h-4" />,
-  border: 'border-gray-300 dark:border-gray-600',
-  bg: 'bg-gray-50 dark:bg-gray-800/30',
-  titleColor: 'text-gray-600 dark:text-gray-400',
+  accent: 'border-l-gray-500',
+  accentBorder: 'border-gray-200 dark:border-gray-700',
+  bg: 'bg-gray-50/50 dark:bg-gray-800/20',
+  titleColor: 'text-gray-700 dark:text-gray-400',
+  iconBg: 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400',
 };
 
 function parseReportSections(report: string): { preamble: string; sections: ReportSection[] } {
@@ -102,56 +118,60 @@ function parseReportSections(report: string): { preamble: string; sections: Repo
   return { preamble, sections };
 }
 
-function getSectionStyle(title: string) {
+function getSectionTheme(title: string) {
   const key = title.toLowerCase();
-  for (const [pattern, style] of Object.entries(SECTION_STYLES)) {
-    if (key.includes(pattern)) return style;
+  for (const [pattern, theme] of Object.entries(SECTION_THEMES)) {
+    if (key.includes(pattern)) return theme;
   }
-  return DEFAULT_SECTION_STYLE;
+  return DEFAULT_THEME;
 }
 
-const markdownProseClasses = `prose prose-sm dark:prose-invert max-w-none
-  prose-headings:text-gray-900 dark:prose-headings:text-white
+const reportProseClasses = `prose prose-sm dark:prose-invert max-w-none
+  prose-headings:text-gray-900 dark:prose-headings:text-white prose-headings:text-sm prose-headings:mt-3 prose-headings:mb-1
+  prose-p:text-gray-700 dark:prose-p:text-gray-300 prose-p:leading-relaxed
   prose-strong:text-gray-800 dark:prose-strong:text-gray-200
-  prose-code:bg-gray-200 dark:prose-code:bg-gray-700 prose-code:px-1 prose-code:rounded
-  prose-pre:bg-gray-900 prose-pre:text-gray-100
-  prose-table:border-collapse prose-th:border prose-th:border-gray-300 dark:prose-th:border-gray-600 prose-th:px-3 prose-th:py-1 prose-th:bg-gray-100 dark:prose-th:bg-gray-800
-  prose-td:border prose-td:border-gray-300 dark:prose-td:border-gray-600 prose-td:px-3 prose-td:py-1`;
+  prose-code:bg-gray-200 dark:prose-code:bg-gray-700 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-xs prose-code:font-mono
+  prose-pre:bg-[#0f172a] prose-pre:text-gray-100 prose-pre:rounded-xl prose-pre:p-4
+  prose-li:text-gray-700 dark:prose-li:text-gray-300 prose-li:leading-relaxed
+  prose-table:border-collapse prose-th:border prose-th:border-gray-300 dark:prose-th:border-gray-600 prose-th:px-3 prose-th:py-1.5 prose-th:bg-gray-100 dark:prose-th:bg-gray-800 prose-th:text-left prose-th:text-xs prose-th:uppercase prose-th:tracking-wide
+  prose-td:border prose-td:border-gray-300 dark:prose-td:border-gray-600 prose-td:px-3 prose-td:py-1.5`;
+
+function ReportSectionCard({ section }: { section: ReportSection }) {
+  const theme = getSectionTheme(section.title);
+  return (
+    <div className={`rounded-2xl border ${theme.accentBorder} border-l-4 ${theme.accent} bg-white dark:bg-[#1e1e1e] shadow-sm hover:shadow-md transition-shadow overflow-hidden`}>
+      <div className={`flex items-center gap-3 px-5 py-3.5 ${theme.bg}`}>
+        <span className={`flex items-center justify-center w-7 h-7 rounded-lg ${theme.iconBg}`}>{theme.icon}</span>
+        <h3 className={`text-sm font-bold uppercase tracking-wider ${theme.titleColor} m-0`}>{section.title}</h3>
+      </div>
+      <div className={`px-5 py-4 overflow-x-auto ${reportProseClasses}`}>
+        <ReactMarkdown>{section.content}</ReactMarkdown>
+      </div>
+    </div>
+  );
+}
 
 function FullReportCategorized({ report }: { report: string }) {
   const { preamble, sections } = parseReportSections(report);
 
-  // Fallback: if no ## sections found, render as plain markdown
   if (sections.length === 0) {
     return (
-      <div className={`mt-2 p-4 bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 rounded-lg overflow-x-auto ${markdownProseClasses}`}>
+      <div className={`mt-3 p-5 bg-white dark:bg-[#1e1e1e] border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm overflow-x-auto ${reportProseClasses}`}>
         <ReactMarkdown>{report}</ReactMarkdown>
       </div>
     );
   }
 
   return (
-    <div className="mt-2 space-y-3">
+    <div className="mt-3 space-y-4">
       {preamble && (
-        <div className={`p-4 bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 rounded-lg overflow-x-auto ${markdownProseClasses}`}>
+        <div className={`p-5 bg-white dark:bg-[#1e1e1e] border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm overflow-x-auto ${reportProseClasses}`}>
           <ReactMarkdown>{preamble}</ReactMarkdown>
         </div>
       )}
-      {sections.map((section, i) => {
-        const style = getSectionStyle(section.title);
-        return (
-          <details key={i} open className="group/section">
-            <summary className={`cursor-pointer flex items-center gap-2 p-3 rounded-t-lg border ${style.border} ${style.bg} select-none`}>
-              <span className={style.titleColor}>{style.icon}</span>
-              <span className={`text-sm font-semibold uppercase tracking-wide ${style.titleColor}`}>{section.title}</span>
-              <ChevronDown className={`w-4 h-4 ml-auto ${style.titleColor} transition-transform group-open/section:rotate-0 rotate-[-90deg]`} />
-            </summary>
-            <div className={`p-4 border border-t-0 ${style.border} rounded-b-lg bg-white dark:bg-[#1a1a1a] overflow-x-auto ${markdownProseClasses}`}>
-              <ReactMarkdown>{section.content}</ReactMarkdown>
-            </div>
-          </details>
-        );
-      })}
+      {sections.map((section, i) => (
+        <ReportSectionCard key={i} section={section} />
+      ))}
     </div>
   );
 }
@@ -559,82 +579,137 @@ export default function TicketDetail() {
           </div>
 
           {aiAnalysis && (
-            <div className="tb-card border-purple-500/30 p-6">
-              <div className="flex items-center gap-2 mb-4">
-                <Brain className="w-5 h-5 text-purple-400" />
-                <h3 className="font-semibold text-gray-900 dark:text-white">AI Analysis</h3>
-                {aiAnalysis.analysisMode && <span className="px-2 py-0.5 bg-purple-500/20 text-purple-300 rounded text-xs">{aiAnalysis.analysisMode}</span>}
-                {aiAnalysis.executionTimeSeconds && <span className="px-2 py-0.5 bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded text-xs">{Math.round(aiAnalysis.executionTimeSeconds)}s</span>}
-                <span className={`ml-auto px-2 py-0.5 rounded-full text-xs font-medium ${
-                  ticket.aiConfidence >= 0.7 ? 'bg-status-active-bg text-status-active-text' : 'bg-status-warn-bg text-status-warn-text'
-                }`}>Confidence: {(ticket.aiConfidence * 100).toFixed(0)}%</span>
-              </div>
-
-              {/* Summary Grid */}
-              <div className="grid grid-cols-2 gap-4 text-sm mb-4">
-                <div><p className="text-gray-500 text-xs uppercase tracking-wide mb-1">Classification</p><p className="font-medium text-gray-700 dark:text-gray-200">{aiAnalysis.classification}</p></div>
-                <div><p className="text-gray-500 text-xs uppercase tracking-wide mb-1">Severity</p><PriorityBadge priority={aiAnalysis.severity} /></div>
-                <div><p className="text-gray-500 text-xs uppercase tracking-wide mb-1">Recommended Support Specialist</p><p className="font-medium text-gray-700 dark:text-gray-200">{aiAnalysis.recommendedEngineerName}</p></div>
-                <div><p className="text-gray-500 text-xs uppercase tracking-wide mb-1">Complexity</p><p className="font-medium text-gray-700 dark:text-gray-200 capitalize">{aiAnalysis.estimatedComplexity}</p></div>
-              </div>
-
-              {/* Skills */}
-              {aiAnalysis.suggestedSkills?.length > 0 && (
-                <div className="flex gap-1.5 flex-wrap mb-4">
-                  {aiAnalysis.suggestedSkills.map((s: string) => (
-                    <span key={s} className="px-2 py-0.5 bg-purple-500/20 text-purple-300 rounded text-xs">{s}</span>
-                  ))}
+            <div className="space-y-4">
+              {/* ── Hero Card ── */}
+              <div className="tb-card border-purple-500/30 p-0 overflow-hidden">
+                {/* Hero header */}
+                <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-5 text-white">
+                  <div className="flex items-center gap-3 mb-2">
+                    <Brain className="w-6 h-6 text-purple-200" />
+                    <h3 className="text-lg font-bold m-0">Ticket Analysis Report</h3>
+                    {aiAnalysis.analysisMode && <span className="px-2 py-0.5 bg-white/20 rounded text-xs font-medium">{aiAnalysis.analysisMode}</span>}
+                    {aiAnalysis.executionTimeSeconds && <span className="px-2 py-0.5 bg-white/15 rounded text-xs">{Math.round(aiAnalysis.executionTimeSeconds)}s</span>}
+                  </div>
+                  <p className="text-purple-100 text-sm leading-relaxed m-0">{aiAnalysis.classification}</p>
                 </div>
-              )}
 
-              {/* Root Cause */}
-              <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800/30 rounded-lg">
-                <p className="text-xs uppercase tracking-wide text-red-500 dark:text-red-400 font-semibold mb-2">Root Cause Hypothesis</p>
-                <div className="text-sm text-gray-700 dark:text-gray-200 prose prose-sm dark:prose-invert max-w-none">
+                {/* Badges row */}
+                <div className="px-6 py-4 flex flex-wrap gap-2.5 border-b border-gray-200 dark:border-gray-700">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800/40">
+                    <ShieldAlert className="w-3.5 h-3.5" /> Severity: {aiAnalysis.severity?.charAt(0).toUpperCase() + aiAnalysis.severity?.slice(1)}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800/40">
+                    <Activity className="w-3.5 h-3.5" /> Complexity: {aiAnalysis.estimatedComplexity?.charAt(0).toUpperCase() + aiAnalysis.estimatedComplexity?.slice(1)}
+                  </span>
+                  <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border ${
+                    ticket.aiConfidence >= 0.7
+                      ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800/40'
+                      : 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800/40'
+                  }`}>
+                    <Sparkles className="w-3.5 h-3.5" /> Confidence: {(ticket.aiConfidence * 100).toFixed(0)}%
+                  </span>
+                </div>
+
+                {/* Meta grid */}
+                <div className="px-6 py-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="bg-gray-50 dark:bg-gray-800/40 border border-gray-200 dark:border-gray-700 rounded-xl p-3">
+                    <p className="text-[0.7rem] uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-0.5">Classification</p>
+                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 leading-snug">{aiAnalysis.classification}</p>
+                  </div>
+                  <div className="bg-gray-50 dark:bg-gray-800/40 border border-gray-200 dark:border-gray-700 rounded-xl p-3">
+                    <p className="text-[0.7rem] uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-0.5">Severity</p>
+                    <PriorityBadge priority={aiAnalysis.severity} />
+                  </div>
+                  <div className="bg-gray-50 dark:bg-gray-800/40 border border-gray-200 dark:border-gray-700 rounded-xl p-3">
+                    <p className="text-[0.7rem] uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-0.5">Recommended Specialist</p>
+                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">{aiAnalysis.recommendedEngineerName}</p>
+                  </div>
+                  <div className="bg-gray-50 dark:bg-gray-800/40 border border-gray-200 dark:border-gray-700 rounded-xl p-3">
+                    <p className="text-[0.7rem] uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-0.5">Complexity</p>
+                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 capitalize">{aiAnalysis.estimatedComplexity}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── Root Cause Hypothesis ── */}
+              <div className="rounded-2xl border border-red-200 dark:border-red-800/40 border-l-4 border-l-red-500 bg-white dark:bg-[#1e1e1e] shadow-sm overflow-hidden">
+                <div className="flex items-center gap-3 px-5 py-3.5 bg-red-50/50 dark:bg-red-900/10">
+                  <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400"><Target className="w-4 h-4" /></span>
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-red-700 dark:text-red-400 m-0">Root Cause Hypothesis</h3>
+                </div>
+                <div className={`px-5 py-4 ${reportProseClasses}`}>
                   <ReactMarkdown>{aiAnalysis.rootCauseHypothesis || ''}</ReactMarkdown>
                 </div>
               </div>
 
-              {/* Reasoning */}
+              {/* ── Specialist Selection Reasoning ── */}
               {aiAnalysis.reasoning && (
-                <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800/30 rounded-lg">
-                  <p className="text-xs uppercase tracking-wide text-blue-500 dark:text-blue-400 font-semibold mb-2">Support Specialist Selection Reasoning</p>
-                  <p className="text-sm text-gray-600 dark:text-gray-300">{aiAnalysis.reasoning}</p>
+                <div className="rounded-2xl border border-blue-200 dark:border-blue-800/40 border-l-4 border-l-blue-500 bg-white dark:bg-[#1e1e1e] shadow-sm overflow-hidden">
+                  <div className="flex items-center gap-3 px-5 py-3.5 bg-blue-50/50 dark:bg-blue-900/10">
+                    <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"><UserCheck className="w-4 h-4" /></span>
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-blue-700 dark:text-blue-400 m-0">Support Specialist Selection Reasoning</h3>
+                  </div>
+                  <div className="px-5 py-4 text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{aiAnalysis.reasoning}</div>
                 </div>
               )}
 
-              {/* Suggested Actions */}
-              {aiAnalysis.suggestedActions?.length > 0 && (
-                <div className="mb-4 p-4 bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-800/30 rounded-lg">
-                  <p className="text-xs uppercase tracking-wide text-green-500 dark:text-green-400 font-semibold mb-2">Recommended Actions</p>
-                  <ol className="list-decimal list-inside space-y-1 text-sm text-gray-700 dark:text-gray-200">
-                    {aiAnalysis.suggestedActions.map((action: string, i: number) => (
-                      <li key={i}>{action}</li>
+              {/* ── Suggested Skills ── */}
+              {aiAnalysis.suggestedSkills?.length > 0 && (
+                <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1e1e1e] shadow-sm overflow-hidden">
+                  <div className="flex items-center gap-3 px-5 py-3.5 bg-gray-50/50 dark:bg-gray-800/20">
+                    <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400"><BookOpen className="w-4 h-4" /></span>
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-gray-700 dark:text-gray-400 m-0">Suggested Skills</h3>
+                  </div>
+                  <div className="px-5 py-4 flex flex-wrap gap-2">
+                    {aiAnalysis.suggestedSkills.map((s: string) => (
+                      <span key={s} className="px-3 py-1.5 rounded-full bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-600 text-sm font-semibold text-gray-700 dark:text-gray-300">{s}</span>
                     ))}
-                  </ol>
+                  </div>
                 </div>
               )}
 
-              {/* Full Report - Categorized */}
+              {/* ── Recommended Actions ── */}
+              {aiAnalysis.suggestedActions?.length > 0 && (
+                <div className="rounded-2xl border border-green-200 dark:border-green-800/40 border-l-4 border-l-green-500 bg-white dark:bg-[#1e1e1e] shadow-sm overflow-hidden">
+                  <div className="flex items-center gap-3 px-5 py-3.5 bg-green-50/50 dark:bg-green-900/10">
+                    <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400"><ListChecks className="w-4 h-4" /></span>
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-green-700 dark:text-green-400 m-0">Recommended Actions</h3>
+                  </div>
+                  <div className="px-5 py-4">
+                    <ol className="list-none m-0 p-0 space-y-2.5">
+                      {aiAnalysis.suggestedActions.map((action: string, i: number) => (
+                        <li key={i} className="flex gap-3 text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                          <span className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs font-bold mt-0.5">{i + 1}</span>
+                          <span>{action}</span>
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                </div>
+              )}
+
+              {/* ── Full Technical Report (categorized cards) ── */}
               {aiAnalysis.fullReport && (
                 <details className="group">
-                  <summary className="cursor-pointer flex items-center gap-2 text-sm font-semibold text-purple-400 hover:text-purple-300 py-2">
+                  <summary className="cursor-pointer flex items-center gap-2.5 text-sm font-semibold text-purple-500 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 py-2 transition-colors">
                     <FileText className="w-4 h-4" />
                     <span>Full Technical Report</span>
-                    <span className="text-xs text-gray-500 group-open:hidden">(click to expand)</span>
+                    <span className="text-xs text-gray-400 dark:text-gray-500 group-open:hidden">(click to expand)</span>
+                    <ChevronDown className="w-4 h-4 ml-auto transition-transform group-open:rotate-0 -rotate-90" />
                   </summary>
                   <FullReportCategorized report={aiAnalysis.fullReport} />
                 </details>
               )}
 
-              {/* Jira Escalation */}
+              {/* ── Jira Escalation ── */}
               {aiAnalysis.shouldEscalateToJira && (
-                <div className="mt-4 p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg">
-                  <p className="text-sm font-medium text-orange-700 dark:text-orange-300 flex items-center gap-1.5">
-                    <ExternalLink className="w-4 h-4" /> AI recommends Jira escalation
-                  </p>
+                <div className="rounded-2xl border border-orange-200 dark:border-orange-800 border-l-4 border-l-orange-500 bg-white dark:bg-[#1e1e1e] shadow-sm overflow-hidden">
+                  <div className="flex items-center gap-3 px-5 py-3.5 bg-orange-50/50 dark:bg-orange-900/10">
+                    <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400"><ExternalLink className="w-4 h-4" /></span>
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-orange-700 dark:text-orange-400 m-0">AI Recommends Jira Escalation</h3>
+                  </div>
                   {aiAnalysis.escalationReason && (
-                    <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">{aiAnalysis.escalationReason}</p>
+                    <div className="px-5 py-4 text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{aiAnalysis.escalationReason}</div>
                   )}
                 </div>
               )}
