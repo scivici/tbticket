@@ -8,8 +8,8 @@ const router = Router();
 // Public
 router.get('/track/:ticketNumber', ticketsController.trackTicket);
 
-// Authenticated or anonymous (with optional auth)
-router.post('/', optionalAuth, upload.array('files', 10), ticketsController.createTicket);
+// Authenticated users only
+router.post('/', authenticate, upload.array('files', 10), ticketsController.createTicket);
 
 // Authenticated
 router.get('/', authenticate, ticketsController.listTickets);
