@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { engineers as engineersApi, products as productsApi } from '../../api/client';
-import { User, Star, ChevronDown, ChevronUp, Plus, Pencil, Trash2, X, Save, PlusCircle } from 'lucide-react';
+import { User, Star, ChevronDown, ChevronUp, Plus, Pencil, Trash2, X, Save, PlusCircle, ExternalLink, Eye, EyeOff } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 
 interface EngineerForm { name: string; email: string; location: string; maxWorkload: number; isActive: boolean; }
@@ -26,6 +26,12 @@ export default function EngineerManager() {
   const [expProductId, setExpProductId] = useState<number>(0);
   const [expCategoryId, setExpCategoryId] = useState<number | null>(null);
   const [expLevel, setExpLevel] = useState<number>(3);
+
+  // Jira config
+  const [jiraForm, setJiraForm] = useState({ jiraBaseUrl: '', jiraEmail: '', jiraApiToken: '', jiraProjectKey: '' });
+  const [jiraEditing, setJiraEditing] = useState(false);
+  const [jiraSaving, setJiraSaving] = useState(false);
+  const [showJiraToken, setShowJiraToken] = useState(false);
 
   const load = () => {
     setLoading(true);
@@ -306,6 +312,107 @@ export default function EngineerManager() {
                       </div>
                     )}
                   </div>
+                </div>
+
+                {/* Jira Integration */}
+                <div className="mt-6 border-t border-gray-200 dark:border-gray-700 pt-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <ExternalLink className="w-4 h-4 text-blue-500" />
+                      <h4 className="font-medium text-sm text-gray-900 dark:text-white">Jira Integration</h4>
+                      {detail.jiraConfigured ? (
+                        <span className="px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full text-xs font-medium">Configured</span>
+                      ) : (
+                        <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded-full text-xs font-medium">Not configured</span>
+                      )}
+                    </div>
+                    {!jiraEditing && (
+                      <button onClick={() => {
+                        setJiraForm({
+                          jiraBaseUrl: detail.jiraBaseUrl || '',
+                          jiraEmail: detail.jiraEmail || '',
+                          jiraApiToken: detail.jiraApiToken || '',
+                          jiraProjectKey: detail.jiraProjectKey || '',
+                        });
+                        setJiraEditing(true);
+                        setShowJiraToken(false);
+                      }} className="flex items-center gap-1 text-xs text-accent-blue hover:text-blue-300 transition-colors">
+                        <Pencil className="w-3.5 h-3.5" /> {detail.jiraConfigured ? 'Edit' : 'Configure'}
+                      </button>
+                    )}
+                  </div>
+
+                  {!jiraEditing && detail.jiraConfigured && (
+                    <div className="grid sm:grid-cols-2 gap-3 text-sm">
+                      <div><span className="text-gray-500 dark:text-gray-400 text-xs">Base URL:</span><p className="text-gray-700 dark:text-gray-300 truncate">{detail.jiraBaseUrl}</p></div>
+                      <div><span className="text-gray-500 dark:text-gray-400 text-xs">Email:</span><p className="text-gray-700 dark:text-gray-300">{detail.jiraEmail}</p></div>
+                      <div><span className="text-gray-500 dark:text-gray-400 text-xs">Project Key:</span><p className="text-gray-700 dark:text-gray-300 font-mono">{detail.jiraProjectKey}</p></div>
+                      <div><span className="text-gray-500 dark:text-gray-400 text-xs">API Token:</span><p className="text-gray-700 dark:text-gray-300">{'•'.repeat(12)}</p></div>
+                    </div>
+                  )}
+
+                  {jiraEditing && (
+                    <div className="p-4 bg-white dark:bg-tb-card rounded-lg border border-gray-200 dark:border-gray-700 space-y-3">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Each specialist can use their own Jira credentials. When escalating a ticket, the assigned specialist's credentials are used. Falls back to global settings if not configured.</p>
+                      <div className="grid sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Jira Base URL</label>
+                          <input type="url" value={jiraForm.jiraBaseUrl} onChange={e => setJiraForm(f => ({ ...f, jiraBaseUrl: e.target.value }))}
+                            placeholder="https://yourcompany.atlassian.net" className="tb-input text-sm" />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Jira Email</label>
+                          <input type="email" value={jiraForm.jiraEmail} onChange={e => setJiraForm(f => ({ ...f, jiraEmail: e.target.value }))}
+                            placeholder="you@company.com" className="tb-input text-sm" />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">API Token</label>
+                          <div className="relative">
+                            <input type={showJiraToken ? 'text' : 'password'} value={jiraForm.jiraApiToken} onChange={e => setJiraForm(f => ({ ...f, jiraApiToken: e.target.value }))}
+                              placeholder="Atlassian API token" className="tb-input text-sm pr-9" />
+                            <button type="button" onClick={() => setShowJiraToken(!showJiraToken)} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                              {showJiraToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                          </div>
+                          <a href="https://id.atlassian.com/manage-profile/security/api-tokens" target="_blank" rel="noopener noreferrer" className="text-[0.65rem] text-accent-blue hover:underline mt-0.5 inline-block">Generate API token</a>
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Project Key</label>
+                          <input type="text" value={jiraForm.jiraProjectKey} onChange={e => setJiraForm(f => ({ ...f, jiraProjectKey: e.target.value.toUpperCase() }))}
+                            placeholder="SUP" className="tb-input text-sm font-mono" />
+                        </div>
+                      </div>
+                      <div className="flex gap-2 pt-1">
+                        <button disabled={jiraSaving} onClick={async () => {
+                          setJiraSaving(true);
+                          try {
+                            await engineersApi.update(eng.id, jiraForm);
+                            await refreshDetail(eng.id);
+                            setJiraEditing(false);
+                            toast.success('Jira configuration saved');
+                          } catch (err: any) { toast.error(err.message); }
+                          finally { setJiraSaving(false); }
+                        }} className="tb-btn-success text-xs py-1.5 flex items-center gap-1">
+                          <Save className="w-3 h-3" /> {jiraSaving ? 'Saving...' : 'Save Jira Config'}
+                        </button>
+                        <button onClick={() => setJiraEditing(false)} className="tb-btn-secondary text-xs py-1.5">Cancel</button>
+                        {detail.jiraConfigured && (
+                          <button onClick={async () => {
+                            setJiraSaving(true);
+                            try {
+                              await engineersApi.update(eng.id, { jiraBaseUrl: '', jiraEmail: '', jiraApiToken: '', jiraProjectKey: '' });
+                              await refreshDetail(eng.id);
+                              setJiraEditing(false);
+                              toast.success('Jira configuration removed');
+                            } catch (err: any) { toast.error(err.message); }
+                            finally { setJiraSaving(false); }
+                          }} className="ml-auto text-xs text-red-500 hover:text-red-400 transition-colors">
+                            Remove Jira Config
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

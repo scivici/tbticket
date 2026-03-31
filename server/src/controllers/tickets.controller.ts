@@ -1519,7 +1519,7 @@ export async function escalateToJira(req: AuthenticatedRequest, res: Response): 
       categoryName: ticket.category.name,
       customerName: ticket.customer.name,
       customerEmail: ticket.customer.email,
-    });
+    }, ticket.assignedEngineerId || undefined);
 
     if (!result.success) {
       res.status(400).json({ error: result.error });
@@ -1552,7 +1552,7 @@ export async function getJiraStatus(req: AuthenticatedRequest, res: Response): P
     return;
   }
   const { getJiraIssueStatus } = await import('../services/jira.service');
-  const status = await getJiraIssueStatus(ticket.jiraIssueKey);
+  const status = await getJiraIssueStatus(ticket.jiraIssueKey, ticket.assignedEngineerId || undefined);
   res.json(status);
 }
 

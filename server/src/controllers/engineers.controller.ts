@@ -58,18 +58,35 @@ export async function createEngineer(req: Request, res: Response): Promise<void>
 }
 
 export async function updateEngineer(req: Request, res: Response): Promise<void> {
-  const { name, email, location, isActive, maxWorkload, shiftStart, shiftEnd, timezone } = req.body;
+  const { name, email, location, isActive, maxWorkload, shiftStart, shiftEnd, timezone,
+    jiraEmail, jiraApiToken, jiraBaseUrl, jiraProjectKey } = req.body;
   const { id } = req.params;
 
-  await query(`
-    UPDATE engineers SET name = COALESCE(?, name), email = COALESCE(?, email),
-    location = COALESCE(?, location), is_active = COALESCE(?, is_active),
-    max_workload = COALESCE(?, max_workload),
-    shift_start = COALESCE(?, shift_start), shift_end = COALESCE(?, shift_end),
-    timezone = COALESCE(?, timezone),
-    updated_at = CURRENT_TIMESTAMP
-    WHERE id = ?
-  `, [name, email, location, isActive !== undefined ? (isActive ? true : false) : null, maxWorkload, shiftStart || null, shiftEnd || null, timezone || null, id]);
+  // Build dynamic SET clauses — Jira fields use direct assignment (allow clearing to NULL)
+  const sets: string[] = [];
+  const params: any[] = [];
+
+  const coalesceField = (col: string, val: any) => { if (val !== undefined && val !== null) { sets.push(`${col} = ?`); params.push(val); } };
+  const directField = (col: string, val: any, defined: boolean) => { if (defined) { sets.push(`${col} = ?`); params.push(val || null); } };
+
+  coalesceField('name', name);
+  coalesceField('email', email);
+  coalesceField('location', location);
+  if (isActive !== undefined) { sets.push('is_active = ?'); params.push(!!isActive); }
+  coalesceField('max_workload', maxWorkload);
+  coalesceField('shift_start', shiftStart);
+  coalesceField('shift_end', shiftEnd);
+  coalesceField('timezone', timezone);
+  directField('jira_email', jiraEmail, jiraEmail !== undefined);
+  directField('jira_api_token', jiraApiToken, jiraApiToken !== undefined);
+  directField('jira_base_url', jiraBaseUrl, jiraBaseUrl !== undefined);
+  directField('jira_project_key', jiraProjectKey, jiraProjectKey !== undefined);
+
+  if (sets.length > 0) {
+    sets.push('updated_at = CURRENT_TIMESTAMP');
+    params.push(id);
+    await query(`UPDATE engineers SET ${sets.join(', ')} WHERE id = ?`, params);
+  }
 
   res.json({ message: 'Engineer updated' });
 }
@@ -144,5 +161,10 @@ function mapEngineer(e: any) {
     isActive: !!e.is_active,
     currentWorkload: e.current_workload,
     maxWorkload: e.max_workload,
+    jiraEmail: e.jira_email || '',
+    jiraApiToken: e.jira_api_token || '',
+    jiraBaseUrl: e.jira_base_url || '',
+    jiraProjectKey: e.jira_project_key || '',
+    jiraConfigured: !!(e.jira_base_url && e.jira_api_token && e.jira_email),
   };
 }

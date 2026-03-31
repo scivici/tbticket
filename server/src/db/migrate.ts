@@ -142,6 +142,18 @@ export async function runMigrations(): Promise<void> {
     console.log('[DB] Migration: created customer_diagrams table');
   }
 
+  // Migration: add Jira credentials per engineer
+  const jiraEmailCol = await query(
+    "SELECT column_name FROM information_schema.columns WHERE table_name = 'engineers' AND column_name = 'jira_email'"
+  );
+  if (jiraEmailCol.rows.length === 0) {
+    await query("ALTER TABLE engineers ADD COLUMN jira_email TEXT");
+    await query("ALTER TABLE engineers ADD COLUMN jira_api_token TEXT");
+    await query("ALTER TABLE engineers ADD COLUMN jira_base_url TEXT");
+    await query("ALTER TABLE engineers ADD COLUMN jira_project_key TEXT");
+    console.log('[DB] Migration: added Jira credential columns to engineers');
+  }
+
   // Migration: add professional_service_hours column to customers
   const psHoursCol = await query(
     "SELECT column_name FROM information_schema.columns WHERE table_name = 'customers' AND column_name = 'professional_service_hours'"
