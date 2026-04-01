@@ -187,6 +187,22 @@ export async function runMigrations(): Promise<void> {
     console.log('[DB] Migration: created ai_usage_log table');
   }
 
+  // Migration: convert jira_issue_key TEXT to jira_issue_keys JSONB (multi-key support) + add bugzilla_issue_keys
+  const jiraKeysCol = await query(
+    "SELECT column_name FROM information_schema.columns WHERE table_name = 'tickets' AND column_name = 'jira_issue_keys'"
+  );
+  if (jiraKeysCol.rows.length === 0) {
+    // Create new JSONB columns
+    await query("ALTER TABLE tickets ADD COLUMN jira_issue_keys JSONB DEFAULT '[]'::jsonb");
+    await query("ALTER TABLE tickets ADD COLUMN bugzilla_issue_keys JSONB DEFAULT '[]'::jsonb");
+    // Migrate existing single jira_issue_key to the new array column
+    await query(`
+      UPDATE tickets SET jira_issue_keys = jsonb_build_array(jira_issue_key)
+      WHERE jira_issue_key IS NOT NULL AND jira_issue_key != ''
+    `);
+    console.log('[DB] Migration: added jira_issue_keys and bugzilla_issue_keys JSONB columns, migrated existing data');
+  }
+
   // Migration: add password_hash to engineers (for engineer login)
   const engPwCol = await query(
     "SELECT column_name FROM information_schema.columns WHERE table_name = 'engineers' AND column_name = 'password_hash'"

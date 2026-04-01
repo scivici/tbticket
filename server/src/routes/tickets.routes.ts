@@ -80,6 +80,7 @@ router.patch('/:id/priority', authenticate, requireAdminOrEngineer, ticketsContr
 router.patch('/:id/jira', authenticate, requireAdminOrEngineer, ticketsController.updateJiraKey);
 router.post('/:id/escalate-jira', authenticate, requireAdminOrEngineer, ticketsController.escalateToJira);
 router.get('/:id/jira-status', authenticate, requireAdminOrEngineer, ticketsController.getJiraStatus);
+router.patch('/:id/bugzilla', authenticate, requireAdminOrEngineer, ticketsController.updateBugzillaKeys);
 router.post('/:id/analyze', authenticate, requireAdminOrEngineer, ticketsController.reanalyzeTicket);
 router.post('/:id/merge', authenticate, requireAdminOrEngineer, ticketsController.mergeTickets);
 // Admin only

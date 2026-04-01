@@ -95,6 +95,8 @@ CREATE TABLE IF NOT EXISTS tickets (
     priority TEXT NOT NULL DEFAULT 'medium' CHECK(priority IN ('low', 'medium', 'high', 'critical')),
     assigned_engineer_id INTEGER REFERENCES engineers(id),
     jira_issue_key TEXT,
+    jira_issue_keys JSONB DEFAULT '[]'::jsonb,
+    bugzilla_issue_keys JSONB DEFAULT '[]'::jsonb,
     ai_analysis JSONB,
     ai_confidence DOUBLE PRECISION,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,

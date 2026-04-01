@@ -96,6 +96,8 @@ export async function getTicketById(ticketId: number) {
     priority: ticket.priority,
     assignedEngineerId: ticket.assigned_engineer_id,
     jiraIssueKey: ticket.jira_issue_key,
+    jiraIssueKeys: ticket.jira_issue_keys || [],
+    bugzillaIssueKeys: ticket.bugzilla_issue_keys || [],
     aiAnalysis: ticket.ai_analysis,
     aiAnalysisHistory: ticket.ai_analysis_history || [],
     aiConfidence: ticket.ai_confidence,

@@ -1525,10 +1525,43 @@ export async function unlinkTicket(req: AuthenticatedRequest, res: Response): Pr
 
 export async function updateJiraKey(req: AuthenticatedRequest, res: Response): Promise<void> {
   const { id } = req.params;
-  const { jiraIssueKey } = req.body;
-  await query("UPDATE tickets SET jira_issue_key = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", [jiraIssueKey || null, id]);
-  await activityService.logActivity(parseInt(id), req.user!.userId, 'Admin', 'jira_linked', jiraIssueKey ? `Linked to Jira: ${jiraIssueKey}` : 'Jira link removed');
-  res.json({ message: 'Jira issue key updated' });
+  const { jiraIssueKey, jiraIssueKeys } = req.body;
+
+  // Support both legacy single key and new multi-key array
+  if (jiraIssueKeys !== undefined) {
+    // New multi-key mode: full array replacement
+    const keys = Array.isArray(jiraIssueKeys) ? jiraIssueKeys.filter((k: string) => k.trim()) : [];
+    // Keep legacy column in sync (first key or null)
+    const legacyKey = keys.length > 0 ? keys[0] : null;
+    await query("UPDATE tickets SET jira_issue_keys = ?::jsonb, jira_issue_key = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+      [JSON.stringify(keys), legacyKey, id]);
+    await activityService.logActivity(parseInt(id), req.user!.userId, 'Admin', 'jira_linked',
+      keys.length > 0 ? `Jira issues updated: ${keys.join(', ')}` : 'All Jira links removed');
+  } else {
+    // Legacy single key mode
+    await query("UPDATE tickets SET jira_issue_key = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", [jiraIssueKey || null, id]);
+    // Also sync to new column
+    if (jiraIssueKey) {
+      await query("UPDATE tickets SET jira_issue_keys = ?::jsonb WHERE id = ?", [JSON.stringify([jiraIssueKey]), id]);
+    } else {
+      await query("UPDATE tickets SET jira_issue_keys = '[]'::jsonb WHERE id = ?", [id]);
+    }
+    await activityService.logActivity(parseInt(id), req.user!.userId, 'Admin', 'jira_linked',
+      jiraIssueKey ? `Linked to Jira: ${jiraIssueKey}` : 'Jira link removed');
+  }
+
+  res.json({ message: 'Jira issue keys updated' });
+}
+
+export async function updateBugzillaKeys(req: AuthenticatedRequest, res: Response): Promise<void> {
+  const { id } = req.params;
+  const { bugzillaIssueKeys } = req.body;
+  const keys = Array.isArray(bugzillaIssueKeys) ? bugzillaIssueKeys.filter((k: string) => k.trim()) : [];
+  await query("UPDATE tickets SET bugzilla_issue_keys = ?::jsonb, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+    [JSON.stringify(keys), id]);
+  await activityService.logActivity(parseInt(id), req.user!.userId, 'Admin', 'bugzilla_linked',
+    keys.length > 0 ? `Bugzilla issues updated: ${keys.join(', ')}` : 'All Bugzilla links removed');
+  res.json({ message: 'Bugzilla issue keys updated' });
 }
 
 // ===== Jira Escalation =====
@@ -1571,8 +1604,12 @@ export async function escalateToJira(req: AuthenticatedRequest, res: Response): 
       return;
     }
 
-    // Update ticket with Jira key and status
-    await query("UPDATE tickets SET jira_issue_key = ?, status = 'escalated_to_jira', updated_at = CURRENT_TIMESTAMP WHERE id = ?", [result.issueKey, ticket.id]);
+    // Update ticket with Jira key and status — append to array
+    await query(`UPDATE tickets SET
+      jira_issue_key = COALESCE(jira_issue_key, ?),
+      jira_issue_keys = COALESCE(jira_issue_keys, '[]'::jsonb) || ?::jsonb,
+      status = 'escalated_to_jira', updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+      [result.issueKey, JSON.stringify([result.issueKey]), ticket.id]);
 
     await activityService.logActivity(ticket.id, req.user!.userId, 'Admin', 'escalated_to_jira', `Escalated to Jira: ${result.issueKey}`);
 
@@ -1592,13 +1629,22 @@ export async function escalateToJira(req: AuthenticatedRequest, res: Response): 
 export async function getJiraStatus(req: AuthenticatedRequest, res: Response): Promise<void> {
   const { id } = req.params;
   const ticket = await ticketService.getTicketById(parseInt(id));
-  if (!ticket || !ticket.jiraIssueKey) {
+  const keys: string[] = ticket?.jiraIssueKeys?.length ? ticket.jiraIssueKeys : (ticket?.jiraIssueKey ? [ticket.jiraIssueKey] : []);
+  if (!ticket || keys.length === 0) {
     res.json(null);
     return;
   }
   const { getJiraIssueStatus } = await import('../services/jira.service');
-  const status = await getJiraIssueStatus(ticket.jiraIssueKey, ticket.assignedEngineerId || undefined);
-  res.json(status);
+  // Fetch status for all keys
+  const statuses: any[] = [];
+  for (const key of keys) {
+    try {
+      const status = await getJiraIssueStatus(key, ticket.assignedEngineerId || undefined);
+      if (status) statuses.push({ key, ...status });
+    } catch { /* skip failed lookups */ }
+  }
+  // Return array for multi-key, but also keep backward compat
+  res.json(statuses.length === 1 ? statuses[0] : statuses.length > 0 ? statuses : null);
 }
 
 export async function getSatisfaction(req: AuthenticatedRequest, res: Response): Promise<void> {

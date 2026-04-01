@@ -262,9 +262,15 @@ export default function TicketDetail() {
   const [linkInput, setLinkInput] = useState('');
   const [linkType, setLinkType] = useState('related');
 
-  // Jira
+  // Jira (multi-key)
+  const [jiraKeys, setJiraKeys] = useState<string[]>([]);
   const [jiraInput, setJiraInput] = useState('');
   const [editingJira, setEditingJira] = useState(false);
+
+  // Bugzilla (multi-key)
+  const [bugzillaKeys, setBugzillaKeys] = useState<string[]>([]);
+  const [bugzillaInput, setBugzillaInput] = useState('');
+  const [editingBugzilla, setEditingBugzilla] = useState(false);
 
   // Merge
   const [showMergeModal, setShowMergeModal] = useState(false);
@@ -316,7 +322,10 @@ export default function TicketDetail() {
     const getTicket = isNumeric ? ticketsApi.get(parseInt(id!)) : ticketsApi.getByNumber(id!);
     getTicket.then((t: any) => {
       setTicket(t);
-      setJiraInput(t.jiraIssueKey || '');
+      setJiraKeys(t.jiraIssueKeys?.length ? t.jiraIssueKeys : (t.jiraIssueKey ? [t.jiraIssueKey] : []));
+      setBugzillaKeys(t.bugzillaIssueKeys || []);
+      setJiraInput('');
+      setBugzillaInput('');
       return Promise.all([
         engineersApi.list(),
         ticketsApi.getResponses(t.id),
@@ -336,7 +345,8 @@ export default function TicketDetail() {
       .catch(console.error).finally(() => setLoading(false));
     // Fetch Jira status separately (async, non-blocking)
     getTicket.then((t: any) => {
-      if (t.jiraIssueKey) {
+      const keys = t.jiraIssueKeys?.length ? t.jiraIssueKeys : (t.jiraIssueKey ? [t.jiraIssueKey] : []);
+      if (keys.length > 0) {
         ticketsApi.getJiraStatus(t.id).then(setJiraStatus).catch(() => {});
       }
     });
@@ -1180,41 +1190,121 @@ export default function TicketDetail() {
             </div>
           </div>
 
-          {/* Jira Issue Card */}
+          {/* Jira Issues Card (multi-key) */}
           <div className="tb-card p-6">
-            <div className="flex items-center gap-2 mb-3">
-              <ExternalLink className="w-4 h-4 text-accent-blue" />
-              <h3 className="font-semibold text-gray-900 dark:text-white">Jira Issue</h3>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <ExternalLink className="w-4 h-4 text-accent-blue" />
+                <h3 className="font-semibold text-gray-900 dark:text-white">Jira Issues</h3>
+              </div>
+              {jiraKeys.length > 0 && !editingJira && (
+                <button onClick={() => setEditingJira(true)} className="text-xs text-gray-500 hover:text-accent-blue">Edit</button>
+              )}
             </div>
-            {!editingJira && ticket.jiraIssueKey ? (
+            {/* Display existing keys as tags */}
+            {jiraKeys.length > 0 && !editingJira && (
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <a href={jiraStatus?.url || '#'} target="_blank" rel="noreferrer"
-                    className="text-sm font-mono text-accent-blue hover:underline">{ticket.jiraIssueKey}</a>
-                  <button onClick={() => setEditingJira(true)} className="text-xs text-gray-500 hover:text-accent-blue">Edit</button>
+                <div className="flex flex-wrap gap-1.5">
+                  {jiraKeys.map((key, i) => {
+                    const statusEntry = Array.isArray(jiraStatus) ? jiraStatus.find((s: any) => s.key === key) : (jiraStatus?.key === key || jiraKeys.length === 1 ? jiraStatus : null);
+                    return (
+                      <a key={i} href={statusEntry?.url || '#'} target="_blank" rel="noreferrer"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md text-xs font-mono text-accent-blue hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors">
+                        {key}
+                        {statusEntry?.status && (
+                          <span className="px-1.5 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded text-[10px] font-sans font-medium">{statusEntry.status}</span>
+                        )}
+                      </a>
+                    );
+                  })}
                 </div>
-                {jiraStatus && (
-                  <div className="text-xs space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-gray-500">Status:</span>
-                      <span className="px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded font-medium">{jiraStatus.status}</span>
-                    </div>
-                    {jiraStatus.summary && (
-                      <p className="text-gray-500 truncate" title={jiraStatus.summary}>{jiraStatus.summary}</p>
-                    )}
+              </div>
+            )}
+            {/* Edit mode or empty — show input */}
+            {(editingJira || jiraKeys.length === 0) && (
+              <div className="space-y-2">
+                {editingJira && jiraKeys.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {jiraKeys.map((key, i) => (
+                      <span key={i} className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md text-xs font-mono text-accent-blue">
+                        {key}
+                        <button onClick={() => { const updated = jiraKeys.filter((_, idx) => idx !== i); setJiraKeys(updated); }}
+                          className="text-gray-400 hover:text-red-500 ml-0.5">&times;</button>
+                      </span>
+                    ))}
                   </div>
                 )}
-              </div>
-            ) : (
-              <div className="flex gap-2">
-                <input type="text" value={jiraInput} onChange={e => setJiraInput(e.target.value.toUpperCase())}
-                  placeholder="e.g., PROJ-123" className="tb-input flex-1 text-sm font-mono" />
+                <div className="flex gap-2">
+                  <input type="text" value={jiraInput} onChange={e => setJiraInput(e.target.value.toUpperCase())}
+                    placeholder="e.g., PROJ-123" className="tb-input flex-1 text-sm font-mono"
+                    onKeyDown={e => { if (e.key === 'Enter' && jiraInput.trim()) { setJiraKeys([...jiraKeys, jiraInput.trim()]); setJiraInput(''); } }} />
+                  <button onClick={() => { if (jiraInput.trim()) { setJiraKeys([...jiraKeys, jiraInput.trim()]); setJiraInput(''); } }}
+                    className="px-2.5 py-1.5 text-sm font-medium text-accent-blue border border-accent-blue/30 rounded-lg hover:bg-accent-blue/10 transition-colors">+</button>
+                </div>
                 <button onClick={async () => {
                   if (!ticket) return;
-                  await ticketsApi.updateJiraKey(ticket.id, jiraInput.trim());
+                  const finalKeys = jiraInput.trim() ? [...jiraKeys, jiraInput.trim()] : jiraKeys;
+                  await ticketsApi.updateJiraKeys(ticket.id, finalKeys);
+                  setJiraInput('');
                   setEditingJira(false);
                   load();
-                }} className="px-3 py-1.5 text-sm font-medium bg-accent-blue text-white rounded-lg hover:bg-accent-blue/80 transition-colors">
+                }} className="w-full px-3 py-1.5 text-sm font-medium bg-accent-blue text-white rounded-lg hover:bg-accent-blue/80 transition-colors">
+                  Save
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Bugzilla Issues Card (multi-key) */}
+          <div className="tb-card p-6">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <ExternalLink className="w-4 h-4 text-red-500" />
+                <h3 className="font-semibold text-gray-900 dark:text-white">Bugzilla Issues</h3>
+              </div>
+              {bugzillaKeys.length > 0 && !editingBugzilla && (
+                <button onClick={() => setEditingBugzilla(true)} className="text-xs text-gray-500 hover:text-red-500">Edit</button>
+              )}
+            </div>
+            {/* Display existing keys as tags */}
+            {bugzillaKeys.length > 0 && !editingBugzilla && (
+              <div className="flex flex-wrap gap-1.5">
+                {bugzillaKeys.map((key, i) => (
+                  <span key={i} className="inline-flex items-center px-2.5 py-1 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md text-xs font-mono text-red-600 dark:text-red-400">
+                    {key}
+                  </span>
+                ))}
+              </div>
+            )}
+            {/* Edit mode or empty — show input */}
+            {(editingBugzilla || bugzillaKeys.length === 0) && (
+              <div className="space-y-2">
+                {editingBugzilla && bugzillaKeys.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {bugzillaKeys.map((key, i) => (
+                      <span key={i} className="inline-flex items-center gap-1 px-2 py-1 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md text-xs font-mono text-red-600 dark:text-red-400">
+                        {key}
+                        <button onClick={() => { const updated = bugzillaKeys.filter((_, idx) => idx !== i); setBugzillaKeys(updated); }}
+                          className="text-gray-400 hover:text-red-500 ml-0.5">&times;</button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <input type="text" value={bugzillaInput} onChange={e => setBugzillaInput(e.target.value)}
+                    placeholder="e.g., 12345" className="tb-input flex-1 text-sm font-mono"
+                    onKeyDown={e => { if (e.key === 'Enter' && bugzillaInput.trim()) { setBugzillaKeys([...bugzillaKeys, bugzillaInput.trim()]); setBugzillaInput(''); } }} />
+                  <button onClick={() => { if (bugzillaInput.trim()) { setBugzillaKeys([...bugzillaKeys, bugzillaInput.trim()]); setBugzillaInput(''); } }}
+                    className="px-2.5 py-1.5 text-sm font-medium text-red-500 border border-red-300/30 rounded-lg hover:bg-red-500/10 transition-colors">+</button>
+                </div>
+                <button onClick={async () => {
+                  if (!ticket) return;
+                  const finalKeys = bugzillaInput.trim() ? [...bugzillaKeys, bugzillaInput.trim()] : bugzillaKeys;
+                  await ticketsApi.updateBugzillaKeys(ticket.id, finalKeys);
+                  setBugzillaInput('');
+                  setEditingBugzilla(false);
+                  load();
+                }} className="w-full px-3 py-1.5 text-sm font-medium bg-red-500 text-white rounded-lg hover:bg-red-500/80 transition-colors">
                   Save
                 </button>
               </div>
@@ -1252,7 +1342,7 @@ export default function TicketDetail() {
                 <RefreshCw className={`w-4 h-4 ${actionLoading === 'analyze' ? 'animate-spin' : ''}`} />
                 {actionLoading === 'analyze' ? 'AI Analyzing...' : 'Re-analyze with AI'}
               </button>
-              {ticket.status !== 'escalated_to_jira' && !ticket.jiraIssueKey && (
+              {ticket.status !== 'escalated_to_jira' && (
                 <button onClick={() => {
                   setShowJiraModal(true);
                   setJiraFormNotes('');

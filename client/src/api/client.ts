@@ -100,12 +100,16 @@ export const tickets = {
   unlinkTicket: (id: number, linkId: number) =>
     request<any>(`/tickets/${id}/links/${linkId}`, { method: 'DELETE' }),
 
-  // Jira
-  updateJiraKey: (id: number, jiraIssueKey: string) =>
-    request<any>(`/tickets/${id}/jira`, { method: 'PATCH', body: JSON.stringify({ jiraIssueKey }) }),
+  // Jira (multi-key)
+  updateJiraKeys: (id: number, jiraIssueKeys: string[]) =>
+    request<any>(`/tickets/${id}/jira`, { method: 'PATCH', body: JSON.stringify({ jiraIssueKeys }) }),
   escalateToJira: (id: number, data?: { labels?: string[]; account?: { id: string; name?: string }; affectedVersion?: string; escalationNotes?: string }) =>
     request<any>(`/tickets/${id}/escalate-jira`, { method: 'POST', body: JSON.stringify(data || {}) }),
   getJiraStatus: (id: number) => request<any>(`/tickets/${id}/jira-status`),
+
+  // Bugzilla (multi-key)
+  updateBugzillaKeys: (id: number, bugzillaIssueKeys: string[]) =>
+    request<any>(`/tickets/${id}/bugzilla`, { method: 'PATCH', body: JSON.stringify({ bugzillaIssueKeys }) }),
 
   // Time entries
   getTimeEntries: (id: number) => request<any[]>(`/tickets/${id}/time-entries`),
