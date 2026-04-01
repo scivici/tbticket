@@ -273,15 +273,25 @@ export async function getJiraMetadata(engineerId?: number): Promise<{
 
   const results = { labels: [] as string[], components: [] as any[], versions: [] as any[], accounts: [] as any[] };
 
-  // Fetch labels
+  // Fetch labels — try multiple endpoints (Cloud vs Server differ)
   try {
-    const res = await fetch(`${base}/rest/api/${apiVersion}/label?maxResults=200`, { headers });
+    let res = await fetch(`${base}/rest/api/${apiVersion}/label?maxResults=200`, { headers });
+    if (!res.ok) {
+      res = await fetch(`${base}/rest/api/2/label?maxResults=200`, { headers });
+    }
+    if (!res.ok) {
+      // Some Jira versions use /labels (plural)
+      res = await fetch(`${base}/rest/api/${apiVersion}/labels?maxResults=200`, { headers });
+    }
     if (res.ok) {
       const data: any = await res.json();
       results.labels = data.values || data.suggestions || data || [];
       if (Array.isArray(results.labels) && results.labels.length > 0 && typeof results.labels[0] === 'object') {
         results.labels = results.labels.map((l: any) => l.label || l.name || l);
       }
+      console.log(`[Jira] Fetched ${results.labels.length} labels`);
+    } else {
+      console.log(`[Jira] Labels fetch returned ${res.status}`);
     }
   } catch (e: any) { console.log(`[Jira] Labels fetch failed: ${e.message}`); }
 
@@ -296,10 +306,20 @@ export async function getJiraMetadata(engineerId?: number): Promise<{
 
   // Fetch versions for project
   try {
-    const res = await fetch(`${base}/rest/api/${apiVersion}/project/${projectKey}/versions`, { headers });
+    let res = await fetch(`${base}/rest/api/${apiVersion}/project/${projectKey}/versions`, { headers });
+    if (!res.ok && apiVersion !== '2') {
+      res = await fetch(`${base}/rest/api/2/project/${projectKey}/versions`, { headers });
+    }
+    if (!res.ok) {
+      res = await fetch(`${base}/rest/api/latest/project/${projectKey}/versions`, { headers });
+    }
     if (res.ok) {
       const data: any = await res.json();
-      results.versions = (data as any[]).map((v: any) => ({ id: v.id, name: v.name, released: v.released || false }));
+      const versions = Array.isArray(data) ? data : (data.values || []);
+      results.versions = versions.map((v: any) => ({ id: String(v.id), name: v.name, released: v.released || false }));
+      console.log(`[Jira] Fetched ${results.versions.length} versions for ${projectKey}`);
+    } else {
+      console.log(`[Jira] Versions fetch returned ${res.status} for ${projectKey}`);
     }
   } catch (e: any) { console.log(`[Jira] Versions fetch failed: ${e.message}`); }
 
@@ -330,8 +350,10 @@ export async function getJiraMetadata(engineerId?: number): Promise<{
         }
       }
     }
+    console.log(`[Jira] Fetched ${results.accounts.length} accounts`);
   } catch (e: any) { console.log(`[Jira] Accounts fetch failed: ${e.message}`); }
 
+  console.log(`[Jira] Metadata summary — labels: ${results.labels.length}, components: ${results.components.length}, versions: ${results.versions.length}, accounts: ${results.accounts.length}`);
   return results;
 }
 

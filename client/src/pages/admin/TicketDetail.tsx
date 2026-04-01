@@ -301,6 +301,12 @@ export default function TicketDetail() {
   const [jiraFormAccount, setJiraFormAccount] = useState<{ id: string; name?: string } | null>(null);
   const [jiraFormVersion, setJiraFormVersion] = useState('');
   const [jiraFormNotes, setJiraFormNotes] = useState('');
+  const [jiraLabelSearch, setJiraLabelSearch] = useState('');
+  const [jiraAccountSearch, setJiraAccountSearch] = useState('');
+  const [jiraVersionSearch, setJiraVersionSearch] = useState('');
+  const [jiraLabelOpen, setJiraLabelOpen] = useState(false);
+  const [jiraAccountOpen, setJiraAccountOpen] = useState(false);
+  const [jiraVersionOpen, setJiraVersionOpen] = useState(false);
 
   // Support both numeric ID and ticket number (TKT-xxx)
   const isNumeric = /^\d+$/.test(id!);
@@ -1244,6 +1250,9 @@ export default function TicketDetail() {
                   setJiraFormLabels([]);
                   setJiraFormAccount(null);
                   setJiraFormVersion('');
+                  setJiraLabelSearch('');
+                  setJiraAccountSearch('');
+                  setJiraVersionSearch('');
                   if (!jiraMetadata) {
                     setJiraMetaLoading(true);
                     settingsApi.getJiraMetadata(ticket.assignedEngineerId || undefined)
@@ -1444,25 +1453,11 @@ export default function TicketDetail() {
             </div>
           ) : (
             <div className="space-y-4">
-              {/* Labels */}
-              <div>
+              {/* Labels — searchable multi-select */}
+              <div className="relative">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Labels</label>
-                <select
-                  className="tb-select w-full"
-                  value=""
-                  onChange={e => {
-                    if (e.target.value && !jiraFormLabels.includes(e.target.value)) {
-                      setJiraFormLabels([...jiraFormLabels, e.target.value]);
-                    }
-                  }}
-                >
-                  <option value="">Select label...</option>
-                  {(jiraMetadata?.labels || []).map(l => (
-                    <option key={l} value={l} disabled={jiraFormLabels.includes(l)}>{l}</option>
-                  ))}
-                </select>
                 {jiraFormLabels.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 mt-2">
+                  <div className="flex flex-wrap gap-1.5 mb-2">
                     {jiraFormLabels.map(l => (
                       <span key={l} className="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded text-xs font-medium">
                         {l}
@@ -1471,39 +1466,97 @@ export default function TicketDetail() {
                     ))}
                   </div>
                 )}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                  <input
+                    type="text"
+                    className="tb-input w-full pl-9 text-sm"
+                    placeholder="Type to search labels..."
+                    value={jiraLabelSearch}
+                    onChange={e => { setJiraLabelSearch(e.target.value); setJiraLabelOpen(true); }}
+                    onFocus={() => setJiraLabelOpen(true)}
+                    onBlur={() => setTimeout(() => setJiraLabelOpen(false), 200)}
+                  />
+                </div>
+                {jiraLabelOpen && (jiraMetadata?.labels || []).filter(l => !jiraFormLabels.includes(l) && l.toLowerCase().includes(jiraLabelSearch.toLowerCase())).length > 0 && (
+                  <div className="absolute z-10 w-full mt-1 max-h-40 overflow-y-auto bg-white dark:bg-[#2a2a2a] border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
+                    {(jiraMetadata?.labels || [])
+                      .filter(l => !jiraFormLabels.includes(l) && l.toLowerCase().includes(jiraLabelSearch.toLowerCase()))
+                      .slice(0, 20)
+                      .map(l => (
+                        <button key={l} type="button"
+                          className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200"
+                          onMouseDown={e => { e.preventDefault(); setJiraFormLabels([...jiraFormLabels, l]); setJiraLabelSearch(''); }}
+                        >{l}</button>
+                      ))}
+                  </div>
+                )}
               </div>
 
-              {/* Account */}
-              <div>
+              {/* Account — searchable single-select */}
+              <div className="relative">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Account</label>
-                <select
-                  className="tb-select w-full"
-                  value={jiraFormAccount?.id || ''}
-                  onChange={e => {
-                    const acc = (jiraMetadata?.accounts || []).find(a => a.id === e.target.value);
-                    setJiraFormAccount(acc ? { id: acc.id, name: acc.name } : null);
-                  }}
-                >
-                  <option value="">Select account...</option>
-                  {(jiraMetadata?.accounts || []).map(a => (
-                    <option key={a.id} value={a.id}>{a.name}</option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                  <input
+                    type="text"
+                    className="tb-input w-full pl-9 text-sm"
+                    placeholder="Type to search accounts..."
+                    value={jiraAccountSearch}
+                    onChange={e => { setJiraAccountSearch(e.target.value); setJiraAccountOpen(true); if (!e.target.value) setJiraFormAccount(null); }}
+                    onFocus={() => setJiraAccountOpen(true)}
+                    onBlur={() => setTimeout(() => setJiraAccountOpen(false), 200)}
+                  />
+                  {jiraFormAccount && (
+                    <button onClick={() => { setJiraFormAccount(null); setJiraAccountSearch(''); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500"><X className="w-4 h-4" /></button>
+                  )}
+                </div>
+                {jiraAccountOpen && !jiraFormAccount && (jiraMetadata?.accounts || []).filter(a => a.name.toLowerCase().includes(jiraAccountSearch.toLowerCase())).length > 0 && (
+                  <div className="absolute z-10 w-full mt-1 max-h-40 overflow-y-auto bg-white dark:bg-[#2a2a2a] border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
+                    {(jiraMetadata?.accounts || [])
+                      .filter(a => a.name.toLowerCase().includes(jiraAccountSearch.toLowerCase()))
+                      .slice(0, 20)
+                      .map(a => (
+                        <button key={a.id} type="button"
+                          className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200"
+                          onMouseDown={e => { e.preventDefault(); setJiraFormAccount({ id: a.id, name: a.name }); setJiraAccountSearch(a.name); setJiraAccountOpen(false); }}
+                        >{a.name}</button>
+                      ))}
+                  </div>
+                )}
               </div>
 
-              {/* Affected Version */}
-              <div>
+              {/* Affected Version — searchable single-select */}
+              <div className="relative">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Affected Version</label>
-                <select
-                  className="tb-select w-full"
-                  value={jiraFormVersion}
-                  onChange={e => setJiraFormVersion(e.target.value)}
-                >
-                  <option value="">Select version...</option>
-                  {(jiraMetadata?.versions || []).map(v => (
-                    <option key={v.id} value={v.name}>{v.name}{v.released ? ' (Released)' : ''}</option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                  <input
+                    type="text"
+                    className="tb-input w-full pl-9 text-sm"
+                    placeholder="Type to search versions..."
+                    value={jiraVersionSearch}
+                    onChange={e => { setJiraVersionSearch(e.target.value); setJiraVersionOpen(true); if (!e.target.value) setJiraFormVersion(''); }}
+                    onFocus={() => setJiraVersionOpen(true)}
+                    onBlur={() => setTimeout(() => setJiraVersionOpen(false), 200)}
+                  />
+                  {jiraFormVersion && (
+                    <button onClick={() => { setJiraFormVersion(''); setJiraVersionSearch(''); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500"><X className="w-4 h-4" /></button>
+                  )}
+                </div>
+                {jiraVersionOpen && !jiraFormVersion && (jiraMetadata?.versions || []).filter(v => v.name.toLowerCase().includes(jiraVersionSearch.toLowerCase())).length > 0 && (
+                  <div className="absolute z-10 w-full mt-1 max-h-40 overflow-y-auto bg-white dark:bg-[#2a2a2a] border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
+                    {(jiraMetadata?.versions || [])
+                      .filter(v => v.name.toLowerCase().includes(jiraVersionSearch.toLowerCase()))
+                      .slice(0, 20)
+                      .map(v => (
+                        <button key={v.id} type="button"
+                          className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200"
+                          onMouseDown={e => { e.preventDefault(); setJiraFormVersion(v.name); setJiraVersionSearch(v.name); setJiraVersionOpen(false); }}
+                        >{v.name}{v.released ? ' (Released)' : ''}</button>
+                      ))}
+                  </div>
+                )}
               </div>
 
               {/* Escalation Notes (Description) */}
