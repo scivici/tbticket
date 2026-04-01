@@ -31,7 +31,8 @@ async function getTransporter() {
 
 async function getFromAddress(): Promise<string> {
   const s = await getSettings('smtp_');
-  return s['smtp_from'] || config.smtp.from;
+  const email = s['smtp_from'] || config.smtp.from;
+  return `TelcoBridges Ticketing System <${email}>`;
 }
 
 // ---------------------------------------------------------------------------
