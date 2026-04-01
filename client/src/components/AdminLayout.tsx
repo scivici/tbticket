@@ -97,7 +97,7 @@ export default function AdminLayout() {
   const sidebarContent = (
     <>
       <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-2">
+        <Link to="/admin" className="flex items-center gap-2">
           <img src="/tb-logo-small.png" alt="TelcoBridges" className="h-6" />
           <span className="text-primary-500 dark:text-accent-blue font-bold text-sm">{userRole === 'engineer' ? 'Support Panel' : 'Admin'}</span>
         </Link>
@@ -165,7 +165,7 @@ export default function AdminLayout() {
           <button onClick={() => setSidebarOpen(true)} className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
             <Menu className="w-5 h-5" />
           </button>
-          <Link to="/" className="flex items-center gap-2">
+          <Link to="/admin" className="flex items-center gap-2">
             <img src="/tb-logo-small.png" alt="TelcoBridges" className="h-5" />
             <span className="text-primary-500 dark:text-accent-blue font-bold text-sm">{userRole === 'engineer' ? 'Support Panel' : 'Admin'}</span>
           </Link>
