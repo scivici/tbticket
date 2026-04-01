@@ -174,19 +174,19 @@ async function sendAutoAssignEmail(ticketId: number, engineerId: number) {
   }
 }
 
-async function triggerAnalysis(ticketId: number, productId: number, categoryId: number, customPrompt?: string) {
+async function triggerAnalysis(ticketId: number, productId: number, categoryId: number, customPrompt?: string, skipAssignment?: boolean) {
   try {
     const analysisMode = await getSetting('claude_analysis_mode') || 'ssh';
 
     // Wrapper mode: HTTP -> Claude Code CLI with full server access (recommended)
     if (analysisMode === 'wrapper') {
-      await triggerWrapperAnalysis(ticketId, productId, categoryId, customPrompt);
+      await triggerWrapperAnalysis(ticketId, productId, categoryId, customPrompt, skipAssignment);
       return;
     }
 
     // SSH mode: SFTP files + Claude CLI
     if (analysisMode === 'ssh') {
-      await triggerSshAnalysis(ticketId);
+      await triggerSshAnalysis(ticketId, skipAssignment);
       return;
     }
 
@@ -196,7 +196,11 @@ async function triggerAnalysis(ticketId: number, productId: number, categoryId: 
     if (analysis) {
       await ticketService.updateAiAnalysis(ticketId, JSON.stringify(analysis), analysis.confidence);
 
-      if (analysis.confidence >= await getAutoAssignThreshold()) {
+      if (skipAssignment) {
+        // Re-analyze: keep existing engineer assignment, restore status
+        await ticketService.updateTicketStatus(ticketId, 'assigned');
+        console.log(`[AI] Re-analysis for ticket ${ticketId} — keeping existing engineer assignment`);
+      } else if (analysis.confidence >= await getAutoAssignThreshold()) {
         await ticketService.assignTicket(ticketId, analysis.recommendedEngineerId);
         console.log(`[AI] Auto-assigned ticket ${ticketId} to engineer ${analysis.recommendedEngineerName} (confidence: ${analysis.confidence})`);
         sendAutoAssignEmail(ticketId, analysis.recommendedEngineerId);
@@ -232,7 +236,7 @@ async function triggerAnalysis(ticketId: number, productId: number, categoryId: 
   }
 }
 
-async function triggerSshAnalysis(ticketId: number) {
+async function triggerSshAnalysis(ticketId: number, skipAssignment?: boolean) {
   const ticket = await ticketService.getTicketById(ticketId);
   if (!ticket) return;
 
@@ -296,7 +300,10 @@ async function triggerSshAnalysis(ticketId: number) {
         const confidence = analysisJson.confidence || 0.5;
         await ticketService.updateAiAnalysis(ticketId, JSON.stringify(analysis), confidence);
 
-        if (confidence >= await getAutoAssignThreshold() && analysisJson.recommendedEngineerId) {
+        if (skipAssignment) {
+          await ticketService.updateTicketStatus(ticketId, 'assigned');
+          console.log(`[SSH-AI] Re-analysis for ticket ${ticketId} — keeping existing engineer assignment`);
+        } else if (confidence >= await getAutoAssignThreshold() && analysisJson.recommendedEngineerId) {
           await ticketService.assignTicket(ticketId, analysisJson.recommendedEngineerId);
           console.log(`[SSH-AI] Auto-assigned ticket ${ticketId} to ${analysisJson.recommendedEngineerName} (confidence: ${confidence})`);
           sendAutoAssignEmail(ticketId, analysisJson.recommendedEngineerId);
@@ -344,7 +351,7 @@ async function triggerSshAnalysis(ticketId: number) {
   }
 }
 
-async function triggerWrapperAnalysis(ticketId: number, productId: number, categoryId: number, customPrompt?: string) {
+async function triggerWrapperAnalysis(ticketId: number, productId: number, categoryId: number, customPrompt?: string, skipAssignment?: boolean) {
   const ticket = await ticketService.getTicketById(ticketId);
   if (!ticket) return;
 
@@ -397,9 +404,12 @@ async function triggerWrapperAnalysis(ticketId: number, productId: number, categ
       const threshold = await getAutoAssignThreshold();
       await ticketService.updateAiAnalysis(ticketId, JSON.stringify(analysis), confidence);
 
-      console.log(`[Wrapper-AI] Ticket ${ticketId}: confidence=${confidence}, threshold=${threshold}, engineerId=${engineerId} (type: ${typeof engineerId})`);
+      console.log(`[Wrapper-AI] Ticket ${ticketId}: confidence=${confidence}, threshold=${threshold}, engineerId=${engineerId} (type: ${typeof engineerId}), skipAssignment=${!!skipAssignment}`);
 
-      if (confidence >= threshold && engineerId) {
+      if (skipAssignment) {
+        await ticketService.updateTicketStatus(ticketId, 'assigned');
+        console.log(`[Wrapper-AI] Re-analysis for ticket ${ticketId} — keeping existing engineer assignment`);
+      } else if (confidence >= threshold && engineerId) {
         const numericEngineerId = typeof engineerId === 'string' ? parseInt(engineerId, 10) : engineerId;
         await ticketService.assignTicket(ticketId, numericEngineerId);
         console.log(`[Wrapper-AI] Auto-assigned ticket ${ticketId} to ${result.analysis.recommendedEngineerName} (confidence: ${confidence})`);
@@ -818,8 +828,11 @@ export async function reanalyzeTicket(req: AuthenticatedRequest, res: Response):
     return;
   }
 
+  // Check if ticket already has an assigned engineer (don't change assignment on re-analyze)
+  const skipAssignment = !!ticket.assignedEngineerId;
+
   await ticketService.updateTicketStatus(ticketId, 'analyzing');
-  triggerAnalysis(ticketId, ticket.productId, ticket.categoryId, customPrompt);
+  triggerAnalysis(ticketId, ticket.productId, ticket.categoryId, customPrompt, skipAssignment);
 
   res.json({ message: 'Re-analysis triggered' });
 }
