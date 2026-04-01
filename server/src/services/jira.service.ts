@@ -131,6 +131,23 @@ export async function createJiraIssue(data: JiraIssueData, engineerId?: number):
   const sbcProducts = ['prosbc', 'freesbc'];
   const componentName = sbcProducts.some(p => data.productName.toLowerCase().includes(p)) ? 'SBC' : 'TMG';
 
+  // Resolve component ID from project components
+  const fetchHeaders = { 'Authorization': `Basic ${auth}`, 'Accept': 'application/json' };
+  let componentRef: { id: string } | { name: string } | null = null;
+  try {
+    const compRes = await fetch(`${base}/rest/api/${apiVersion}/project/${projectKey}/components`, { headers: fetchHeaders });
+    if (compRes.ok) {
+      const comps: any = await compRes.json();
+      const match = (comps as any[]).find((c: any) => c.name.toLowerCase() === componentName.toLowerCase());
+      if (match) {
+        componentRef = { id: String(match.id) };
+        console.log(`[Jira] Resolved component "${componentName}" → id ${match.id}`);
+      } else {
+        console.log(`[Jira] Component "${componentName}" not found in project. Available: ${(comps as any[]).map((c: any) => c.name).join(', ')}`);
+      }
+    }
+  } catch (e: any) { console.log(`[Jira] Component lookup failed: ${e.message}`); }
+
   // Description: use escalation notes if provided, otherwise build from ticket data
   const descText = data.escalationNotes
     ? `${data.escalationNotes}\n\n---\nTicket: ${data.ticketNumber}\nProduct: ${data.productName} / ${data.categoryName}\nCustomer: ${data.customerName} (${data.customerEmail})`
@@ -160,31 +177,58 @@ export async function createJiraIssue(data: JiraIssueData, engineerId?: number):
     issuetype: { name: 'Incident' },
     priority: { name: PRIORITY_MAP[data.priority] || 'Medium' },
     labels,
-    components: [{ name: componentName }],
   };
 
-  // Affected version
-  if (data.affectedVersion) {
-    fields.versions = [{ name: data.affectedVersion }];
+  // Only add component if we found it in the project
+  if (componentRef) {
+    fields.components = [componentRef];
   }
 
-  // Account (Tempo custom field) — we need to find the field key via createmeta
+  // Affected version — use ID if available
+  if (data.affectedVersion) {
+    try {
+      const verRes = await fetch(`${base}/rest/api/${apiVersion}/project/${projectKey}/versions`, { headers: fetchHeaders });
+      if (verRes.ok) {
+        const vers: any = await verRes.json();
+        const vArr = Array.isArray(vers) ? vers : (vers.values || []);
+        const match = vArr.find((v: any) => v.name === data.affectedVersion);
+        if (match) {
+          fields.versions = [{ id: String(match.id) }];
+          console.log(`[Jira] Resolved version "${data.affectedVersion}" → id ${match.id}`);
+        } else {
+          fields.versions = [{ name: data.affectedVersion }];
+        }
+      } else {
+        fields.versions = [{ name: data.affectedVersion }];
+      }
+    } catch { fields.versions = [{ name: data.affectedVersion }]; }
+  }
+
+  // Account (Tempo custom field) — discover field key and correct format via createmeta
   if (data.account?.id) {
     try {
-      const headers = { 'Authorization': `Basic ${auth}`, 'Accept': 'application/json' };
-      const metaRes = await fetch(`${base}/rest/api/${apiVersion}/issue/createmeta?projectKeys=${projectKey}&issuetypeNames=Incident&expand=projects.issuetypes.fields`, { headers });
+      const metaRes = await fetch(`${base}/rest/api/${apiVersion}/issue/createmeta?projectKeys=${projectKey}&issuetypeNames=Incident&expand=projects.issuetypes.fields`, { headers: fetchHeaders });
       if (metaRes.ok) {
         const meta: any = await metaRes.json();
-        const issueType = meta.projects?.[0]?.issuetypes?.[0];
-        if (issueType?.fields) {
-          for (const [key, field] of Object.entries(issueType.fields) as any[]) {
+        const itFields = meta.projects?.[0]?.issuetypes?.[0]?.fields;
+        if (itFields) {
+          for (const [key, field] of Object.entries(itFields) as any[]) {
             if (field.name && field.name.toLowerCase().includes('account') && !field.name.toLowerCase().includes('regression')) {
-              fields[key] = { id: data.account.id };
-              console.log(`[Jira] Mapped Account to field ${key} (${field.name}) = ${data.account.id}`);
+              // Tempo Account accepts different formats depending on version:
+              // Try integer id first, then {id}, then {value}, then {key}
+              const numId = parseInt(data.account.id);
+              if (!isNaN(numId)) {
+                fields[key] = numId;
+              } else {
+                fields[key] = data.account.id;
+              }
+              console.log(`[Jira] Mapped Account → field ${key} (${field.name}), value: ${JSON.stringify(fields[key])}`);
               break;
             }
           }
         }
+      } else {
+        console.log(`[Jira] createmeta returned ${metaRes.status}, skipping Account field`);
       }
     } catch (e: any) { console.log(`[Jira] Account field mapping failed: ${e.message}`); }
   }
