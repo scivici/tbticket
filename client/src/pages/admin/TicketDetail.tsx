@@ -574,9 +574,18 @@ export default function TicketDetail() {
                   multiple
                   className="hidden"
                   disabled={uploadingFiles}
-                  accept="image/*,.pdf,.txt,.csv,.log,.json,.zip,.pcap,.pcapng,.gz,.tgz"
+                  accept="image/*,.pdf,.txt,.csv,.log,.json,.zip,.pcap,.pcapng,.gz,.tgz,.html"
                   onChange={async (e) => {
                     if (!e.target.files?.length || !ticket) return;
+                    // Validate HTML files: only call_trace*.html allowed
+                    for (const file of Array.from(e.target.files)) {
+                      const ext = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
+                      if ((ext === '.html' || ext === '.htm') && !file.name.toLowerCase().startsWith('call_trace')) {
+                        alert('HTML files are only allowed for call trace exports (filename must start with "call_trace")');
+                        e.target.value = '';
+                        return;
+                      }
+                    }
                     setUploadingFiles(true);
                     try {
                       const formData = new FormData();
