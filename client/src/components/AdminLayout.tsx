@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Ticket, Users, Package, FolderOpen,
   HelpCircle, Wrench, UserCog, LogOut, ChevronLeft, Settings,
   UserCheck, MessageSquarePlus, Menu, X, AlertTriangle, Repeat, Clock, ShieldAlert,
-  Keyboard, Activity
+  Keyboard, Activity, BookOpen
 } from 'lucide-react';
 
 const allNavItems = [
@@ -25,6 +25,7 @@ const allNavItems = [
   { to: '/admin/sla-dashboard', icon: ShieldAlert, label: 'SLA Dashboard', roles: ['admin', 'engineer'] },
   { to: '/admin/health', icon: Activity, label: 'System Health', roles: ['admin'] },
   { to: '/admin/setup', icon: Settings, label: 'Setup', roles: ['admin'] },
+  { to: '/admin/help', icon: BookOpen, label: 'Help Guide', roles: ['engineer'] },
 ];
 
 export default function AdminLayout() {
