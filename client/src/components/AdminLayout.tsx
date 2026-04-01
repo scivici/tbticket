@@ -76,8 +76,10 @@ export default function AdminLayout() {
             navigate('/admin/tickets');
             break;
           case 'n':
-            e.preventDefault();
-            navigate('/submit');
+            if (userRole === 'admin') {
+              e.preventDefault();
+              navigate('/submit');
+            }
             break;
         }
       }
@@ -201,7 +203,7 @@ export default function AdminLayout() {
               {[
                 { keys: 'Alt + D', label: 'Go to Dashboard' },
                 { keys: 'Alt + T', label: 'Go to Tickets' },
-                { keys: 'Alt + N', label: 'New Ticket (submit page)' },
+                ...(userRole === 'admin' ? [{ keys: 'Alt + N', label: 'New Ticket (submit page)' }] : []),
                 { keys: 'Escape', label: 'Close modal / overlay' },
                 { keys: '?', label: 'Toggle this help' },
               ].map(s => (

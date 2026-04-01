@@ -33,10 +33,12 @@ import HealthDashboard from './pages/admin/HealthDashboard';
 import TicketPrint from './pages/admin/TicketPrint';
 import NotFound from './pages/NotFound';
 
-function AuthGuard({ children }: { children: React.ReactElement }) {
+function AuthGuard({ children, denyRoles }: { children: React.ReactElement; denyRoles?: string[] }) {
   const { user, loading } = useAuth();
   if (loading) return <div className="min-h-screen bg-[#f2f2f2] dark:bg-tb-bg flex items-center justify-center text-gray-500">Loading...</div>;
-  return user ? children : <Navigate to="/login" />;
+  if (!user) return <Navigate to="/login" />;
+  if (denyRoles?.includes(user.role)) return <Navigate to="/admin" />;
+  return children;
 }
 
 function AdminGuard() {
@@ -53,7 +55,7 @@ export default function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
-        <Route path="/submit" element={<AuthGuard><WizardContainer /></AuthGuard>} />
+        <Route path="/submit" element={<AuthGuard denyRoles={['engineer']}><WizardContainer /></AuthGuard>} />
         <Route path="/track" element={<TicketTracker />} />
         <Route path="/release-notes" element={<ReleaseNotes />} />
         <Route path="/knowledge-base" element={<KnowledgeBase />} />
