@@ -73,8 +73,8 @@ async function detectJiraApiVersion(baseUrl: string, auth: string): Promise<stri
     console.log(`[Jira] 'latest' serverInfo returned ${res.status} for ${baseUrl}`);
   } catch (e: any) { console.log(`[Jira] 'latest' check failed for ${baseUrl}: ${e.message}`); }
 
-  console.warn(`[Jira] Could not detect API version for ${baseUrl}, defaulting to v2`);
-  apiVersionCache[baseUrl] = { version: '2', ts: Date.now() };
+  console.warn(`[Jira] ⚠ Could not detect API version for ${baseUrl} — all serverInfo endpoints failed. Check the Base URL. Defaulting to v2 (NOT cached).`);
+  // Do NOT cache failed detection — re-try next time
   return '2';
 }
 
@@ -193,36 +193,47 @@ export async function createJiraIssue(data: JiraIssueData, engineerId?: number):
 
   try {
     console.log(`[Jira] Creating issue: POST ${url} (API v${apiVersion}, project: ${projectKey})`);
+    console.log(`[Jira] Request body:`, JSON.stringify(body, null, 2).substring(0, 500));
 
-    let response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Basic ${auth}`,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      body: JSON.stringify(body),
-    });
+    const fetchHeaders = {
+      'Authorization': `Basic ${auth}`,
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    };
 
-    // If v2 also 404s, try latest (some Jira versions use /rest/api/latest)
-    if (response.status === 404) {
-      const latestUrl = `${base}/rest/api/latest/issue`;
-      console.log(`[Jira] v${apiVersion} returned 404, retrying: POST ${latestUrl}`);
-      response = await fetch(latestUrl, {
+    // Try multiple API versions: detected → other version → latest
+    const urlsToTry = [
+      url,
+      `${base}/rest/api/${apiVersion === '3' ? '2' : '3'}/issue`,
+      `${base}/rest/api/latest/issue`,
+    ];
+
+    let response: Response | null = null;
+    let lastUrl = url;
+
+    for (const tryUrl of urlsToTry) {
+      console.log(`[Jira] Trying: POST ${tryUrl}`);
+      response = await fetch(tryUrl, {
         method: 'POST',
-        headers: {
-          'Authorization': `Basic ${auth}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
+        headers: fetchHeaders,
         body: JSON.stringify(body),
       });
+      lastUrl = tryUrl;
+
+      if (response.status !== 404) break;
+      console.log(`[Jira] ${tryUrl} returned 404, trying next...`);
     }
 
-    if (!response.ok) {
-      const errorBody = await response.text();
-      console.error(`[Jira] Create issue failed: ${response.status} at ${url}`, errorBody.substring(0, 300));
-      return { success: false, error: `Jira API error (${response.status}): ${errorBody.substring(0, 200)}` };
+    if (!response || !response.ok) {
+      const errorBody = await response!.text();
+      console.error(`[Jira] Create issue failed: ${response!.status} at ${lastUrl}`, errorBody.substring(0, 500));
+
+      // If HTML 404, provide a clearer error message
+      if (response!.status === 404 && errorBody.includes('<!DOCTYPE')) {
+        return { success: false, error: `Jira API endpoint not found (404). Check that the Jira Base URL is correct (tried: ${lastUrl}). The URL should include any context path (e.g., https://jira.company.com/jira).` };
+      }
+
+      return { success: false, error: `Jira API error (${response!.status}): ${errorBody.substring(0, 200)}` };
     }
 
     const result: any = await response.json();
