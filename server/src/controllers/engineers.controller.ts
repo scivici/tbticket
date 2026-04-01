@@ -1,5 +1,8 @@
 import { Request, Response } from 'express';
+import bcrypt from 'bcryptjs';
 import { query, queryOne, queryAll, transaction, clientQuery } from '../db/connection';
+import { sendEmail } from '../services/email.service';
+import { getSetting } from '../services/settings.service';
 
 export async function listEngineers(_req: Request, res: Response): Promise<void> {
   const engineers = await queryAll<any>('SELECT * FROM engineers ORDER BY name');
@@ -42,24 +45,32 @@ export async function getEngineer(req: Request, res: Response): Promise<void> {
 }
 
 export async function createEngineer(req: Request, res: Response): Promise<void> {
-  const { name, email, location, maxWorkload } = req.body;
+  const { name, email, location, maxWorkload, password } = req.body;
 
   if (!name || !email || !location) {
     res.status(400).json({ error: 'name, email, and location are required' });
     return;
   }
 
+  const passwordHash = password ? bcrypt.hashSync(password, 10) : null;
+
   const result = await query(
-    'INSERT INTO engineers (name, email, location, max_workload) VALUES (?, ?, ?, ?) RETURNING id',
-    [name, email, location, maxWorkload || 5]
+    'INSERT INTO engineers (name, email, location, max_workload, password_hash) VALUES (?, ?, ?, ?, ?) RETURNING id',
+    [name, email, location, maxWorkload || 5, passwordHash]
   );
+
+  // Send credentials email if password was set
+  if (password) {
+    const baseUrl = await getSetting('app_base_url') || 'http://localhost:4001';
+    await sendCredentialsEmail(email, name, password, baseUrl);
+  }
 
   res.status(201).json({ id: result.rows[0].id, message: 'Engineer created' });
 }
 
 export async function updateEngineer(req: Request, res: Response): Promise<void> {
   const { name, email, location, isActive, maxWorkload, shiftStart, shiftEnd, timezone,
-    jiraEmail, jiraApiToken, jiraBaseUrl, jiraProjectKey } = req.body;
+    jiraEmail, jiraApiToken, jiraBaseUrl, jiraProjectKey, password, sendCredentials } = req.body;
   const { id } = req.params;
 
   // Build dynamic SET clauses — Jira fields use direct assignment (allow clearing to NULL)
@@ -82,10 +93,25 @@ export async function updateEngineer(req: Request, res: Response): Promise<void>
   directField('jira_base_url', jiraBaseUrl, jiraBaseUrl !== undefined);
   directField('jira_project_key', jiraProjectKey, jiraProjectKey !== undefined);
 
+  // Password update
+  if (password) {
+    sets.push('password_hash = ?');
+    params.push(bcrypt.hashSync(password, 10));
+  }
+
   if (sets.length > 0) {
     sets.push('updated_at = CURRENT_TIMESTAMP');
     params.push(id);
     await query(`UPDATE engineers SET ${sets.join(', ')} WHERE id = ?`, params);
+  }
+
+  // Send credentials email if requested
+  if (password && sendCredentials !== false) {
+    const eng = await queryOne<any>('SELECT name, email FROM engineers WHERE id = ?', [id]);
+    if (eng) {
+      const baseUrl = await getSetting('app_base_url') || 'http://localhost:4001';
+      await sendCredentialsEmail(eng.email, eng.name, password, baseUrl);
+    }
   }
 
   res.json({ message: 'Engineer updated' });
@@ -152,6 +178,29 @@ export async function getSkillsList(_req: Request, res: Response): Promise<void>
   res.json(skills);
 }
 
+async function sendCredentialsEmail(email: string, name: string, password: string, baseUrl: string) {
+  const loginUrl = `${baseUrl}/login`;
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <div style="background: #0ea5e9; color: white; padding: 20px; border-radius: 8px 8px 0 0;">
+        <h2 style="margin: 0;">Welcome to TelcoBridges Support</h2>
+      </div>
+      <div style="padding: 24px; background: #f9fafb; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
+        <p>Hello <strong>${name}</strong>,</p>
+        <p>Your support specialist account has been created. Use the credentials below to log in:</p>
+        <div style="background: white; border: 1px solid #d1d5db; border-radius: 8px; padding: 16px; margin: 16px 0;">
+          <p style="margin: 4px 0;"><strong>Login URL:</strong> <a href="${loginUrl}" style="color: #0ea5e9;">${loginUrl}</a></p>
+          <p style="margin: 4px 0;"><strong>Email:</strong> ${email}</p>
+          <p style="margin: 4px 0;"><strong>Password:</strong> <code style="background: #f3f4f6; padding: 2px 6px; border-radius: 4px;">${password}</code></p>
+        </div>
+        <p style="color: #6b7280; font-size: 14px;">Please change your password after your first login.</p>
+        <a href="${loginUrl}" style="display: inline-block; background: #0ea5e9; color: white; padding: 10px 24px; border-radius: 6px; text-decoration: none; font-weight: bold; margin-top: 8px;">Log In Now</a>
+      </div>
+    </div>
+  `;
+  await sendEmail(email, 'Your TelcoBridges Support Account', html);
+}
+
 function mapEngineer(e: any) {
   return {
     id: e.id,
@@ -161,6 +210,7 @@ function mapEngineer(e: any) {
     isActive: !!e.is_active,
     currentWorkload: e.current_workload,
     maxWorkload: e.max_workload,
+    hasPassword: !!e.password_hash,
     jiraEmail: e.jira_email || '',
     jiraApiToken: e.jira_api_token || '',
     jiraBaseUrl: e.jira_base_url || '',

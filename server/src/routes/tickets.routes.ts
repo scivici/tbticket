@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import * as ticketsController from '../controllers/tickets.controller';
-import { authenticate, optionalAuth, requireAdmin } from '../middleware/auth';
+import { authenticate, optionalAuth, requireAdmin, requireAdminOrEngineer } from '../middleware/auth';
 import { upload } from '../middleware/upload';
 
 const router = Router();
@@ -36,8 +36,8 @@ router.get('/:id/activities', authenticate, ticketsController.getActivities);
 
 // Authenticated - tags
 router.get('/:id/tags', authenticate, ticketsController.getTags);
-router.post('/:id/tags', authenticate, requireAdmin, ticketsController.addTag);
-router.delete('/:id/tags/:tag', authenticate, requireAdmin, ticketsController.removeTag);
+router.post('/:id/tags', authenticate, requireAdminOrEngineer, ticketsController.addTag);
+router.delete('/:id/tags/:tag', authenticate, requireAdminOrEngineer, ticketsController.removeTag);
 
 // Authenticated - CC users
 router.get('/:id/cc', authenticate, ticketsController.getCcUsers);
@@ -46,41 +46,42 @@ router.delete('/:id/cc/:email', authenticate, ticketsController.removeCcUser);
 
 // Authenticated - linked tickets
 router.get('/:id/links', authenticate, ticketsController.getLinkedTickets);
-router.post('/:id/links', authenticate, requireAdmin, ticketsController.linkTicket);
-router.delete('/:id/links/:linkId', authenticate, requireAdmin, ticketsController.unlinkTicket);
+router.post('/:id/links', authenticate, requireAdminOrEngineer, ticketsController.linkTicket);
+router.delete('/:id/links/:linkId', authenticate, requireAdminOrEngineer, ticketsController.unlinkTicket);
 
 // Time entries
 router.get('/:id/time-entries', authenticate, ticketsController.getTimeEntries);
-router.post('/:id/time-entries', authenticate, requireAdmin, ticketsController.addTimeEntry);
-router.delete('/:id/time-entries/:entryId', authenticate, requireAdmin, ticketsController.deleteTimeEntry);
+router.post('/:id/time-entries', authenticate, requireAdminOrEngineer, ticketsController.addTimeEntry);
+router.delete('/:id/time-entries/:entryId', authenticate, requireAdminOrEngineer, ticketsController.deleteTimeEntry);
 
 // Timer (start/stop)
-router.post('/:id/timer/start', authenticate, requireAdmin, ticketsController.startTimer);
-router.post('/:id/timer/stop', authenticate, requireAdmin, ticketsController.stopTimer);
-router.delete('/:id/timer', authenticate, requireAdmin, ticketsController.cancelTimer);
+router.post('/:id/timer/start', authenticate, requireAdminOrEngineer, ticketsController.startTimer);
+router.post('/:id/timer/stop', authenticate, requireAdminOrEngineer, ticketsController.stopTimer);
+router.delete('/:id/timer', authenticate, requireAdminOrEngineer, ticketsController.cancelTimer);
 
 // AI suggested reply
-router.post('/:id/suggest-reply', authenticate, requireAdmin, ticketsController.suggestReply);
+router.post('/:id/suggest-reply', authenticate, requireAdminOrEngineer, ticketsController.suggestReply);
 
 // Convert to KB article
-router.post('/:id/create-kb-article', authenticate, requireAdmin, ticketsController.createKbArticle);
+router.post('/:id/create-kb-article', authenticate, requireAdminOrEngineer, ticketsController.createKbArticle);
 
 // AI extract data from attachment
-router.post('/:id/extract-data/:attachmentId', authenticate, requireAdmin, ticketsController.extractAttachmentData);
+router.post('/:id/extract-data/:attachmentId', authenticate, requireAdminOrEngineer, ticketsController.extractAttachmentData);
 
 // Customer submits satisfaction (authenticated, before admin-only routes)
 router.post('/:id/satisfaction', authenticate, ticketsController.submitSatisfaction);
 router.get('/:id/satisfaction', authenticate, ticketsController.getSatisfaction);
 
+// Admin or Engineer
+router.patch('/:id/status', authenticate, requireAdminOrEngineer, ticketsController.updateStatus);
+router.patch('/:id/assign', authenticate, requireAdminOrEngineer, ticketsController.assignEngineer);
+router.patch('/:id/priority', authenticate, requireAdminOrEngineer, ticketsController.updatePriority);
+router.patch('/:id/jira', authenticate, requireAdminOrEngineer, ticketsController.updateJiraKey);
+router.post('/:id/escalate-jira', authenticate, requireAdminOrEngineer, ticketsController.escalateToJira);
+router.get('/:id/jira-status', authenticate, requireAdminOrEngineer, ticketsController.getJiraStatus);
+router.post('/:id/analyze', authenticate, requireAdminOrEngineer, ticketsController.reanalyzeTicket);
+router.post('/:id/merge', authenticate, requireAdminOrEngineer, ticketsController.mergeTickets);
 // Admin only
-router.patch('/:id/status', authenticate, requireAdmin, ticketsController.updateStatus);
-router.patch('/:id/assign', authenticate, requireAdmin, ticketsController.assignEngineer);
-router.patch('/:id/priority', authenticate, requireAdmin, ticketsController.updatePriority);
-router.patch('/:id/jira', authenticate, requireAdmin, ticketsController.updateJiraKey);
-router.post('/:id/escalate-jira', authenticate, requireAdmin, ticketsController.escalateToJira);
-router.get('/:id/jira-status', authenticate, requireAdmin, ticketsController.getJiraStatus);
-router.post('/:id/analyze', authenticate, requireAdmin, ticketsController.reanalyzeTicket);
-router.post('/:id/merge', authenticate, requireAdmin, ticketsController.mergeTickets);
 router.delete('/:id', authenticate, requireAdmin, ticketsController.deleteTicket);
 
 export default router;

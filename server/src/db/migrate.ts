@@ -162,4 +162,13 @@ export async function runMigrations(): Promise<void> {
     await query("ALTER TABLE customers ADD COLUMN professional_service_hours NUMERIC(10,2) DEFAULT 0");
     console.log('[DB] Migration: added professional_service_hours column to customers');
   }
+
+  // Migration: add password_hash to engineers (for engineer login)
+  const engPwCol = await query(
+    "SELECT column_name FROM information_schema.columns WHERE table_name = 'engineers' AND column_name = 'password_hash'"
+  );
+  if (engPwCol.rows.length === 0) {
+    await query("ALTER TABLE engineers ADD COLUMN password_hash TEXT");
+    console.log('[DB] Migration: added password_hash column to engineers');
+  }
 }

@@ -1,6 +1,6 @@
 import { Router, Response } from 'express';
 import * as adminController from '../controllers/admin.controller';
-import { authenticate, requireAdmin } from '../middleware/auth';
+import { authenticate, requireAdmin, requireAdminOrEngineer } from '../middleware/auth';
 import * as slaService from '../services/sla.service';
 import * as escalationService from '../services/escalation.service';
 import * as recurringService from '../services/recurring.service';
@@ -12,11 +12,11 @@ import { upload } from '../middleware/upload';
 
 const router = Router();
 
-router.get('/dashboard', authenticate, requireAdmin, adminController.getDashboardStats);
-router.get('/customers', authenticate, requireAdmin, adminController.getCustomers);
+router.get('/dashboard', authenticate, requireAdminOrEngineer, adminController.getDashboardStats);
+router.get('/customers', authenticate, requireAdminOrEngineer, adminController.getCustomers);
 
 // Customer profile management
-router.get('/customers/:id', authenticate, requireAdmin, async (req: any, res: Response) => {
+router.get('/customers/:id', authenticate, requireAdminOrEngineer, async (req: any, res: Response) => {
   const customer = await queryOne<any>(`
     SELECT id, email, name, company, role, is_anonymous, company_ticket_visibility,
            environment_notes, external_links, professional_service_hours, created_at, updated_at
@@ -55,7 +55,7 @@ router.patch('/customers/:id', authenticate, requireAdmin, async (req: any, res:
 });
 
 // Customer tickets
-router.get('/customers/:id/tickets', authenticate, requireAdmin, async (req: any, res: Response) => {
+router.get('/customers/:id/tickets', authenticate, requireAdminOrEngineer, async (req: any, res: Response) => {
   const tickets = await queryAll<any>(`
     SELECT t.id, t.ticket_number, t.subject, t.status, t.priority, t.created_at, t.resolved_at,
            p.name as product_name
@@ -67,7 +67,7 @@ router.get('/customers/:id/tickets', authenticate, requireAdmin, async (req: any
   res.json(tickets);
 });
 
-router.get('/sla-policies', authenticate, requireAdmin, async (_req: any, res: Response) => {
+router.get('/sla-policies', authenticate, requireAdminOrEngineer, async (_req: any, res: Response) => {
   res.json(await slaService.getAllSlaPolicies());
 });
 
@@ -77,11 +77,11 @@ router.patch('/sla-policies/:priority', authenticate, requireAdmin, async (req: 
   res.json({ message: 'SLA policy updated' });
 });
 
-router.get('/sla-breached', authenticate, requireAdmin, async (_req: any, res: Response) => {
+router.get('/sla-breached', authenticate, requireAdminOrEngineer, async (_req: any, res: Response) => {
   res.json(await slaService.getBreachedTickets());
 });
 
-router.get('/escalation-rules', authenticate, requireAdmin, async (_req: any, res: Response) => {
+router.get('/escalation-rules', authenticate, requireAdminOrEngineer, async (_req: any, res: Response) => {
   res.json(await escalationService.getEscalationRules());
 });
 
@@ -102,7 +102,7 @@ router.delete('/escalation-rules/:id', authenticate, requireAdmin, async (req: a
   res.json({ message: 'Rule deleted' });
 });
 
-router.get('/escalation-alerts', authenticate, requireAdmin, async (_req: any, res: Response) => {
+router.get('/escalation-alerts', authenticate, requireAdminOrEngineer, async (_req: any, res: Response) => {
   res.json(await escalationService.checkEscalations());
 });
 
@@ -124,7 +124,7 @@ router.delete('/knowledge-base/:id', authenticate, requireAdmin, async (req: any
 });
 
 // Time tracking reports
-router.get('/time-report', authenticate, requireAdmin, async (req: any, res: Response) => {
+router.get('/time-report', authenticate, requireAdminOrEngineer, async (req: any, res: Response) => {
   const fromDate = req.query.fromDate as string || '';
   const toDate = req.query.toDate as string || '';
   const engineerId = req.query.engineerId as string || '';
@@ -252,7 +252,7 @@ router.get('/ps-hours', authenticate, requireAdmin, async (_req: any, res: Respo
 });
 
 // SLA compliance report
-router.get('/sla-compliance', authenticate, requireAdmin, async (req: any, res: Response) => {
+router.get('/sla-compliance', authenticate, requireAdminOrEngineer, async (req: any, res: Response) => {
   const fromDate = req.query.fromDate as string || '';
   const toDate = req.query.toDate as string || '';
 
@@ -421,7 +421,7 @@ router.post('/notify-version-update', authenticate, requireAdmin, async (req: an
 });
 
 // SLA Dashboard - comprehensive SLA data
-router.get('/sla-dashboard', authenticate, requireAdmin, async (_req: any, res: Response) => {
+router.get('/sla-dashboard', authenticate, requireAdminOrEngineer, async (_req: any, res: Response) => {
   try {
     const policies = await slaService.getAllSlaPolicies();
 

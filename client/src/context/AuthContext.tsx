@@ -5,19 +5,22 @@ interface User {
   id: number;
   email: string;
   name: string;
-  role: 'customer' | 'admin';
+  role: 'customer' | 'admin' | 'engineer';
   isAnonymous: boolean;
+  engineerId?: number;
 }
 
 interface AuthContextType {
   user: User | null;
   token: string | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<User>;
   register: (email: string, password: string, name: string, company?: string) => Promise<void>;
   loginAnonymous: (email: string, name?: string) => Promise<void>;
   logout: () => void;
   isAdmin: boolean;
+  isEngineer: boolean;
+  isStaff: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -50,6 +53,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = useCallback(async (email: string, password: string) => {
     const response = await authApi.login(email, password);
     handleAuth(response);
+    return response.user as User;
   }, [handleAuth]);
 
   const register = useCallback(async (email: string, password: string, name: string, company?: string) => {
@@ -78,6 +82,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       loginAnonymous,
       logout,
       isAdmin: user?.role === 'admin',
+      isEngineer: user?.role === 'engineer',
+      isStaff: user?.role === 'admin' || user?.role === 'engineer',
     }}>
       {children}
     </AuthContext.Provider>

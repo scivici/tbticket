@@ -9,22 +9,22 @@ import {
   Keyboard, Activity
 } from 'lucide-react';
 
-const navItems = [
-  { to: '/admin', icon: LayoutDashboard, label: 'Dashboard', exact: true },
-  { to: '/admin/tickets', icon: Ticket, label: 'Tickets' },
-  { to: '/admin/engineers', icon: Users, label: 'Support Specialists' },
-  { to: '/admin/customers', icon: UserCheck, label: 'Customers' },
-  { to: '/admin/products', icon: Package, label: 'Products' },
-  { to: '/admin/categories', icon: FolderOpen, label: 'Categories' },
-  { to: '/admin/questions', icon: HelpCircle, label: 'Questions' },
-  { to: '/admin/skills', icon: Wrench, label: 'Skills' },
-  { to: '/admin/canned-responses', icon: MessageSquarePlus, label: 'Canned Responses' },
-  { to: '/admin/escalations', icon: AlertTriangle, label: 'Escalations' },
-  { to: '/admin/recurring', icon: Repeat, label: 'Recurring' },
-  { to: '/admin/time-reports', icon: Clock, label: 'Time Reports' },
-  { to: '/admin/sla-dashboard', icon: ShieldAlert, label: 'SLA Dashboard' },
-  { to: '/admin/health', icon: Activity, label: 'System Health' },
-  { to: '/admin/setup', icon: Settings, label: 'Setup' },
+const allNavItems = [
+  { to: '/admin', icon: LayoutDashboard, label: 'Dashboard', exact: true, roles: ['admin', 'engineer'] },
+  { to: '/admin/tickets', icon: Ticket, label: 'Tickets', roles: ['admin', 'engineer'] },
+  { to: '/admin/engineers', icon: Users, label: 'Support Specialists', roles: ['admin'] },
+  { to: '/admin/customers', icon: UserCheck, label: 'Customers', roles: ['admin', 'engineer'] },
+  { to: '/admin/products', icon: Package, label: 'Products', roles: ['admin'] },
+  { to: '/admin/categories', icon: FolderOpen, label: 'Categories', roles: ['admin'] },
+  { to: '/admin/questions', icon: HelpCircle, label: 'Questions', roles: ['admin'] },
+  { to: '/admin/skills', icon: Wrench, label: 'Skills', roles: ['admin'] },
+  { to: '/admin/canned-responses', icon: MessageSquarePlus, label: 'Canned Responses', roles: ['admin'] },
+  { to: '/admin/escalations', icon: AlertTriangle, label: 'Escalations', roles: ['admin', 'engineer'] },
+  { to: '/admin/recurring', icon: Repeat, label: 'Recurring', roles: ['admin'] },
+  { to: '/admin/time-reports', icon: Clock, label: 'Time Reports', roles: ['admin', 'engineer'] },
+  { to: '/admin/sla-dashboard', icon: ShieldAlert, label: 'SLA Dashboard', roles: ['admin', 'engineer'] },
+  { to: '/admin/health', icon: Activity, label: 'System Health', roles: ['admin'] },
+  { to: '/admin/setup', icon: Settings, label: 'Setup', roles: ['admin'] },
 ];
 
 export default function AdminLayout() {
@@ -33,6 +33,9 @@ export default function AdminLayout() {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
+
+  const userRole = user?.role || 'customer';
+  const navItems = allNavItems.filter(item => item.roles.includes(userRole));
 
   const handleLogout = () => { logout(); navigate('/'); };
 
@@ -94,7 +97,7 @@ export default function AdminLayout() {
       <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2">
           <img src="/tb-logo-small.png" alt="TelcoBridges" className="h-6" />
-          <span className="text-primary-500 dark:text-accent-blue font-bold text-sm">Admin</span>
+          <span className="text-primary-500 dark:text-accent-blue font-bold text-sm">{userRole === 'engineer' ? 'Support Panel' : 'Admin'}</span>
         </Link>
         <div className="flex items-center gap-2">
           <ThemeToggle />
@@ -165,7 +168,7 @@ export default function AdminLayout() {
           </button>
           <Link to="/" className="flex items-center gap-2">
             <img src="/tb-logo-small.png" alt="TelcoBridges" className="h-5" />
-            <span className="text-primary-500 dark:text-accent-blue font-bold text-sm">Admin</span>
+            <span className="text-primary-500 dark:text-accent-blue font-bold text-sm">{userRole === 'engineer' ? 'Support Panel' : 'Admin'}</span>
           </Link>
         </div>
 

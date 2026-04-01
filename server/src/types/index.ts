@@ -4,7 +4,8 @@ export interface AuthenticatedRequest extends Request {
   user?: {
     userId: number;
     email: string;
-    role: 'customer' | 'admin';
+    role: 'customer' | 'admin' | 'engineer';
     isAnonymous: boolean;
+    engineerId?: number;
   };
 }

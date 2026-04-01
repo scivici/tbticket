@@ -16,8 +16,8 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
     try {
-      await login(email, password);
-      navigate('/');
+      const user = await login(email, password);
+      navigate(user.role === 'admin' || user.role === 'engineer' ? '/admin' : '/');
     } catch (err: any) {
       setError(err.message || 'Login failed');
     } finally {

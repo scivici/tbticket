@@ -1,10 +1,20 @@
 import React, { useEffect, useState } from 'react';
 import { engineers as engineersApi, products as productsApi } from '../../api/client';
-import { User, Star, ChevronDown, ChevronUp, Plus, Pencil, Trash2, X, Save, PlusCircle, ExternalLink, Eye, EyeOff } from 'lucide-react';
+import { User, Star, ChevronDown, ChevronUp, Plus, Pencil, Trash2, X, Save, PlusCircle, ExternalLink, Eye, EyeOff, Key, Mail, RefreshCw } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 
-interface EngineerForm { name: string; email: string; location: string; maxWorkload: number; isActive: boolean; }
-const emptyForm: EngineerForm = { name: '', email: '', location: '', maxWorkload: 5, isActive: true };
+interface EngineerForm { name: string; email: string; location: string; maxWorkload: number; isActive: boolean; password: string; }
+const emptyForm: EngineerForm = { name: '', email: '', location: '', maxWorkload: 5, isActive: true, password: '' };
+
+function generatePassword(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+  const specials = '!@#$%&*';
+  let pw = '';
+  for (let i = 0; i < 10; i++) pw += chars[Math.floor(Math.random() * chars.length)];
+  pw += specials[Math.floor(Math.random() * specials.length)];
+  pw += String(Math.floor(Math.random() * 10));
+  return pw;
+}
 
 export default function EngineerManager() {
   const toast = useToast();
@@ -26,6 +36,13 @@ export default function EngineerManager() {
   const [expProductId, setExpProductId] = useState<number>(0);
   const [expCategoryId, setExpCategoryId] = useState<number | null>(null);
   const [expLevel, setExpLevel] = useState<number>(3);
+
+  // Password management for existing engineers
+  const [pwEditing, setPwEditing] = useState(false);
+  const [pwValue, setPwValue] = useState('');
+  const [pwSaving, setPwSaving] = useState(false);
+  const [showPw, setShowPw] = useState(false);
+  const [showCreatePw, setShowCreatePw] = useState(false);
 
   // Jira config
   const [jiraForm, setJiraForm] = useState({ jiraBaseUrl: '', jiraEmail: '', jiraApiToken: '', jiraProjectKey: '' });
@@ -131,7 +148,7 @@ export default function EngineerManager() {
 
   // CRUD
   const startCreate = () => { setCreating(true); setEditing(null); setForm(emptyForm); setError(''); };
-  const startEdit = (eng: any) => { setEditing(eng.id); setCreating(false); setForm({ name: eng.name, email: eng.email, location: eng.location, maxWorkload: eng.maxWorkload, isActive: eng.isActive }); setError(''); };
+  const startEdit = (eng: any) => { setEditing(eng.id); setCreating(false); setForm({ name: eng.name, email: eng.email, location: eng.location, maxWorkload: eng.maxWorkload, isActive: eng.isActive, password: '' }); setError(''); };
   const cancel = () => { setCreating(false); setEditing(null); setForm(emptyForm); setError(''); };
 
   const handleSave = async () => {
@@ -169,6 +186,19 @@ export default function EngineerManager() {
             <div><label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Location *</label><input type="text" value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} className="tb-input" /></div>
             <div><label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Max Workload</label><input type="number" min={1} max={20} value={form.maxWorkload} onChange={e => setForm(f => ({ ...f, maxWorkload: parseInt(e.target.value) || 5 }))} className="tb-input" /></div>
             {editing && (<div className="flex items-center"><label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={form.isActive} onChange={e => setForm(f => ({ ...f, isActive: e.target.checked }))} className="rounded text-primary-500 bg-white dark:bg-tb-card border-gray-300 dark:border-gray-600" /><span className="text-sm font-medium text-gray-600 dark:text-gray-300">Active</span></label></div>)}
+            {creating && (
+              <div>
+                <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Password</label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <input type={showCreatePw ? 'text' : 'password'} value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} className="tb-input pr-10" placeholder="Leave empty for no login access" />
+                    <button type="button" onClick={() => setShowCreatePw(!showCreatePw)} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">{showCreatePw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button>
+                  </div>
+                  <button type="button" onClick={() => { const pw = generatePassword(); setForm(f => ({ ...f, password: pw })); setShowCreatePw(true); }} className="px-3 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-sm hover:bg-gray-300 dark:hover:bg-gray-600 flex items-center gap-1" title="Auto-generate password"><RefreshCw className="w-4 h-4" /></button>
+                </div>
+                <p className="text-xs text-gray-400 mt-1">Credentials will be emailed to the specialist</p>
+              </div>
+            )}
           </div>
           <div className="flex justify-end gap-3 mt-4">
             <button onClick={cancel} className="tb-btn-secondary flex items-center gap-1"><X className="w-4 h-4" /> Cancel</button>
@@ -312,6 +342,57 @@ export default function EngineerManager() {
                       </div>
                     )}
                   </div>
+                </div>
+
+                {/* Login Credentials */}
+                <div className="mt-6 border-t border-gray-200 dark:border-gray-700 pt-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Key className="w-4 h-4 text-orange-500" />
+                      <h4 className="font-medium text-sm text-gray-900 dark:text-white">Login Credentials</h4>
+                      {eng.hasPassword ? (
+                        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-status-active-bg text-status-active-text">Active</span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-200 dark:bg-gray-700 text-gray-500">No login</span>
+                      )}
+                    </div>
+                    {!pwEditing && (
+                      <button onClick={() => { setPwEditing(true); setPwValue(''); setShowPw(false); }} className="text-xs text-accent-blue hover:underline">
+                        {eng.hasPassword ? 'Reset Password' : 'Set Password'}
+                      </button>
+                    )}
+                  </div>
+                  {pwEditing && (
+                    <div className="space-y-3">
+                      <div className="flex gap-2">
+                        <div className="relative flex-1">
+                          <input type={showPw ? 'text' : 'password'} value={pwValue} onChange={e => setPwValue(e.target.value)} className="tb-input pr-10 text-sm" placeholder="New password" />
+                          <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">{showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button>
+                        </div>
+                        <button type="button" onClick={() => { setPwValue(generatePassword()); setShowPw(true); }} className="px-3 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-sm hover:bg-gray-300 dark:hover:bg-gray-600" title="Auto-generate"><RefreshCw className="w-4 h-4" /></button>
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={() => setPwEditing(false)} className="tb-btn-secondary text-xs">Cancel</button>
+                        <button
+                          disabled={!pwValue.trim() || pwSaving}
+                          onClick={async () => {
+                            setPwSaving(true);
+                            try {
+                              await engineersApi.update(eng.id, { password: pwValue });
+                              toast.success('Password set & credentials emailed');
+                              setPwEditing(false);
+                              load();
+                            } catch (err: any) { toast.error(err.message); }
+                            setPwSaving(false);
+                          }}
+                          className="flex items-center gap-1 px-3 py-1.5 bg-orange-600 text-white rounded-lg text-xs font-medium hover:bg-orange-700 disabled:opacity-50"
+                        >
+                          <Mail className="w-3.5 h-3.5" />
+                          {pwSaving ? 'Saving...' : 'Save & Send Email'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Jira Integration */}

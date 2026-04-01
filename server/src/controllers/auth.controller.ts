@@ -54,23 +54,39 @@ export async function login(req: Request, res: Response): Promise<void> {
     return;
   }
 
+  // Check customers table first (admin/customer)
   const user = await queryOne<any>('SELECT * FROM customers WHERE email = ? AND password_hash IS NOT NULL', [email]);
 
-  if (!user || !bcrypt.compareSync(password, user.password_hash)) {
-    res.status(401).json({ error: 'Invalid email or password' });
+  if (user && bcrypt.compareSync(password, user.password_hash)) {
+    const token = jwt.sign(
+      { userId: user.id, email: user.email, role: user.role, isAnonymous: false },
+      config.jwtSecret,
+      { expiresIn: config.jwtExpiresIn }
+    );
+    res.json({
+      token,
+      user: { id: user.id, email: user.email, name: user.name, role: user.role, isAnonymous: false },
+    });
     return;
   }
 
-  const token = jwt.sign(
-    { userId: user.id, email: user.email, role: user.role, isAnonymous: false },
-    config.jwtSecret,
-    { expiresIn: config.jwtExpiresIn }
-  );
+  // Check engineers table (engineer login)
+  const engineer = await queryOne<any>('SELECT * FROM engineers WHERE email = ? AND password_hash IS NOT NULL', [email]);
 
-  res.json({
-    token,
-    user: { id: user.id, email: user.email, name: user.name, role: user.role, isAnonymous: false },
-  });
+  if (engineer && bcrypt.compareSync(password, engineer.password_hash)) {
+    const token = jwt.sign(
+      { userId: engineer.id, email: engineer.email, role: 'engineer', isAnonymous: false, engineerId: engineer.id },
+      config.jwtSecret,
+      { expiresIn: config.jwtExpiresIn }
+    );
+    res.json({
+      token,
+      user: { id: engineer.id, email: engineer.email, name: engineer.name, role: 'engineer', isAnonymous: false, engineerId: engineer.id },
+    });
+    return;
+  }
+
+  res.status(401).json({ error: 'Invalid email or password' });
 }
 
 export async function anonymous(req: Request, res: Response): Promise<void> {
@@ -104,6 +120,24 @@ export async function anonymous(req: Request, res: Response): Promise<void> {
 }
 
 export async function getMe(req: any, res: Response): Promise<void> {
+  // If engineer role, fetch from engineers table
+  if (req.user.role === 'engineer') {
+    const engineer = await queryOne<any>('SELECT id, email, name FROM engineers WHERE id = ?', [req.user.engineerId || req.user.userId]);
+    if (!engineer) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+    res.json({
+      id: engineer.id,
+      email: engineer.email,
+      name: engineer.name,
+      role: 'engineer',
+      isAnonymous: false,
+      engineerId: engineer.id,
+    });
+    return;
+  }
+
   const user = await queryOne<any>('SELECT id, email, name, company, role, is_anonymous FROM customers WHERE id = ?', [req.user.userId]);
 
   if (!user) {

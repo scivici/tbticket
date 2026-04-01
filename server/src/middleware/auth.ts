@@ -41,3 +41,11 @@ export function requireAdmin(req: AuthenticatedRequest, res: Response, next: Nex
   }
   next();
 }
+
+export function requireAdminOrEngineer(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
+  if (!req.user || (req.user.role !== 'admin' && req.user.role !== 'engineer')) {
+    res.status(403).json({ error: 'Admin or engineer access required' });
+    return;
+  }
+  next();
+}

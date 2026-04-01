@@ -40,9 +40,9 @@ function AuthGuard({ children }: { children: React.ReactElement }) {
 }
 
 function AdminGuard() {
-  const { isAdmin, loading } = useAuth();
+  const { isStaff, loading } = useAuth();
   if (loading) return <div className="min-h-screen bg-[#f2f2f2] dark:bg-tb-bg flex items-center justify-center text-gray-500">Loading...</div>;
-  return isAdmin ? <AdminLayout /> : <Navigate to="/login" />;
+  return isStaff ? <AdminLayout /> : <Navigate to="/login" />;
 }
 
 export default function App() {
