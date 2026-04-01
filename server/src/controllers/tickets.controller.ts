@@ -481,7 +481,7 @@ export async function getTicket(req: AuthenticatedRequest, res: Response): Promi
   }
 
   // Non-admin users can only view their own tickets
-  if (req.user?.role !== 'admin' && ticket.customerId !== req.user?.userId) {
+  if (req.user?.role !== 'admin' && req.user?.role !== 'engineer' && ticket.customerId !== req.user?.userId) {
     res.status(403).json({ error: 'Access denied' });
     return;
   }
@@ -529,7 +529,7 @@ export async function listTickets(req: AuthenticatedRequest, res: Response): Pro
   };
 
   // Non-admin users can only see their own tickets (or company tickets if enabled)
-  if (req.user?.role !== 'admin') {
+  if (req.user?.role !== 'admin' && req.user?.role !== 'engineer') {
     filters.customerId = req.user?.userId;
     // Check if user has company-wide visibility enabled
     const customer = await queryOne<any>('SELECT company_ticket_visibility, company FROM customers WHERE id = ?', [req.user?.userId]);
@@ -667,7 +667,7 @@ export async function addAttachments(req: AuthenticatedRequest, res: Response): 
     }
 
     // Check access: admin can add to any, customer only to own tickets
-    if (req.user?.role !== 'admin' && ticket.customerId !== req.user?.userId) {
+    if (req.user?.role !== 'admin' && req.user?.role !== 'engineer' && ticket.customerId !== req.user?.userId) {
       res.status(403).json({ error: 'Access denied' });
       return;
     }
@@ -712,7 +712,7 @@ export async function addResponse(req: AuthenticatedRequest, res: Response): Pro
     }
 
     // Check access: admin can respond to any, customer only to own tickets
-    if (req.user?.role !== 'admin' && ticket.customerId !== req.user?.userId) {
+    if (req.user?.role !== 'admin' && req.user?.role !== 'engineer' && ticket.customerId !== req.user?.userId) {
       res.status(403).json({ error: 'Access denied' });
       return;
     }
@@ -729,7 +729,7 @@ export async function addResponse(req: AuthenticatedRequest, res: Response): Pro
     const authorRole = req.user!.role;
 
     // Only admins can create internal notes
-    const internal = req.user?.role === 'admin' ? (isInternal || false) : false;
+    const internal = (req.user?.role === 'admin' || req.user?.role === 'engineer') ? (isInternal || false) : false;
 
     const responseId = await ticketService.addResponse(ticketId, req.user!.userId, authorName, authorRole, message.trim(), internal);
 
@@ -780,12 +780,12 @@ export async function getResponses(req: AuthenticatedRequest, res: Response): Pr
     }
 
     // Check access: admin sees all, customer only own tickets
-    if (req.user?.role !== 'admin' && ticket.customerId !== req.user?.userId) {
+    if (req.user?.role !== 'admin' && req.user?.role !== 'engineer' && ticket.customerId !== req.user?.userId) {
       res.status(403).json({ error: 'Access denied' });
       return;
     }
 
-    const includeInternal = req.user?.role === 'admin';
+    const includeInternal = (req.user?.role === 'admin' || req.user?.role === 'engineer');
     const responses = await ticketService.getResponses(ticketId, includeInternal);
 
     res.json(responses);
@@ -1058,7 +1058,7 @@ export async function submitSatisfaction(req: AuthenticatedRequest, res: Respons
     }
 
     // Check ticket belongs to customer (or user is admin)
-    if (req.user?.role !== 'admin' && ticket.customerId !== req.user?.userId) {
+    if (req.user?.role !== 'admin' && req.user?.role !== 'engineer' && ticket.customerId !== req.user?.userId) {
       res.status(403).json({ error: 'Access denied' });
       return;
     }
@@ -1577,7 +1577,7 @@ export async function getSatisfaction(req: AuthenticatedRequest, res: Response):
       return;
     }
 
-    if (req.user?.role !== 'admin' && ticket.customerId !== req.user?.userId) {
+    if (req.user?.role !== 'admin' && req.user?.role !== 'engineer' && ticket.customerId !== req.user?.userId) {
       res.status(403).json({ error: 'Access denied' });
       return;
     }
