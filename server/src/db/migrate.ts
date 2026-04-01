@@ -211,4 +211,14 @@ export async function runMigrations(): Promise<void> {
     await query("ALTER TABLE engineers ADD COLUMN password_hash TEXT");
     console.log('[DB] Migration: added password_hash column to engineers');
   }
+
+  // Migration: add customer admin and permission fields
+  const companyAdminCol = await query(
+    "SELECT column_name FROM information_schema.columns WHERE table_name = 'customers' AND column_name = 'is_company_admin'"
+  );
+  if (companyAdminCol.rows.length === 0) {
+    await query("ALTER TABLE customers ADD COLUMN is_company_admin BOOLEAN NOT NULL DEFAULT FALSE");
+    await query("ALTER TABLE customers ADD COLUMN can_create_tickets BOOLEAN NOT NULL DEFAULT TRUE");
+    console.log('[DB] Migration: added is_company_admin and can_create_tickets columns to customers');
+  }
 }

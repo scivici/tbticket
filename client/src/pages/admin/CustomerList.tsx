@@ -107,6 +107,8 @@ export default function CustomerList() {
         admin.customerTickets(id),
       ]);
       setEditData({
+        isCompanyAdmin: !!detail.is_company_admin,
+        canCreateTickets: detail.can_create_tickets !== false,
         companyTicketVisibility: !!detail.company_ticket_visibility,
         environmentNotes: detail.environment_notes || '',
         externalLinks: detail.externalLinks || [],
@@ -298,13 +300,39 @@ export default function CustomerList() {
                                 <div>
                                   <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3">Settings</h4>
                                   <div className="grid md:grid-cols-2 gap-4 max-w-4xl">
+                                    {/* Company Admin */}
+                                    <div className="col-span-2">
+                                      <label className="flex items-center gap-2 text-sm cursor-pointer">
+                                        <input type="checkbox" checked={editData.isCompanyAdmin || false}
+                                          onChange={e => setEditData({ ...editData, isCompanyAdmin: e.target.checked })}
+                                          className="rounded border-gray-300 dark:border-gray-600 text-purple-500 focus:ring-purple-500" />
+                                        <span className="text-gray-700 dark:text-gray-200">Company Administrator</span>
+                                      </label>
+                                      <p className="text-xs text-gray-500 ml-6 mt-1">
+                                        Can manage users and permissions for <strong>{c.company || 'their company'}</strong>.
+                                      </p>
+                                    </div>
+
+                                    {/* Can Create Tickets */}
+                                    <div className="col-span-2">
+                                      <label className="flex items-center gap-2 text-sm cursor-pointer">
+                                        <input type="checkbox" checked={editData.canCreateTickets !== false}
+                                          onChange={e => setEditData({ ...editData, canCreateTickets: e.target.checked })}
+                                          className="rounded border-gray-300 dark:border-gray-600 text-accent-blue focus:ring-accent-blue" />
+                                        <span className="text-gray-700 dark:text-gray-200">Can create tickets</span>
+                                      </label>
+                                      <p className="text-xs text-gray-500 ml-6 mt-1">
+                                        Allow this user to submit new support tickets.
+                                      </p>
+                                    </div>
+
                                     {/* Company Ticket Visibility */}
                                     <div className="col-span-2">
                                       <label className="flex items-center gap-2 text-sm cursor-pointer">
                                         <input type="checkbox" checked={editData.companyTicketVisibility}
                                           onChange={e => setEditData({ ...editData, companyTicketVisibility: e.target.checked })}
                                           className="rounded border-gray-300 dark:border-gray-600 text-accent-blue focus:ring-accent-blue" />
-                                        <span className="text-gray-700 dark:text-gray-200">Allow this person to see all company-wide tickets</span>
+                                        <span className="text-gray-700 dark:text-gray-200">View all company tickets</span>
                                       </label>
                                       <p className="text-xs text-gray-500 ml-6 mt-1">
                                         When enabled, this user can view all tickets from <strong>{c.company || 'their company'}</strong>.

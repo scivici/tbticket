@@ -19,8 +19,9 @@ router.get('/customers', authenticate, requireAdminOrEngineer, adminController.g
 // Customer profile management
 router.get('/customers/:id', authenticate, requireAdminOrEngineer, async (req: any, res: Response) => {
   const customer = await queryOne<any>(`
-    SELECT id, email, name, company, role, is_anonymous, company_ticket_visibility,
-           environment_notes, external_links, professional_service_hours, created_at, updated_at
+    SELECT id, email, name, company, role, is_anonymous, is_company_admin, can_create_tickets,
+           company_ticket_visibility, environment_notes, external_links, professional_service_hours,
+           created_at, updated_at
     FROM customers WHERE id = ?
   `, [req.params.id]);
   if (!customer) { res.status(404).json({ error: 'Customer not found' }); return; }
@@ -29,13 +30,21 @@ router.get('/customers/:id', authenticate, requireAdminOrEngineer, async (req: a
 });
 
 router.patch('/customers/:id', authenticate, requireAdmin, async (req: any, res: Response) => {
-  const { companyTicketVisibility, environmentNotes, externalLinks, professionalServiceHours } = req.body;
+  const { companyTicketVisibility, environmentNotes, externalLinks, professionalServiceHours, isCompanyAdmin, canCreateTickets } = req.body;
   const updates: string[] = ['updated_at = CURRENT_TIMESTAMP'];
   const params: any[] = [];
 
   if (companyTicketVisibility !== undefined) {
     updates.push('company_ticket_visibility = ?');
     params.push(companyTicketVisibility ? true : false);
+  }
+  if (isCompanyAdmin !== undefined) {
+    updates.push('is_company_admin = ?');
+    params.push(!!isCompanyAdmin);
+  }
+  if (canCreateTickets !== undefined) {
+    updates.push('can_create_tickets = ?');
+    params.push(canCreateTickets !== false);
   }
   if (environmentNotes !== undefined) {
     updates.push('environment_notes = ?');

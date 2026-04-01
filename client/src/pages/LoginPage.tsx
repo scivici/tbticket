@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { LogIn } from 'lucide-react';
 
@@ -53,11 +53,8 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <p className="mt-4 text-center text-sm text-gray-500">
-          Don't have an account? <Link to="/register" className="text-accent-blue hover:underline">Register</Link>
-        </p>
-        <p className="mt-2 text-center text-sm text-gray-300 dark:text-gray-600">
-          Admin: admin@telcobridges.com / admin123
+        <p className="mt-4 text-center text-sm text-gray-400 dark:text-gray-500">
+          Contact your company admin or TelcoBridges support for account access.
         </p>
       </div>
     </div>

@@ -8,6 +8,8 @@ CREATE TABLE IF NOT EXISTS customers (
     password_hash TEXT,
     role TEXT NOT NULL DEFAULT 'customer' CHECK(role IN ('customer', 'admin')),
     is_anonymous BOOLEAN NOT NULL DEFAULT FALSE,
+    is_company_admin BOOLEAN NOT NULL DEFAULT FALSE,
+    can_create_tickets BOOLEAN NOT NULL DEFAULT TRUE,
     company_ticket_visibility BOOLEAN NOT NULL DEFAULT FALSE,
     environment_notes TEXT,
     external_links JSONB,

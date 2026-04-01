@@ -8,6 +8,9 @@ interface User {
   role: 'customer' | 'admin' | 'engineer';
   isAnonymous: boolean;
   engineerId?: number;
+  isCompanyAdmin?: boolean;
+  canCreateTickets?: boolean;
+  companyTicketVisibility?: boolean;
 }
 
 interface AuthContextType {
@@ -15,12 +18,12 @@ interface AuthContextType {
   token: string | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<User>;
-  register: (email: string, password: string, name: string, company?: string) => Promise<void>;
   loginAnonymous: (email: string, name?: string) => Promise<void>;
   logout: () => void;
   isAdmin: boolean;
   isEngineer: boolean;
   isStaff: boolean;
+  isCompanyAdmin: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -56,11 +59,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return response.user as User;
   }, [handleAuth]);
 
-  const register = useCallback(async (email: string, password: string, name: string, company?: string) => {
-    const response = await authApi.register(email, password, name, company);
-    handleAuth(response);
-  }, [handleAuth]);
-
   const loginAnonymous = useCallback(async (email: string, name?: string) => {
     const response = await authApi.anonymous(email, name);
     handleAuth(response);
@@ -78,12 +76,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       token,
       loading,
       login,
-      register,
       loginAnonymous,
       logout,
       isAdmin: user?.role === 'admin',
       isEngineer: user?.role === 'engineer',
       isStaff: user?.role === 'admin' || user?.role === 'engineer',
+      isCompanyAdmin: !!user?.isCompanyAdmin,
     }}>
       {children}
     </AuthContext.Provider>

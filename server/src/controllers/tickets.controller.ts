@@ -39,6 +39,15 @@ export async function createTicket(req: AuthenticatedRequest, res: Response): Pr
       }
     }
 
+    // Check if user has permission to create tickets
+    if (req.user?.userId) {
+      const customerPerms = await queryOne<any>('SELECT can_create_tickets FROM customers WHERE id = ?', [req.user.userId]);
+      if (customerPerms && customerPerms.can_create_tickets === false) {
+        res.status(403).json({ error: 'You do not have permission to create tickets. Please contact your company administrator.' });
+        return;
+      }
+    }
+
     const { productId, categoryId, subject, description, productKey } = req.body;
     let answers = req.body.answers;
     if (!productId || !categoryId || !subject || !description) {

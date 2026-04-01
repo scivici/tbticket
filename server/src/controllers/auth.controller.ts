@@ -138,7 +138,10 @@ export async function getMe(req: any, res: Response): Promise<void> {
     return;
   }
 
-  const user = await queryOne<any>('SELECT id, email, name, company, role, is_anonymous FROM customers WHERE id = ?', [req.user.userId]);
+  const user = await queryOne<any>(
+    'SELECT id, email, name, company, role, is_anonymous, is_company_admin, can_create_tickets, company_ticket_visibility FROM customers WHERE id = ?',
+    [req.user.userId]
+  );
 
   if (!user) {
     res.status(404).json({ error: 'User not found' });
@@ -152,6 +155,9 @@ export async function getMe(req: any, res: Response): Promise<void> {
     company: user.company,
     role: user.role,
     isAnonymous: !!user.is_anonymous,
+    isCompanyAdmin: !!user.is_company_admin,
+    canCreateTickets: user.can_create_tickets !== false,
+    companyTicketVisibility: !!user.company_ticket_visibility,
   });
 }
 

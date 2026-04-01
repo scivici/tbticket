@@ -5,7 +5,7 @@ import Layout from './components/Layout';
 import AdminLayout from './components/AdminLayout';
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
-import RegisterPage from './pages/RegisterPage';
+import CompanyUsers from './pages/CompanyUsers';
 import TicketTracker from './pages/TicketTracker';
 import MyTickets from './pages/MyTickets';
 import CustomerTicketDetail from './pages/CustomerTicketDetail';
@@ -56,7 +56,7 @@ export default function App() {
       <Route element={<Layout />}>
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
+        <Route path="/company/users" element={<AuthGuard><CompanyUsers /></AuthGuard>} />
         <Route path="/submit" element={<AuthGuard denyRoles={['engineer']}><WizardContainer /></AuthGuard>} />
         <Route path="/track" element={<TicketTracker />} />
         <Route path="/release-notes" element={<ReleaseNotes />} />

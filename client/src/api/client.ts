@@ -47,6 +47,19 @@ export const auth = {
     request<any>('/auth/password', { method: 'PATCH', body: JSON.stringify({ currentPassword, newPassword }) }),
 };
 
+// Company (customer admin)
+export const companyApi = {
+  listUsers: () => request<any[]>('/company/users'),
+  createUser: (data: { email: string; name: string; password: string; canCreateTickets?: boolean; companyTicketVisibility?: boolean; isCompanyAdmin?: boolean }) =>
+    request<any>('/company/users', { method: 'POST', body: JSON.stringify(data) }),
+  updateUser: (userId: number, data: { canCreateTickets?: boolean; companyTicketVisibility?: boolean; isCompanyAdmin?: boolean; name?: string }) =>
+    request<any>(`/company/users/${userId}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteUser: (userId: number) =>
+    request<any>(`/company/users/${userId}`, { method: 'DELETE' }),
+  resetPassword: (userId: number, newPassword: string) =>
+    request<any>(`/company/users/${userId}/reset-password`, { method: 'POST', body: JSON.stringify({ newPassword }) }),
+};
+
 // Products
 export const products = {
   list: () => request<any[]>('/products'),
