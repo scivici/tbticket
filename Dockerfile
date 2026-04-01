@@ -38,6 +38,9 @@ COPY server/ ./server/
 # Copy built client to serve as static files
 COPY --from=builder /app/client/dist ./client/dist
 
+# Install ClamAV client (clamdscan) for antivirus scanning
+RUN apk add --no-cache clamav-clamdscan
+
 # Create directories
 RUN mkdir -p /app/server/uploads
 

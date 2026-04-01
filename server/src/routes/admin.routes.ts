@@ -8,7 +8,8 @@ import { AuthenticatedRequest } from '../types';
 import { query, queryOne, queryAll } from '../db/connection';
 import * as notificationService from '../services/notification.service';
 import * as emailService from '../services/email.service';
-import { upload } from '../middleware/upload';
+import { upload, validateFileContent } from '../middleware/upload';
+import { antivirusScan } from '../middleware/antivirus';
 
 const router = Router();
 
@@ -216,7 +217,7 @@ router.get('/customers/:id/diagrams', authenticate, requireAdmin, async (req: an
   res.json(diagrams);
 });
 
-router.post('/customers/:id/diagrams', authenticate, requireAdmin, upload.single('file'), async (req: any, res: Response) => {
+router.post('/customers/:id/diagrams', authenticate, requireAdmin, upload.single('file'), validateFileContent, antivirusScan, async (req: any, res: Response) => {
   const file = req.file as Express.Multer.File;
   if (!file) { res.status(400).json({ error: 'No file provided' }); return; }
 

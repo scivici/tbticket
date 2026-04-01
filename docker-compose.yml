@@ -15,6 +15,20 @@ services:
       timeout: 5s
       retries: 5
 
+  clamav:
+    image: clamav/clamav:1.4
+    container_name: tbticket-clamav
+    volumes:
+      - clamav_data:/var/lib/clamav
+      - /home/support/incoming/uploads:/app/server/uploads:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "clamdcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+
   app:
     build:
       context: .
@@ -42,10 +56,15 @@ services:
       - APP_URL=${APP_URL:-http://ticket.telcobridges.lan:4001}
       - UPLOAD_DIR=/app/server/uploads
       - UPLOAD_HOST_PATH=/home/support/incoming/uploads
+      - CLAMAV_HOST=clamav
+      - CLAMAV_PORT=3310
+      - CLAMAV_REQUIRED=${CLAMAV_REQUIRED:-true}
     volumes:
       - /home/support/incoming/uploads:/app/server/uploads
     depends_on:
       postgres:
+        condition: service_healthy
+      clamav:
         condition: service_healthy
     restart: unless-stopped
     dns:
@@ -56,3 +75,4 @@ services:
 
 volumes:
   pg_data:
+  clamav_data:

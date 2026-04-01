@@ -7,7 +7,7 @@ export const config = {
   databaseUrl: process.env.DATABASE_URL || 'postgresql://ticketuser:ticketpass@localhost:5432/tickets',
   uploadDir: process.env.UPLOAD_DIR || path.join(__dirname, '..', 'uploads'),
   uploadHostPath: process.env.UPLOAD_HOST_PATH || '', // Host path mapping for shared filesystem with Claude server
-  maxFileSize: 100 * 1024 * 1024, // 100MB per file
+  maxFileSize: 200 * 1024 * 1024, // 200MB per file
   maxFiles: 10,
   claudeServerUrl: process.env.CLAUDE_SERVER_URL || 'http://claude-support-2.telcobridges.lan',
   claudeUser: process.env.CLAUDE_USER || 'support',

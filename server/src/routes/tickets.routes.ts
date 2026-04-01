@@ -1,15 +1,16 @@
 import { Router } from 'express';
 import * as ticketsController from '../controllers/tickets.controller';
 import { authenticate, optionalAuth, requireAdmin, requireAdminOrEngineer } from '../middleware/auth';
-import { upload } from '../middleware/upload';
+import { upload, validateFileContent } from '../middleware/upload';
+import { antivirusScan } from '../middleware/antivirus';
 
 const router = Router();
 
 // Public
 router.get('/track/:ticketNumber', ticketsController.trackTicket);
 
-// Authenticated users only
-router.post('/', authenticate, upload.array('files', 10), ticketsController.createTicket);
+// Authenticated users only — upload pipeline: multer → magic bytes → antivirus → controller
+router.post('/', authenticate, upload.array('files', 10), validateFileContent, antivirusScan, ticketsController.createTicket);
 
 // Authenticated
 router.get('/', authenticate, ticketsController.listTickets);
@@ -25,7 +26,7 @@ router.get('/timer/active', authenticate, ticketsController.getActiveTimer);
 router.get('/:id', authenticate, ticketsController.getTicket);
 
 // Authenticated - attachments
-router.post('/:id/attachments', authenticate, upload.array('files', 10), ticketsController.addAttachments);
+router.post('/:id/attachments', authenticate, upload.array('files', 10), validateFileContent, antivirusScan, ticketsController.addAttachments);
 
 // Authenticated - responses
 router.get('/:id/responses', authenticate, ticketsController.getResponses);

@@ -9,7 +9,7 @@ interface Props {
   onPrev: () => void;
 }
 
-const MAX_SIZE = 100 * 1024 * 1024; // 100MB
+const MAX_SIZE = 200 * 1024 * 1024; // 200MB
 const MAX_FILES = 10;
 
 export default function FileUpload({ data, onUpdate, onNext, onPrev }: Props) {
@@ -23,7 +23,13 @@ export default function FileUpload({ data, onUpdate, onNext, onPrev }: Props) {
     setError('');
     const arr = Array.from(newFiles);
     if (data.files.length + arr.length > MAX_FILES) { setError(`Maximum ${MAX_FILES} files allowed`); return; }
-    for (const file of arr) { if (file.size > MAX_SIZE) { setError(`"${file.name}" exceeds 100MB limit`); return; } }
+    for (const file of arr) {
+      if (file.size > MAX_SIZE) { setError(`"${file.name}" exceeds 200MB limit`); return; }
+      const ext = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
+      if ((ext === '.html' || ext === '.htm') && !file.name.toLowerCase().startsWith('call_trace')) {
+        setError('HTML files are only allowed for call trace exports (filename must start with "call_trace")'); return;
+      }
+    }
     onUpdate({ files: [...data.files, ...arr] });
   }, [data.files, onUpdate]);
 
@@ -74,7 +80,7 @@ export default function FileUpload({ data, onUpdate, onNext, onPrev }: Props) {
   return (
     <div>
       <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Attach Files</h2>
-      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Upload screenshots, logs, or SIP traces. Max 100MB per file, up to 10 files.</p>
+      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Upload screenshots, logs, or SIP traces. Max 200MB per file, up to 10 files.</p>
 
       {/* Log collection help */}
       <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
@@ -122,10 +128,10 @@ export default function FileUpload({ data, onUpdate, onNext, onPrev }: Props) {
             <p className="text-gray-500 dark:text-gray-400 mb-2">Drag and drop files here, or</p>
             <label className="inline-flex items-center px-4 py-2 bg-white dark:bg-tb-card border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer transition-colors">
               Browse Files
-              <input type="file" multiple className="hidden" accept="image/*,.pdf,.txt,.csv,.log,.json,.zip,.pcap,.xls,.xlsx,.tar.gz,.tgz,.tar,.gz"
+              <input type="file" multiple className="hidden" accept="image/*,.pdf,.txt,.csv,.log,.json,.zip,.pcap,.xls,.xlsx,.tar.gz,.tgz,.tar,.gz,.html"
                 onChange={e => e.target.files && addFiles(e.target.files)} />
             </label>
-            <p className="text-xs text-gray-500 mt-2">PDF, images, text, log, JSON, PCAP, ZIP, Excel, tar.gz</p>
+            <p className="text-xs text-gray-500 mt-2">PDF, images, text, log, JSON, PCAP, ZIP, Excel, tar.gz, call_trace HTML</p>
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 flex items-center justify-center gap-1">
               <Clipboard className="w-3 h-3" /> You can also paste screenshots with <kbd className="px-1.5 py-0.5 bg-gray-200 dark:bg-gray-700 rounded text-[0.65rem] font-mono">Ctrl+V</kbd>
             </p>
