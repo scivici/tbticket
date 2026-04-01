@@ -1,5 +1,5 @@
 import { Router, Response } from 'express';
-import { authenticate, requireAdmin } from '../middleware/auth';
+import { authenticate, requireAdmin, requireAdminOrEngineer } from '../middleware/auth';
 import * as settingsService from '../services/settings.service';
 import * as licenseService from '../services/license.service';
 import { AuthenticatedRequest } from '../types';
@@ -97,7 +97,7 @@ router.post('/test-jira', authenticate, requireAdmin, async (req: any, res: Resp
 });
 
 // Fetch Jira metadata (labels, components, versions, accounts)
-router.get('/jira-metadata', authenticate, requireAdmin, async (req: any, res: Response) => {
+router.get('/jira-metadata', authenticate, requireAdminOrEngineer, async (req: any, res: Response) => {
   try {
     const engineerId = req.query.engineerId ? parseInt(req.query.engineerId) : undefined;
     const { getJiraMetadata } = require('../services/jira.service');
