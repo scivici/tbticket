@@ -86,13 +86,29 @@ router.post('/test-jira', authenticate, requireAdmin, async (req: any, res: Resp
       res.json({ success: false, error: `Jira API error (${response.status}): ${body.substring(0, 200)}` });
       return;
     }
-    const projects = await response.json();
+    const projects: any = await response.json();
     res.json({
       success: true,
       projects: projects.map((p: any) => ({ key: p.key, name: p.name, projectTypeKey: p.projectTypeKey })),
     });
   } catch (err: any) {
     res.json({ success: false, error: err.message });
+  }
+});
+
+// Fetch Jira metadata (labels, components, versions, accounts)
+router.get('/jira-metadata', authenticate, requireAdmin, async (req: any, res: Response) => {
+  try {
+    const engineerId = req.query.engineerId ? parseInt(req.query.engineerId) : undefined;
+    const { getJiraMetadata } = require('../services/jira.service');
+    const metadata = await getJiraMetadata(engineerId);
+    if (!metadata) {
+      res.status(400).json({ error: 'Jira not configured' });
+      return;
+    }
+    res.json(metadata);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
   }
 });
 

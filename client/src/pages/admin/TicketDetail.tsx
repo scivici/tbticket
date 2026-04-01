@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
-import { tickets as ticketsApi, engineers as engineersApi, cannedResponses as cannedApi } from '../../api/client';
+import { tickets as ticketsApi, engineers as engineersApi, cannedResponses as cannedApi, settings as settingsApi } from '../../api/client';
 import { StatusBadge, PriorityBadge } from '../../components/StatusBadge';
 import { useToast } from '../../context/ToastContext';
 import { useAuth } from '../../context/AuthContext';
@@ -292,6 +292,15 @@ export default function TicketDetail() {
 
   // Jira live status
   const [jiraStatus, setJiraStatus] = useState<any>(null);
+
+  // Jira escalation modal
+  const [showJiraModal, setShowJiraModal] = useState(false);
+  const [jiraMetadata, setJiraMetadata] = useState<{ labels: string[]; components: { id: string; name: string }[]; versions: { id: string; name: string; released: boolean }[]; accounts: { id: string; name: string }[] } | null>(null);
+  const [jiraMetaLoading, setJiraMetaLoading] = useState(false);
+  const [jiraFormLabels, setJiraFormLabels] = useState<string[]>([]);
+  const [jiraFormAccount, setJiraFormAccount] = useState<{ id: string; name?: string } | null>(null);
+  const [jiraFormVersion, setJiraFormVersion] = useState('');
+  const [jiraFormNotes, setJiraFormNotes] = useState('');
 
   // Support both numeric ID and ticket number (TKT-xxx)
   const isNumeric = /^\d+$/.test(id!);
@@ -1229,19 +1238,23 @@ export default function TicketDetail() {
                 {actionLoading === 'analyze' ? 'AI Analyzing...' : 'Re-analyze with AI'}
               </button>
               {ticket.status !== 'escalated_to_jira' && !ticket.jiraIssueKey && (
-                <button onClick={async () => {
-                  if (!ticket || !window.confirm('Escalate this ticket to Jira? This will create a Jira issue and change the status.')) return;
-                  setActionLoading('jira');
-                  try {
-                    const result = await ticketsApi.escalateToJira(ticket.id);
-                    toast.success(`Jira issue created: ${result.issueKey}`);
-                    load();
-                  } catch (err: any) { toast.error(err.message); }
-                  setActionLoading('');
+                <button onClick={() => {
+                  setShowJiraModal(true);
+                  setJiraFormNotes('');
+                  setJiraFormLabels([]);
+                  setJiraFormAccount(null);
+                  setJiraFormVersion('');
+                  if (!jiraMetadata) {
+                    setJiraMetaLoading(true);
+                    settingsApi.getJiraMetadata(ticket.assignedEngineerId || undefined)
+                      .then(setJiraMetadata)
+                      .catch(() => toast.error('Failed to load Jira metadata'))
+                      .finally(() => setJiraMetaLoading(false));
+                  }
                 }} disabled={!!actionLoading}
                   className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-orange-500/20 text-orange-400 rounded-lg text-sm font-medium hover:bg-orange-500/30 disabled:opacity-50 transition-colors">
                   <ExternalLink className="w-4 h-4" />
-                  {actionLoading === 'jira' ? 'Creating...' : 'Escalate to Jira'}
+                  Escalate to Jira
                 </button>
               )}
               <button onClick={() => { setMergeSourceInput(''); setShowMergeModal(true); }} disabled={!!actionLoading}
@@ -1386,6 +1399,151 @@ export default function TicketDetail() {
             >
               <Merge className="w-4 h-4" />
               {merging ? 'Merging...' : 'Merge'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Jira Escalation Modal */}
+    {showJiraModal && ticket && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowJiraModal(false)}>
+        <div className="bg-white dark:bg-tb-card rounded-xl shadow-2xl p-6 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+          <div className="flex items-center gap-2 mb-4">
+            <ExternalLink className="w-5 h-5 text-orange-400" />
+            <h3 className="font-semibold text-gray-900 dark:text-white">Escalate to Jira</h3>
+          </div>
+
+          {/* Read-only info */}
+          <div className="space-y-2 mb-4 text-sm">
+            <div className="flex gap-2">
+              <span className="text-gray-500 dark:text-gray-400 w-28 shrink-0">Work Type:</span>
+              <span className="font-medium text-gray-900 dark:text-white">Incident</span>
+            </div>
+            <div className="flex gap-2">
+              <span className="text-gray-500 dark:text-gray-400 w-28 shrink-0">Summary:</span>
+              <span className="font-medium text-gray-900 dark:text-white truncate">[{ticket.ticketNumber}] {ticket.subject}</span>
+            </div>
+            <div className="flex gap-2">
+              <span className="text-gray-500 dark:text-gray-400 w-28 shrink-0">Components:</span>
+              <span className="font-medium text-gray-900 dark:text-white">
+                {['prosbc', 'freesbc'].some(p => (ticket.product?.name || '').toLowerCase().includes(p)) ? 'SBC' : 'TMG'}
+              </span>
+            </div>
+            <div className="flex gap-2">
+              <span className="text-gray-500 dark:text-gray-400 w-28 shrink-0">Priority:</span>
+              <PriorityBadge priority={ticket.priority} />
+            </div>
+          </div>
+
+          <hr className="border-gray-200 dark:border-gray-700 mb-4" />
+
+          {jiraMetaLoading ? (
+            <div className="flex items-center justify-center py-8 text-gray-500">
+              <RefreshCw className="w-5 h-5 animate-spin mr-2" /> Loading Jira metadata...
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Labels */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Labels</label>
+                <select
+                  className="tb-select w-full"
+                  value=""
+                  onChange={e => {
+                    if (e.target.value && !jiraFormLabels.includes(e.target.value)) {
+                      setJiraFormLabels([...jiraFormLabels, e.target.value]);
+                    }
+                  }}
+                >
+                  <option value="">Select label...</option>
+                  {(jiraMetadata?.labels || []).map(l => (
+                    <option key={l} value={l} disabled={jiraFormLabels.includes(l)}>{l}</option>
+                  ))}
+                </select>
+                {jiraFormLabels.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {jiraFormLabels.map(l => (
+                      <span key={l} className="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded text-xs font-medium">
+                        {l}
+                        <button onClick={() => setJiraFormLabels(jiraFormLabels.filter(x => x !== l))} className="hover:text-red-500"><X className="w-3 h-3" /></button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Account */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Account</label>
+                <select
+                  className="tb-select w-full"
+                  value={jiraFormAccount?.id || ''}
+                  onChange={e => {
+                    const acc = (jiraMetadata?.accounts || []).find(a => a.id === e.target.value);
+                    setJiraFormAccount(acc ? { id: acc.id, name: acc.name } : null);
+                  }}
+                >
+                  <option value="">Select account...</option>
+                  {(jiraMetadata?.accounts || []).map(a => (
+                    <option key={a.id} value={a.id}>{a.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Affected Version */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Affected Version</label>
+                <select
+                  className="tb-select w-full"
+                  value={jiraFormVersion}
+                  onChange={e => setJiraFormVersion(e.target.value)}
+                >
+                  <option value="">Select version...</option>
+                  {(jiraMetadata?.versions || []).map(v => (
+                    <option key={v.id} value={v.name}>{v.name}{v.released ? ' (Released)' : ''}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Escalation Notes (Description) */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Escalation Notes <span className="text-gray-400 font-normal">(Jira Description)</span></label>
+                <textarea
+                  className="tb-input w-full h-32 text-sm"
+                  value={jiraFormNotes}
+                  onChange={e => setJiraFormNotes(e.target.value)}
+                  placeholder="Add notes for the engineering team..."
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-3 mt-6">
+            <button onClick={() => setShowJiraModal(false)} className="tb-btn-secondary text-sm">Cancel</button>
+            <button
+              onClick={async () => {
+                setActionLoading('jira');
+                try {
+                  const result = await ticketsApi.escalateToJira(ticket.id, {
+                    labels: jiraFormLabels.length > 0 ? jiraFormLabels : undefined,
+                    account: jiraFormAccount || undefined,
+                    affectedVersion: jiraFormVersion || undefined,
+                    escalationNotes: jiraFormNotes || undefined,
+                  });
+                  toast.success(`Jira issue created: ${result.issueKey}`);
+                  setShowJiraModal(false);
+                  load();
+                } catch (err: any) {
+                  toast.error(err.message);
+                }
+                setActionLoading('');
+              }}
+              disabled={actionLoading === 'jira' || jiraMetaLoading}
+              className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 disabled:opacity-50 transition-colors"
+            >
+              <ExternalLink className="w-4 h-4" />
+              {actionLoading === 'jira' ? 'Creating...' : 'Create Jira Incident'}
             </button>
           </div>
         </div>

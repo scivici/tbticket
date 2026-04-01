@@ -1515,6 +1515,7 @@ export async function escalateToJira(req: AuthenticatedRequest, res: Response): 
 
     // Dynamically import to avoid circular deps
     const { createJiraIssue } = await import('../services/jira.service');
+    const { labels, account, affectedVersion, escalationNotes } = req.body || {};
     const result = await createJiraIssue({
       ticketNumber: ticket.ticketNumber,
       subject: ticket.subject,
@@ -1524,6 +1525,10 @@ export async function escalateToJira(req: AuthenticatedRequest, res: Response): 
       categoryName: ticket.category.name,
       customerName: ticket.customer.name,
       customerEmail: ticket.customer.email,
+      labels,
+      account,
+      affectedVersion,
+      escalationNotes,
     }, ticket.assignedEngineerId || undefined);
 
     if (!result.success) {

@@ -9,6 +9,11 @@ interface JiraIssueData {
   categoryName: string;
   customerName: string;
   customerEmail: string;
+  // New Jira-specific fields
+  labels?: string[];
+  account?: { id: string; name?: string };
+  affectedVersion?: string;
+  escalationNotes?: string;
 }
 
 interface JiraCredentials {
@@ -49,7 +54,7 @@ async function detectJiraApiVersion(baseUrl: string, auth: string): Promise<stri
   try {
     const res = await fetch(`${baseUrl}/rest/api/2/serverInfo`, { headers });
     if (res.ok) {
-      const info = await res.json();
+      const info: any = await res.json();
       console.log(`[Jira] Detected API v2 (Server) for ${baseUrl} — version: ${info.version || 'unknown'}`);
       apiVersionCache[baseUrl] = { version: '2', ts: Date.now() };
       return '2';
@@ -114,7 +119,6 @@ export async function createJiraIssue(data: JiraIssueData, engineerId?: number):
   }
 
   const { baseUrl, email, apiToken: token, projectKey } = creds;
-  const issueType = await getSetting('jira_issue_type') || 'Bug';
 
   const base = baseUrl.replace(/\/$/, '');
   const auth = Buffer.from(`${email}:${token}`).toString('base64');
@@ -123,33 +127,69 @@ export async function createJiraIssue(data: JiraIssueData, engineerId?: number):
   const apiVersion = await detectJiraApiVersion(base, auth);
   const url = `${base}/rest/api/${apiVersion}/issue`;
 
-  const descriptionText = `Ticket: ${data.ticketNumber}\nProduct: ${data.productName} / ${data.categoryName}\nCustomer: ${data.customerName} (${data.customerEmail})\n\n${data.description}`;
+  // Determine component: SBC products → SBC, everything else → TMG
+  const sbcProducts = ['prosbc', 'freesbc'];
+  const componentName = sbcProducts.some(p => data.productName.toLowerCase().includes(p)) ? 'SBC' : 'TMG';
+
+  // Description: use escalation notes if provided, otherwise build from ticket data
+  const descText = data.escalationNotes
+    ? `${data.escalationNotes}\n\n---\nTicket: ${data.ticketNumber}\nProduct: ${data.productName} / ${data.categoryName}\nCustomer: ${data.customerName} (${data.customerEmail})`
+    : `Ticket: ${data.ticketNumber}\nProduct: ${data.productName} / ${data.categoryName}\nCustomer: ${data.customerName} (${data.customerEmail})\n\n${data.description}`;
 
   // API v3 (Cloud) uses ADF format, v2 (Server) uses plain string
   const description = apiVersion === '3'
     ? {
         type: 'doc',
         version: 1,
-        content: [
-          { type: 'paragraph', content: [{ type: 'text', text: `Ticket: ${data.ticketNumber}` }] },
-          { type: 'paragraph', content: [{ type: 'text', text: `Product: ${data.productName} / ${data.categoryName}` }] },
-          { type: 'paragraph', content: [{ type: 'text', text: `Customer: ${data.customerName} (${data.customerEmail})` }] },
-          { type: 'rule' },
-          { type: 'paragraph', content: [{ type: 'text', text: data.description }] },
-        ],
+        content: descText.split('\n').map(line =>
+          line === '---'
+            ? { type: 'rule' }
+            : { type: 'paragraph', content: line ? [{ type: 'text', text: line }] : [] }
+        ),
       }
-    : descriptionText;
+    : descText;
 
-  const body = {
-    fields: {
-      project: { key: projectKey },
-      summary: `[${data.ticketNumber}] ${data.subject}`,
-      description,
-      issuetype: { name: issueType },
-      priority: { name: PRIORITY_MAP[data.priority] || 'Medium' },
-      labels: ['support-ticket', data.ticketNumber],
-    },
+  // Build labels array
+  const labels = [...(data.labels || []), 'support-ticket', data.ticketNumber];
+
+  // Build fields
+  const fields: any = {
+    project: { key: projectKey },
+    summary: `[${data.ticketNumber}] ${data.subject}`,
+    description,
+    issuetype: { name: 'Incident' },
+    priority: { name: PRIORITY_MAP[data.priority] || 'Medium' },
+    labels,
+    components: [{ name: componentName }],
   };
+
+  // Affected version
+  if (data.affectedVersion) {
+    fields.versions = [{ name: data.affectedVersion }];
+  }
+
+  // Account (Tempo custom field) — we need to find the field key via createmeta
+  if (data.account?.id) {
+    try {
+      const headers = { 'Authorization': `Basic ${auth}`, 'Accept': 'application/json' };
+      const metaRes = await fetch(`${base}/rest/api/${apiVersion}/issue/createmeta?projectKeys=${projectKey}&issuetypeNames=Incident&expand=projects.issuetypes.fields`, { headers });
+      if (metaRes.ok) {
+        const meta: any = await metaRes.json();
+        const issueType = meta.projects?.[0]?.issuetypes?.[0];
+        if (issueType?.fields) {
+          for (const [key, field] of Object.entries(issueType.fields) as any[]) {
+            if (field.name && field.name.toLowerCase().includes('account') && !field.name.toLowerCase().includes('regression')) {
+              fields[key] = { id: data.account.id };
+              console.log(`[Jira] Mapped Account to field ${key} (${field.name}) = ${data.account.id}`);
+              break;
+            }
+          }
+        }
+      }
+    } catch (e: any) { console.log(`[Jira] Account field mapping failed: ${e.message}`); }
+  }
+
+  const body = { fields };
 
   try {
     console.log(`[Jira] Creating issue: POST ${url} (API v${apiVersion}, project: ${projectKey})`);
@@ -185,7 +225,7 @@ export async function createJiraIssue(data: JiraIssueData, engineerId?: number):
       return { success: false, error: `Jira API error (${response.status}): ${errorBody.substring(0, 200)}` };
     }
 
-    const result = await response.json();
+    const result: any = await response.json();
     const issueKey = result.key;
     const issueUrl = `${baseUrl.replace(/\/$/, '')}/browse/${issueKey}`;
 
@@ -200,6 +240,88 @@ export async function createJiraIssue(data: JiraIssueData, engineerId?: number):
 export async function isJiraConfigured(engineerId?: number): Promise<boolean> {
   const creds = await resolveJiraCredentials(engineerId);
   return !!creds;
+}
+
+/**
+ * Fetch Jira project metadata: labels, components, versions, and accounts (Tempo custom field).
+ */
+export async function getJiraMetadata(engineerId?: number): Promise<{
+  labels: string[];
+  components: { id: string; name: string }[];
+  versions: { id: string; name: string; released: boolean }[];
+  accounts: { id: string; name: string }[];
+} | null> {
+  const creds = await resolveJiraCredentials(engineerId);
+  if (!creds) return null;
+
+  const { baseUrl, email, apiToken: token, projectKey } = creds;
+  const base = baseUrl.replace(/\/$/, '');
+  const auth = Buffer.from(`${email}:${token}`).toString('base64');
+  const apiVersion = await detectJiraApiVersion(base, auth);
+  const headers = { 'Authorization': `Basic ${auth}`, 'Accept': 'application/json' };
+
+  const results = { labels: [] as string[], components: [] as any[], versions: [] as any[], accounts: [] as any[] };
+
+  // Fetch labels
+  try {
+    const res = await fetch(`${base}/rest/api/${apiVersion}/label?maxResults=200`, { headers });
+    if (res.ok) {
+      const data: any = await res.json();
+      results.labels = data.values || data.suggestions || data || [];
+      if (Array.isArray(results.labels) && results.labels.length > 0 && typeof results.labels[0] === 'object') {
+        results.labels = results.labels.map((l: any) => l.label || l.name || l);
+      }
+    }
+  } catch (e: any) { console.log(`[Jira] Labels fetch failed: ${e.message}`); }
+
+  // Fetch components for project
+  try {
+    const res = await fetch(`${base}/rest/api/${apiVersion}/project/${projectKey}/components`, { headers });
+    if (res.ok) {
+      const data: any = await res.json();
+      results.components = (data as any[]).map((c: any) => ({ id: c.id, name: c.name }));
+    }
+  } catch (e: any) { console.log(`[Jira] Components fetch failed: ${e.message}`); }
+
+  // Fetch versions for project
+  try {
+    const res = await fetch(`${base}/rest/api/${apiVersion}/project/${projectKey}/versions`, { headers });
+    if (res.ok) {
+      const data: any = await res.json();
+      results.versions = (data as any[]).map((v: any) => ({ id: v.id, name: v.name, released: v.released || false }));
+    }
+  } catch (e: any) { console.log(`[Jira] Versions fetch failed: ${e.message}`); }
+
+  // Fetch Tempo accounts (custom field) — try Tempo REST API first, then createmeta
+  try {
+    // Try Tempo Accounts API
+    let res = await fetch(`${base}/rest/tempo-accounts/1/account`, { headers });
+    if (res.ok) {
+      const data: any = await res.json();
+      results.accounts = (Array.isArray(data) ? data : data.results || []).map((a: any) => ({ id: String(a.id || a.key), name: a.name || a.value }));
+    } else {
+      // Fallback: try createmeta to find Account custom field allowed values
+      const metaRes = await fetch(`${base}/rest/api/${apiVersion}/issue/createmeta?projectKeys=${projectKey}&issuetypeNames=Incident&expand=projects.issuetypes.fields`, { headers });
+      if (metaRes.ok) {
+        const meta: any = await metaRes.json();
+        const project = meta.projects?.[0];
+        const issueType = project?.issuetypes?.[0];
+        if (issueType?.fields) {
+          // Find Account field (usually customfield with "Account" or "Tempo Account")
+          for (const [key, field] of Object.entries(issueType.fields) as any[]) {
+            if (field.name && (field.name.toLowerCase().includes('account') && !field.name.toLowerCase().includes('regression'))) {
+              if (field.allowedValues) {
+                results.accounts = field.allowedValues.map((v: any) => ({ id: String(v.id || v.value), name: v.name || v.value }));
+              }
+              break;
+            }
+          }
+        }
+      }
+    }
+  } catch (e: any) { console.log(`[Jira] Accounts fetch failed: ${e.message}`); }
+
+  return results;
 }
 
 export async function getJiraIssueStatus(issueKey: string, engineerId?: number): Promise<{ status: string; summary: string; url: string } | null> {
@@ -222,7 +344,7 @@ export async function getJiraIssueStatus(issueKey: string, engineerId?: number):
 
     if (!response.ok) return null;
 
-    const data = await response.json();
+    const data: any = await response.json();
     return {
       status: data.fields?.status?.name || 'Unknown',
       summary: data.fields?.summary || '',

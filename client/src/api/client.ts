@@ -103,8 +103,8 @@ export const tickets = {
   // Jira
   updateJiraKey: (id: number, jiraIssueKey: string) =>
     request<any>(`/tickets/${id}/jira`, { method: 'PATCH', body: JSON.stringify({ jiraIssueKey }) }),
-  escalateToJira: (id: number) =>
-    request<any>(`/tickets/${id}/escalate-jira`, { method: 'POST' }),
+  escalateToJira: (id: number, data?: { labels?: string[]; account?: { id: string; name?: string }; affectedVersion?: string; escalationNotes?: string }) =>
+    request<any>(`/tickets/${id}/escalate-jira`, { method: 'POST', body: JSON.stringify(data || {}) }),
   getJiraStatus: (id: number) => request<any>(`/tickets/${id}/jira-status`),
 
   // Time entries
@@ -322,6 +322,10 @@ export const settings = {
     request<any>('/settings/test-license-api', { method: 'POST', body: JSON.stringify({ productKey }) }),
   testJira: (data?: { baseUrl?: string; email?: string; token?: string }) =>
     request<any>('/settings/test-jira', { method: 'POST', body: JSON.stringify(data || {}) }),
+  getJiraMetadata: (engineerId?: number) =>
+    request<{ labels: string[]; components: { id: string; name: string }[]; versions: { id: string; name: string; released: boolean }[]; accounts: { id: string; name: string }[] }>(
+      `/settings/jira-metadata${engineerId ? `?engineerId=${engineerId}` : ''}`
+    ),
 };
 
 // Notifications
