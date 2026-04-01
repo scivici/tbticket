@@ -125,9 +125,6 @@ export default function AdminLayout() {
       </nav>
 
       <div className="p-3 border-t border-gray-200 dark:border-gray-700 space-y-2">
-        <Link to="/" className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5 transition-colors">
-          <ChevronLeft className="w-4 h-4" /><span>Back to Site</span>
-        </Link>
         <div className="flex items-center justify-between px-3 py-2">
           <div className="min-w-0">
             <p className="text-sm text-gray-900 dark:text-white truncate">{user?.name}</p>
