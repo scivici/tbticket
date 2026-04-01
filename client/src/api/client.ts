@@ -224,6 +224,7 @@ export const admin = {
       body: JSON.stringify({ responseTimeHours, resolutionTimeHours }),
     }),
   healthDashboard: () => request<any>('/admin/health-dashboard'),
+  aiUsage: (daysBack?: number) => request<any>(`/admin/ai-usage${daysBack ? `?daysBack=${daysBack}` : ''}`),
   exportTicketsCsv: async () => {
     const token = localStorage.getItem('token');
     const resp = await fetch('/api/admin/export/tickets', {

@@ -678,4 +678,116 @@ router.get('/recurring-tickets', authenticate, requireAdmin, async (req: any, re
   res.json(await recurringService.detectRecurringTickets(minCount, daysBack));
 });
 
+// AI Usage Dashboard (admin only)
+router.get('/ai-usage', authenticate, requireAdmin, async (req: any, res: Response) => {
+  try {
+    const daysBack = parseInt(req.query.daysBack as string) || 30;
+
+    // Total AI analyses
+    const totalAnalyses = await queryOne<any>(
+      `SELECT COUNT(*) as count FROM ticket_activity_log WHERE action = 'ai_analysis'`
+    );
+
+    // AI analyses in selected period
+    const periodAnalyses = await queryOne<any>(
+      `SELECT COUNT(*) as count FROM ticket_activity_log WHERE action = 'ai_analysis' AND created_at >= NOW() - INTERVAL '1 day' * ?`,
+      [daysBack]
+    );
+
+    // AI suggest reply count (from activity log or responses)
+    const suggestReplies = await queryOne<any>(
+      `SELECT COUNT(*) as count FROM ticket_activity_log WHERE action = 'ai_suggest_reply'`
+    );
+
+    // KB articles created from AI
+    const kbArticles = await queryOne<any>(
+      `SELECT COUNT(*) as count FROM ticket_activity_log WHERE action = 'kb_article_created'`
+    );
+
+    // Average execution time (parse from details)
+    const avgExecTime = await queryOne<any>(
+      `SELECT AVG(
+        CASE WHEN details LIKE '%(%s)' THEN
+          CAST(SUBSTRING(details FROM '\\(([0-9.]+)s\\)') AS NUMERIC)
+        ELSE NULL END
+      ) as avg_seconds
+      FROM ticket_activity_log WHERE action = 'ai_analysis' AND details LIKE '%(%s)'`
+    );
+
+    // Tickets with AI analysis
+    const ticketsWithAi = await queryOne<any>(
+      `SELECT COUNT(*) as count FROM tickets WHERE ai_analysis IS NOT NULL`
+    );
+    const totalTickets = await queryOne<any>(
+      `SELECT COUNT(*) as count FROM tickets`
+    );
+
+    // Daily usage trend
+    const dailyTrend = await queryAll<any>(
+      `SELECT DATE(created_at) as date, COUNT(*) as count
+       FROM ticket_activity_log
+       WHERE action IN ('ai_analysis', 'ai_suggest_reply')
+         AND created_at >= NOW() - INTERVAL '1 day' * ?
+       GROUP BY DATE(created_at)
+       ORDER BY date`,
+      [daysBack]
+    );
+
+    // Recent AI activities
+    const recentActivities = await queryAll<any>(
+      `SELECT tal.*, t.ticket_number, t.subject
+       FROM ticket_activity_log tal
+       JOIN tickets t ON tal.ticket_id = t.id
+       WHERE tal.action IN ('ai_analysis', 'ai_suggest_reply', 'kb_article_created')
+       ORDER BY tal.created_at DESC
+       LIMIT 20`
+    );
+
+    // Analyses per ticket (top re-analyzed)
+    const reanalyzed = await queryAll<any>(
+      `SELECT tal.ticket_id, t.ticket_number, t.subject, COUNT(*) as analysis_count
+       FROM ticket_activity_log tal
+       JOIN tickets t ON tal.ticket_id = t.id
+       WHERE tal.action = 'ai_analysis'
+       GROUP BY tal.ticket_id, t.ticket_number, t.subject
+       HAVING COUNT(*) > 1
+       ORDER BY COUNT(*) DESC
+       LIMIT 10`
+    );
+
+    res.json({
+      summary: {
+        totalAnalyses: parseInt(totalAnalyses.count),
+        periodAnalyses: parseInt(periodAnalyses.count),
+        suggestReplies: parseInt(suggestReplies?.count || 0),
+        kbArticles: parseInt(kbArticles?.count || 0),
+        avgExecutionSeconds: avgExecTime?.avg_seconds ? parseFloat(avgExecTime.avg_seconds).toFixed(1) : null,
+        ticketsWithAi: parseInt(ticketsWithAi.count),
+        totalTickets: parseInt(totalTickets.count),
+        aiCoveragePercent: totalTickets.count > 0 ? Math.round((ticketsWithAi.count / totalTickets.count) * 100) : 0,
+      },
+      dailyTrend: dailyTrend.map((d: any) => ({ date: d.date, count: parseInt(d.count) })),
+      recentActivities: recentActivities.map((a: any) => ({
+        id: a.id,
+        ticketId: a.ticket_id,
+        ticketNumber: a.ticket_number,
+        subject: a.subject,
+        action: a.action,
+        details: a.details,
+        actorName: a.actor_name,
+        createdAt: a.created_at,
+      })),
+      reanalyzed: reanalyzed.map((r: any) => ({
+        ticketId: r.ticket_id,
+        ticketNumber: r.ticket_number,
+        subject: r.subject,
+        analysisCount: parseInt(r.analysis_count),
+      })),
+    });
+  } catch (error: any) {
+    console.error('[Admin] AI usage error:', error);
+    res.status(500).json({ error: 'Failed to fetch AI usage data' });
+  }
+});
+
 export default router;

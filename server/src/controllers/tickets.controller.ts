@@ -1355,6 +1355,7 @@ Write the reply now. Plain text only, professional tone, concise and technical.`
       suggestion = suggestion.replace(/^(I now have|Let me|Here's|Here is|Now I|Based on).*?\n\n/s, '').trim();
       if (!suggestion) suggestion = 'Unable to generate suggestion. Please compose your reply manually.';
 
+      await activityService.logActivity(parseInt(id), req.user?.userId || null, req.user?.email || 'Unknown', 'ai_suggest_reply', 'AI reply suggestion generated');
       res.json({ suggestion });
     } else {
       // Fallback: return similar tickets' responses as suggestion

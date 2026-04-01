@@ -32,6 +32,7 @@ import SlaDashboard from './pages/admin/SlaDashboard';
 import HealthDashboard from './pages/admin/HealthDashboard';
 import TicketPrint from './pages/admin/TicketPrint';
 import HelpGuide from './pages/admin/HelpGuide';
+import AiUsage from './pages/admin/AiUsage';
 import NotFound from './pages/NotFound';
 
 function AuthGuard({ children, denyRoles }: { children: React.ReactElement; denyRoles?: string[] }) {
@@ -85,6 +86,7 @@ export default function App() {
         <Route path="/admin/tickets/:id/print" element={<TicketPrint />} />
         <Route path="/admin/users" element={<Navigate to="/admin/setup" />} />
         <Route path="/admin/setup" element={<SetupPage />} />
+        <Route path="/admin/ai-usage" element={<AiUsage />} />
         <Route path="/admin/help" element={<HelpGuide />} />
       </Route>
 

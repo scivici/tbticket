@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Ticket, Users, Package, FolderOpen,
   HelpCircle, Wrench, UserCog, LogOut, ChevronLeft, Settings,
   UserCheck, MessageSquarePlus, Menu, X, AlertTriangle, Repeat, Clock, ShieldAlert,
-  Keyboard, Activity, BookOpen
+  Keyboard, Activity, BookOpen, Brain
 } from 'lucide-react';
 
 const allNavItems = [
@@ -23,6 +23,7 @@ const allNavItems = [
   { to: '/admin/recurring', icon: Repeat, label: 'Recurring', roles: ['admin'] },
   { to: '/admin/time-reports', icon: Clock, label: 'Time Reports', roles: ['admin', 'engineer'] },
   { to: '/admin/sla-dashboard', icon: ShieldAlert, label: 'SLA Dashboard', roles: ['admin', 'engineer'] },
+  { to: '/admin/ai-usage', icon: Brain, label: 'AI Usage', roles: ['admin'] },
   { to: '/admin/health', icon: Activity, label: 'System Health', roles: ['admin'] },
   { to: '/admin/setup', icon: Settings, label: 'Setup', roles: ['admin'] },
   { to: '/admin/help', icon: BookOpen, label: 'Help Guide', roles: ['engineer'] },
