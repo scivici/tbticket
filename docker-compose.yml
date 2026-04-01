@@ -23,11 +23,11 @@ services:
       - /home/support/incoming/uploads:/app/server/uploads:ro
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "clamdcheck"]
+      test: ["CMD-SHELL", "echo PING | nc localhost 3310 | grep -q PONG"]
       interval: 30s
       timeout: 10s
-      retries: 3
-      start_period: 120s
+      retries: 5
+      start_period: 180s
 
   app:
     build:
