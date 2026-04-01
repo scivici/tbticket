@@ -755,6 +755,45 @@ router.get('/ai-usage', authenticate, requireAdmin, async (req: any, res: Respon
        LIMIT 10`
     );
 
+    // Token usage from ai_usage_log
+    const tokenTotals = await queryOne<any>(
+      `SELECT COALESCE(SUM(input_tokens), 0) as total_input, COALESCE(SUM(output_tokens), 0) as total_output,
+              COUNT(*) as total_calls
+       FROM ai_usage_log`
+    );
+    const tokenPeriod = await queryOne<any>(
+      `SELECT COALESCE(SUM(input_tokens), 0) as total_input, COALESCE(SUM(output_tokens), 0) as total_output,
+              COUNT(*) as total_calls
+       FROM ai_usage_log WHERE created_at >= NOW() - INTERVAL '1 day' * ?`,
+      [daysBack]
+    );
+
+    // Daily token trend
+    const dailyTokenTrend = await queryAll<any>(
+      `SELECT DATE(created_at) as date,
+              SUM(input_tokens) as input_tokens, SUM(output_tokens) as output_tokens,
+              COUNT(*) as calls
+       FROM ai_usage_log
+       WHERE created_at >= NOW() - INTERVAL '1 day' * ?
+       GROUP BY DATE(created_at)
+       ORDER BY date`,
+      [daysBack]
+    );
+
+    // Per-ticket token usage (top consumers)
+    const perTicketUsage = await queryAll<any>(
+      `SELECT aul.ticket_id, t.ticket_number, t.subject,
+              SUM(aul.input_tokens) as input_tokens, SUM(aul.output_tokens) as output_tokens,
+              COUNT(*) as call_count
+       FROM ai_usage_log aul
+       JOIN tickets t ON aul.ticket_id = t.id
+       GROUP BY aul.ticket_id, t.ticket_number, t.subject
+       ORDER BY SUM(aul.input_tokens + aul.output_tokens) DESC
+       LIMIT 15`
+    );
+
+    const grandTotalTokens = parseInt(tokenTotals.total_input) + parseInt(tokenTotals.total_output);
+
     res.json({
       summary: {
         totalAnalyses: parseInt(totalAnalyses.count),
@@ -766,7 +805,34 @@ router.get('/ai-usage', authenticate, requireAdmin, async (req: any, res: Respon
         totalTickets: parseInt(totalTickets.count),
         aiCoveragePercent: totalTickets.count > 0 ? Math.round((ticketsWithAi.count / totalTickets.count) * 100) : 0,
       },
+      tokens: {
+        totalInput: parseInt(tokenTotals.total_input),
+        totalOutput: parseInt(tokenTotals.total_output),
+        totalCalls: parseInt(tokenTotals.total_calls),
+        periodInput: parseInt(tokenPeriod.total_input),
+        periodOutput: parseInt(tokenPeriod.total_output),
+        periodCalls: parseInt(tokenPeriod.total_calls),
+      },
       dailyTrend: dailyTrend.map((d: any) => ({ date: d.date, count: parseInt(d.count) })),
+      dailyTokenTrend: dailyTokenTrend.map((d: any) => ({
+        date: d.date,
+        inputTokens: parseInt(d.input_tokens),
+        outputTokens: parseInt(d.output_tokens),
+        calls: parseInt(d.calls),
+      })),
+      perTicketUsage: perTicketUsage.map((r: any) => {
+        const ticketTotal = parseInt(r.input_tokens) + parseInt(r.output_tokens);
+        return {
+          ticketId: r.ticket_id,
+          ticketNumber: r.ticket_number,
+          subject: r.subject,
+          inputTokens: parseInt(r.input_tokens),
+          outputTokens: parseInt(r.output_tokens),
+          totalTokens: ticketTotal,
+          callCount: parseInt(r.call_count),
+          percentOfTotal: grandTotalTokens > 0 ? parseFloat(((ticketTotal / grandTotalTokens) * 100).toFixed(1)) : 0,
+        };
+      }),
       recentActivities: recentActivities.map((a: any) => ({
         id: a.id,
         ticketId: a.ticket_id,

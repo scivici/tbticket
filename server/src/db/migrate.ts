@@ -163,6 +163,30 @@ export async function runMigrations(): Promise<void> {
     console.log('[DB] Migration: added professional_service_hours column to customers');
   }
 
+  // Migration: ai_usage_log table for token tracking
+  const aiUsageTable = await query(
+    "SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename = 'ai_usage_log'"
+  );
+  if (aiUsageTable.rows.length === 0) {
+    await query(`
+      CREATE TABLE ai_usage_log (
+        id SERIAL PRIMARY KEY,
+        ticket_id INTEGER REFERENCES tickets(id),
+        action TEXT NOT NULL,
+        model TEXT,
+        input_tokens INTEGER DEFAULT 0,
+        output_tokens INTEGER DEFAULT 0,
+        execution_seconds NUMERIC(10,2),
+        actor_id INTEGER,
+        actor_name TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await query('CREATE INDEX idx_ai_usage_ticket ON ai_usage_log(ticket_id)');
+    await query('CREATE INDEX idx_ai_usage_created ON ai_usage_log(created_at)');
+    console.log('[DB] Migration: created ai_usage_log table');
+  }
+
   // Migration: add password_hash to engineers (for engineer login)
   const engPwCol = await query(
     "SELECT column_name FROM information_schema.columns WHERE table_name = 'engineers' AND column_name = 'password_hash'"

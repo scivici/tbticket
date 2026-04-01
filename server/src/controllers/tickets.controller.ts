@@ -411,6 +411,18 @@ async function triggerWrapperAnalysis(ticketId: number, productId: number, categ
 
       await activityService.logActivity(ticketId, null, 'Claude AI', 'ai_analysis', `AI analysis completed via wrapper service (${result.executionTimeSeconds}s)`);
 
+      // Log AI token usage from wrapper response
+      try {
+        const rawData = result.rawOutput ? JSON.parse(result.rawOutput) : {};
+        const usage = rawData.usage || rawData.result?.usage || {};
+        const inputTokens = usage.input_tokens || 0;
+        const outputTokens = usage.output_tokens || 0;
+        await query(
+          'INSERT INTO ai_usage_log (ticket_id, action, model, input_tokens, output_tokens, execution_seconds, actor_name) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          [ticketId, 'ai_analysis', rawData.model || 'wrapper', inputTokens, outputTokens, result.executionTimeSeconds || null, 'Claude AI']
+        );
+      } catch { /* raw output may not be JSON, skip */ }
+
       // Teams/Slack webhook for AI analysis completion
       webhookService.notifyAiAnalysisComplete(
         ticket.ticketNumber,
@@ -1356,6 +1368,15 @@ Write the reply now. Plain text only, professional tone, concise and technical.`
       if (!suggestion) suggestion = 'Unable to generate suggestion. Please compose your reply manually.';
 
       await activityService.logActivity(parseInt(id), req.user?.userId || null, req.user?.email || 'Unknown', 'ai_suggest_reply', 'AI reply suggestion generated');
+      // Log suggest reply to ai_usage_log
+      try {
+        const rawData = result.rawOutput ? JSON.parse(result.rawOutput) : {};
+        const usage = rawData.usage || {};
+        await query(
+          'INSERT INTO ai_usage_log (ticket_id, action, model, input_tokens, output_tokens, actor_id, actor_name) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          [parseInt(id), 'ai_suggest_reply', rawData.model || 'wrapper', usage.input_tokens || 0, usage.output_tokens || 0, req.user?.userId || null, req.user?.email || 'Unknown']
+        );
+      } catch { /* skip */ }
       res.json({ suggestion });
     } else {
       // Fallback: return similar tickets' responses as suggestion

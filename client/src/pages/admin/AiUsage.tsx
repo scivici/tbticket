@@ -1,6 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { admin } from '../../api/client';
-import { Brain, Sparkles, BookOpen, Clock, Zap, BarChart3, RefreshCw, TrendingUp, AlertTriangle } from 'lucide-react';
+import { Brain, Sparkles, BookOpen, Clock, Zap, BarChart3, RefreshCw, TrendingUp, AlertTriangle, Hash, ArrowUpDown } from 'lucide-react';
+
+function formatTokens(n: number): string {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
+  if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K';
+  return String(n);
+}
 
 export default function AiUsage() {
   const [data, setData] = useState<any>(null);
@@ -17,10 +23,10 @@ export default function AiUsage() {
   if (loading && !data) return <div className="text-center py-12 text-gray-500"><RefreshCw className="w-5 h-5 animate-spin inline mr-2" />Loading AI usage data...</div>;
   if (!data) return <div className="text-center py-12 text-gray-500">Failed to load data.</div>;
 
-  const { summary, dailyTrend, recentActivities, reanalyzed } = data;
+  const { summary, tokens, dailyTrend, dailyTokenTrend, perTicketUsage, recentActivities, reanalyzed } = data;
 
-  // Chart: simple bar visualization
   const maxCount = Math.max(...dailyTrend.map((d: any) => d.count), 1);
+  const maxTokens = Math.max(...(dailyTokenTrend || []).map((d: any) => d.inputTokens + d.outputTokens), 1);
 
   return (
     <div>
@@ -41,8 +47,8 @@ export default function AiUsage() {
         </div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      {/* Summary Cards Row 1 */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
         <div className="tb-card p-5">
           <div className="flex items-center gap-2 mb-2">
             <Sparkles className="w-4 h-4 text-purple-500" />
@@ -58,7 +64,7 @@ export default function AiUsage() {
             <p className="text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400">Suggest Replies</p>
           </div>
           <p className="text-2xl font-bold text-gray-900 dark:text-white">{summary.suggestReplies}</p>
-          <p className="text-xs text-gray-400 mt-1">AI-generated reply suggestions</p>
+          <p className="text-xs text-gray-400 mt-1">AI-generated suggestions</p>
         </div>
 
         <div className="tb-card p-5">
@@ -76,16 +82,61 @@ export default function AiUsage() {
             <p className="text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400">Avg Analysis Time</p>
           </div>
           <p className="text-2xl font-bold text-gray-900 dark:text-white">{summary.avgExecutionSeconds ? `${summary.avgExecutionSeconds}s` : 'N/A'}</p>
-          <p className="text-xs text-gray-400 mt-1">KB articles created: {summary.kbArticles}</p>
+          <p className="text-xs text-gray-400 mt-1">KB articles: {summary.kbArticles}</p>
+        </div>
+      </div>
+
+      {/* Token Usage Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div className="tb-card p-5 border-l-4 border-l-cyan-500">
+          <div className="flex items-center gap-2 mb-2">
+            <Hash className="w-4 h-4 text-cyan-500" />
+            <p className="text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400">Total Tokens</p>
+          </div>
+          <p className="text-2xl font-bold text-gray-900 dark:text-white">{formatTokens(tokens.totalInput + tokens.totalOutput)}</p>
+          <p className="text-xs text-gray-400 mt-1">{tokens.totalCalls} API calls</p>
+        </div>
+
+        <div className="tb-card p-5 border-l-4 border-l-blue-500">
+          <div className="flex items-center gap-2 mb-2">
+            <ArrowUpDown className="w-4 h-4 text-blue-500" />
+            <p className="text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400">Input / Output</p>
+          </div>
+          <p className="text-lg font-bold text-gray-900 dark:text-white">
+            <span className="text-blue-500">{formatTokens(tokens.totalInput)}</span>
+            {' / '}
+            <span className="text-green-500">{formatTokens(tokens.totalOutput)}</span>
+          </p>
+          <p className="text-xs text-gray-400 mt-1">input / output tokens</p>
+        </div>
+
+        <div className="tb-card p-5 border-l-4 border-l-purple-500">
+          <div className="flex items-center gap-2 mb-2">
+            <BarChart3 className="w-4 h-4 text-purple-500" />
+            <p className="text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400">Period Tokens</p>
+          </div>
+          <p className="text-2xl font-bold text-gray-900 dark:text-white">{formatTokens(tokens.periodInput + tokens.periodOutput)}</p>
+          <p className="text-xs text-gray-400 mt-1">last {daysBack} days ({tokens.periodCalls} calls)</p>
+        </div>
+
+        <div className="tb-card p-5 border-l-4 border-l-amber-500">
+          <div className="flex items-center gap-2 mb-2">
+            <Zap className="w-4 h-4 text-amber-500" />
+            <p className="text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400">Avg per Call</p>
+          </div>
+          <p className="text-2xl font-bold text-gray-900 dark:text-white">
+            {tokens.totalCalls > 0 ? formatTokens(Math.round((tokens.totalInput + tokens.totalOutput) / tokens.totalCalls)) : 'N/A'}
+          </p>
+          <p className="text-xs text-gray-400 mt-1">tokens per API call</p>
         </div>
       </div>
 
       <div className="grid lg:grid-cols-2 gap-6 mb-6">
-        {/* Daily Trend Chart */}
+        {/* Daily Calls Chart */}
         <div className="tb-card p-5">
           <div className="flex items-center gap-2 mb-4">
             <BarChart3 className="w-4 h-4 text-accent-blue" />
-            <h3 className="font-semibold text-gray-900 dark:text-white">Daily AI Usage</h3>
+            <h3 className="font-semibold text-gray-900 dark:text-white">Daily AI Calls</h3>
           </div>
           {dailyTrend.length > 0 ? (
             <div className="flex items-end gap-1 h-40">
@@ -97,13 +148,8 @@ export default function AiUsage() {
                     <div className="absolute -top-8 left-1/2 -translate-x-1/2 hidden group-hover:block bg-gray-900 text-white text-xs px-2 py-1 rounded whitespace-nowrap z-10">
                       {dateStr}: {d.count} calls
                     </div>
-                    <div
-                      className="w-full bg-purple-500/80 hover:bg-purple-500 rounded-t transition-colors cursor-pointer min-w-[6px]"
-                      style={{ height: `${height}%` }}
-                    />
-                    {dailyTrend.length <= 14 && (
-                      <span className="text-[9px] text-gray-400 truncate w-full text-center">{new Date(d.date).getDate()}</span>
-                    )}
+                    <div className="w-full bg-purple-500/80 hover:bg-purple-500 rounded-t transition-colors cursor-pointer min-w-[6px]" style={{ height: `${height}%` }} />
+                    {dailyTrend.length <= 14 && <span className="text-[9px] text-gray-400 truncate w-full text-center">{new Date(d.date).getDate()}</span>}
                   </div>
                 );
               })}
@@ -113,6 +159,92 @@ export default function AiUsage() {
           )}
         </div>
 
+        {/* Daily Token Chart */}
+        <div className="tb-card p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <Hash className="w-4 h-4 text-cyan-500" />
+            <h3 className="font-semibold text-gray-900 dark:text-white">Daily Token Usage</h3>
+            <div className="flex items-center gap-3 ml-auto text-xs">
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded bg-blue-500"></span> Input</span>
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded bg-green-500"></span> Output</span>
+            </div>
+          </div>
+          {(dailyTokenTrend || []).length > 0 ? (
+            <div className="flex items-end gap-1 h-40">
+              {dailyTokenTrend.map((d: any, i: number) => {
+                const total = d.inputTokens + d.outputTokens;
+                const height = Math.max((total / maxTokens) * 100, 4);
+                const inputPct = total > 0 ? (d.inputTokens / total) * 100 : 50;
+                const dateStr = new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                return (
+                  <div key={i} className="flex-1 flex flex-col items-center gap-1 group relative">
+                    <div className="absolute -top-8 left-1/2 -translate-x-1/2 hidden group-hover:block bg-gray-900 text-white text-xs px-2 py-1 rounded whitespace-nowrap z-10">
+                      {dateStr}: {formatTokens(total)} ({d.calls} calls)
+                    </div>
+                    <div className="w-full rounded-t overflow-hidden cursor-pointer min-w-[6px] flex flex-col" style={{ height: `${height}%` }}>
+                      <div className="bg-blue-500/80 hover:bg-blue-500" style={{ height: `${inputPct}%` }} />
+                      <div className="bg-green-500/80 hover:bg-green-500 flex-1" />
+                    </div>
+                    {dailyTokenTrend.length <= 14 && <span className="text-[9px] text-gray-400 truncate w-full text-center">{new Date(d.date).getDate()}</span>}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="h-40 flex items-center justify-center text-gray-400 text-sm">No token data yet</div>
+          )}
+        </div>
+      </div>
+
+      {/* Per-Ticket Token Usage */}
+      <div className="tb-card p-5 mb-6">
+        <div className="flex items-center gap-2 mb-4">
+          <BarChart3 className="w-4 h-4 text-cyan-500" />
+          <h3 className="font-semibold text-gray-900 dark:text-white">Token Usage by Ticket</h3>
+        </div>
+        {(perTicketUsage || []).length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-200 dark:border-gray-700">
+                  <th className="text-left py-2 px-3 font-semibold text-gray-700 dark:text-gray-300">Ticket</th>
+                  <th className="text-right py-2 px-3 font-semibold text-gray-700 dark:text-gray-300">Input</th>
+                  <th className="text-right py-2 px-3 font-semibold text-gray-700 dark:text-gray-300">Output</th>
+                  <th className="text-right py-2 px-3 font-semibold text-gray-700 dark:text-gray-300">Total</th>
+                  <th className="text-right py-2 px-3 font-semibold text-gray-700 dark:text-gray-300">Calls</th>
+                  <th className="text-left py-2 px-3 font-semibold text-gray-700 dark:text-gray-300 w-48">% of Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {perTicketUsage.map((r: any) => (
+                  <tr key={r.ticketId} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-white/5">
+                    <td className="py-2 px-3">
+                      <a href={`/admin/tickets/${r.ticketId}`} className="text-accent-blue hover:underline font-mono text-xs">{r.ticketNumber}</a>
+                      <p className="text-xs text-gray-500 truncate max-w-[200px]">{r.subject}</p>
+                    </td>
+                    <td className="py-2 px-3 text-right text-blue-500 font-mono text-xs">{formatTokens(r.inputTokens)}</td>
+                    <td className="py-2 px-3 text-right text-green-500 font-mono text-xs">{formatTokens(r.outputTokens)}</td>
+                    <td className="py-2 px-3 text-right font-bold text-gray-800 dark:text-gray-200 font-mono text-xs">{formatTokens(r.totalTokens)}</td>
+                    <td className="py-2 px-3 text-right text-gray-500 text-xs">{r.callCount}</td>
+                    <td className="py-2 px-3">
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                          <div className="bg-cyan-500 h-2 rounded-full transition-all" style={{ width: `${Math.min(r.percentOfTotal, 100)}%` }} />
+                        </div>
+                        <span className="text-xs font-medium text-gray-600 dark:text-gray-400 w-12 text-right">{r.percentOfTotal}%</span>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="py-8 text-center text-gray-400 text-sm">No token usage data recorded yet. Token tracking starts with new AI calls.</div>
+        )}
+      </div>
+
+      <div className="grid lg:grid-cols-2 gap-6 mb-6">
         {/* Re-analyzed Tickets */}
         <div className="tb-card p-5">
           <div className="flex items-center gap-2 mb-4">
@@ -120,7 +252,7 @@ export default function AiUsage() {
             <h3 className="font-semibold text-gray-900 dark:text-white">Most Re-analyzed Tickets</h3>
           </div>
           {reanalyzed.length > 0 ? (
-            <div className="space-y-2 max-h-40 overflow-y-auto">
+            <div className="space-y-2 max-h-48 overflow-y-auto">
               {reanalyzed.map((r: any) => (
                 <a key={r.ticketId} href={`/admin/tickets/${r.ticketId}`}
                   className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 transition-colors">
@@ -128,15 +260,58 @@ export default function AiUsage() {
                     <span className="text-xs font-mono text-accent-blue">{r.ticketNumber}</span>
                     <p className="text-sm text-gray-600 dark:text-gray-400 truncate">{r.subject}</p>
                   </div>
-                  <span className="px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded text-xs font-bold shrink-0">
-                    {r.analysisCount}x
-                  </span>
+                  <span className="px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded text-xs font-bold shrink-0">{r.analysisCount}x</span>
                 </a>
               ))}
             </div>
           ) : (
-            <div className="h-40 flex items-center justify-center text-gray-400 text-sm">No re-analyzed tickets</div>
+            <div className="h-32 flex items-center justify-center text-gray-400 text-sm">No re-analyzed tickets</div>
           )}
+        </div>
+
+        {/* Token Split Pie-like visual */}
+        <div className="tb-card p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <Brain className="w-4 h-4 text-purple-500" />
+            <h3 className="font-semibold text-gray-900 dark:text-white">Token Breakdown</h3>
+          </div>
+          <div className="flex items-center gap-6">
+            <div className="relative w-32 h-32">
+              <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
+                <circle cx="18" cy="18" r="15.9" fill="none" stroke="currentColor" className="text-gray-200 dark:text-gray-700" strokeWidth="3" />
+                {tokens.totalInput + tokens.totalOutput > 0 && (
+                  <>
+                    <circle cx="18" cy="18" r="15.9" fill="none" stroke="#3b82f6" strokeWidth="3"
+                      strokeDasharray={`${(tokens.totalInput / (tokens.totalInput + tokens.totalOutput)) * 100} ${100 - (tokens.totalInput / (tokens.totalInput + tokens.totalOutput)) * 100}`} />
+                    <circle cx="18" cy="18" r="15.9" fill="none" stroke="#22c55e" strokeWidth="3"
+                      strokeDasharray={`${(tokens.totalOutput / (tokens.totalInput + tokens.totalOutput)) * 100} ${100 - (tokens.totalOutput / (tokens.totalInput + tokens.totalOutput)) * 100}`}
+                      strokeDashoffset={`-${(tokens.totalInput / (tokens.totalInput + tokens.totalOutput)) * 100}`} />
+                  </>
+                )}
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="text-sm font-bold text-gray-700 dark:text-gray-300">{formatTokens(tokens.totalInput + tokens.totalOutput)}</span>
+              </div>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="w-3 h-3 rounded bg-blue-500"></span>
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Input Tokens</span>
+                </div>
+                <p className="text-lg font-bold text-blue-500 ml-5">{formatTokens(tokens.totalInput)}</p>
+                <p className="text-xs text-gray-400 ml-5">{tokens.totalInput + tokens.totalOutput > 0 ? ((tokens.totalInput / (tokens.totalInput + tokens.totalOutput)) * 100).toFixed(0) : 0}%</p>
+              </div>
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="w-3 h-3 rounded bg-green-500"></span>
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Output Tokens</span>
+                </div>
+                <p className="text-lg font-bold text-green-500 ml-5">{formatTokens(tokens.totalOutput)}</p>
+                <p className="text-xs text-gray-400 ml-5">{tokens.totalInput + tokens.totalOutput > 0 ? ((tokens.totalOutput / (tokens.totalInput + tokens.totalOutput)) * 100).toFixed(0) : 0}%</p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 

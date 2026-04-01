@@ -288,6 +288,20 @@ export async function analyzeTicket(ticketId: number): Promise<ClaudeAnalysisRes
     const data = await response.json() as any;
     const content = data.content?.[0]?.text || data.message?.content || data.text || '';
 
+    // Log token usage
+    const usage = data.usage || {};
+    const inputTokens = usage.input_tokens || 0;
+    const outputTokens = usage.output_tokens || 0;
+    if (inputTokens || outputTokens) {
+      console.log(`[Claude] Tokens — input: ${inputTokens}, output: ${outputTokens}, total: ${inputTokens + outputTokens}`);
+      try {
+        await query(
+          'INSERT INTO ai_usage_log (ticket_id, action, model, input_tokens, output_tokens, actor_name) VALUES (?, ?, ?, ?, ?, ?)',
+          [ticketId, 'ai_analysis', claudeConfig.model, inputTokens, outputTokens, 'Claude AI']
+        );
+      } catch (e) { console.warn('[Claude] Failed to log usage:', e); }
+    }
+
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       throw new Error('No JSON found in Claude response');
