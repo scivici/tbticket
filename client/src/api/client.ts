@@ -185,6 +185,8 @@ export const admin = {
   slaPolicies: () => request<any[]>('/admin/sla-policies'),
   slaBreached: () => request<any[]>('/admin/sla-breached'),
   customers: () => request<any[]>('/admin/customers'),
+  createCustomer: (data: { email: string; name: string; company?: string; password: string }) =>
+    request<any>('/admin/customers', { method: 'POST', body: JSON.stringify(data) }),
   getCustomer: (id: number) => request<any>(`/admin/customers/${id}`),
   customerTickets: (id: number) => request<any[]>(`/admin/customers/${id}/tickets`),
   updateCustomer: (id: number, data: any) =>

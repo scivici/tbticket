@@ -15,6 +15,7 @@ const router = Router();
 
 router.get('/dashboard', authenticate, requireAdminOrEngineer, adminController.getDashboardStats);
 router.get('/customers', authenticate, requireAdminOrEngineer, adminController.getCustomers);
+router.post('/customers', authenticate, requireAdmin, adminController.createCustomer);
 
 // Customer profile management
 router.get('/customers/:id', authenticate, requireAdminOrEngineer, async (req: any, res: Response) => {

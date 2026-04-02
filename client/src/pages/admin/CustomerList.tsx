@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { admin } from '../../api/client';
 import { StatusBadge, PriorityBadge } from '../../components/StatusBadge';
-import { Users, Search, ChevronDown, ChevronRight, Save, ExternalLink, Globe, FileText, Building2, User, Ticket } from 'lucide-react';
+import { Users, Search, ChevronDown, ChevronRight, Save, ExternalLink, Globe, FileText, Building2, User, Ticket, Plus, Eye, EyeOff, RefreshCw } from 'lucide-react';
+import { useToast } from '../../context/ToastContext';
 
 interface Customer {
   id: number;
@@ -22,7 +23,18 @@ interface CompanyGroup {
   totalTickets: number;
 }
 
+function generatePassword(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+  const specials = '!@#$%&*';
+  let pw = '';
+  for (let i = 0; i < 10; i++) pw += chars[Math.floor(Math.random() * chars.length)];
+  pw += specials[Math.floor(Math.random() * specials.length)];
+  pw += String(Math.floor(Math.random() * 10));
+  return pw;
+}
+
 export default function CustomerList() {
+  const toast = useToast();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -33,6 +45,12 @@ export default function CustomerList() {
   const [ticketsLoading, setTicketsLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  // Create customer form
+  const [creating, setCreating] = useState(false);
+  const [createForm, setCreateForm] = useState({ email: '', name: '', company: '', password: '' });
+  const [createSaving, setCreateSaving] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
   const loadCustomers = () => {
     admin.customers()
       .then(setCustomers)
@@ -41,6 +59,29 @@ export default function CustomerList() {
   };
 
   useEffect(() => { loadCustomers(); }, []);
+
+  const handleCreate = async () => {
+    if (!createForm.email || !createForm.name || !createForm.password) {
+      toast.error('Email, name, and password are required');
+      return;
+    }
+    setCreateSaving(true);
+    try {
+      await admin.createCustomer({
+        email: createForm.email,
+        name: createForm.name,
+        company: createForm.company || undefined,
+        password: createForm.password,
+      });
+      toast.success('Customer created successfully');
+      setCreating(false);
+      setCreateForm({ email: '', name: '', company: '', password: '' });
+      loadCustomers();
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to create customer');
+    }
+    setCreateSaving(false);
+  };
 
   // Group customers by company
   const buildCompanyGroups = (): CompanyGroup[] => {
@@ -160,7 +201,71 @@ export default function CustomerList() {
             ({companyGroups.length} companies, {customers.filter(c => c.role === 'customer').length} users)
           </span>
         </div>
+        <button
+          onClick={() => { setCreating(!creating); setCreateForm({ email: '', name: '', company: '', password: '' }); setShowPassword(false); }}
+          className="flex items-center gap-2 px-4 py-2 bg-accent-blue text-white rounded-lg text-sm font-medium hover:bg-accent-blue/80 transition-colors"
+        >
+          <Plus className="w-4 h-4" />
+          Add Customer
+        </button>
       </div>
+
+      {/* Create Customer Form */}
+      {creating && (
+        <div className="tb-card p-5 mb-6">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">New Customer</h3>
+          <div className="grid md:grid-cols-2 gap-4 max-w-2xl">
+            <div>
+              <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Name *</label>
+              <input type="text" value={createForm.name}
+                onChange={e => setCreateForm({ ...createForm, name: e.target.value })}
+                placeholder="Full name" className="tb-input w-full" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Email *</label>
+              <input type="email" value={createForm.email}
+                onChange={e => setCreateForm({ ...createForm, email: e.target.value })}
+                placeholder="email@company.com" className="tb-input w-full" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Company</label>
+              <input type="text" value={createForm.company}
+                onChange={e => setCreateForm({ ...createForm, company: e.target.value })}
+                placeholder="Company name (optional)" className="tb-input w-full" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Password *</label>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <input type={showPassword ? 'text' : 'password'} value={createForm.password}
+                    onChange={e => setCreateForm({ ...createForm, password: e.target.value })}
+                    placeholder="Min 8 chars, upper+lower+number" className="tb-input w-full pr-10" />
+                  <button type="button" onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                <button type="button" onClick={() => { setCreateForm({ ...createForm, password: generatePassword() }); setShowPassword(true); }}
+                  className="flex items-center gap-1 px-3 py-2 text-xs text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors whitespace-nowrap"
+                  title="Generate password">
+                  <RefreshCw className="w-3.5 h-3.5" /> Generate
+                </button>
+              </div>
+            </div>
+            <div className="col-span-2 flex gap-3 justify-end mt-2">
+              <button onClick={() => setCreating(false)}
+                className="px-4 py-2 text-sm text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                Cancel
+              </button>
+              <button onClick={handleCreate} disabled={createSaving}
+                className="flex items-center gap-2 px-4 py-2 bg-accent-blue text-white rounded-lg text-sm font-medium hover:bg-accent-blue/80 disabled:opacity-50 transition-colors">
+                <Plus className="w-4 h-4" />
+                {createSaving ? 'Creating...' : 'Create Customer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="mb-6">
         <div className="relative max-w-md">

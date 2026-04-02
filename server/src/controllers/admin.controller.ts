@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
-import { queryOne, queryAll } from '../db/connection';
+import bcrypt from 'bcryptjs';
+import { query, queryOne, queryAll } from '../db/connection';
 
 export async function getCustomers(_req: Request, res: Response): Promise<void> {
   const customers = await queryAll<any>(`
@@ -13,6 +14,34 @@ export async function getCustomers(_req: Request, res: Response): Promise<void> 
     ORDER BY c.created_at DESC
   `);
   res.json(customers);
+}
+
+export async function createCustomer(req: Request, res: Response): Promise<void> {
+  const { email, name, company, password } = req.body;
+
+  if (!email || !name || !password) {
+    res.status(400).json({ error: 'Email, name, and password are required' });
+    return;
+  }
+
+  if (password.length < 8 || !/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password)) {
+    res.status(400).json({ error: 'Password must be at least 8 characters with uppercase, lowercase, and a number' });
+    return;
+  }
+
+  const existing = await queryOne<any>('SELECT id FROM customers WHERE email = ?', [email]);
+  if (existing) {
+    res.status(409).json({ error: 'Email already exists' });
+    return;
+  }
+
+  const passwordHash = bcrypt.hashSync(password, 10);
+  const result = await query(
+    'INSERT INTO customers (email, name, company, password_hash, role) VALUES (?, ?, ?, ?, ?) RETURNING id',
+    [email, name, company || null, passwordHash, 'customer']
+  );
+
+  res.status(201).json({ id: result.rows[0].id, message: 'Customer created' });
 }
 
 export async function getDashboardStats(_req: Request, res: Response): Promise<void> {
