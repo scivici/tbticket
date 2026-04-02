@@ -851,11 +851,12 @@ export async function deleteTicket(req: AuthenticatedRequest, res: Response): Pr
     const { id } = req.params;
     const ticketId = parseInt(id);
 
+    const PAUSED_STATUSES = ['waiting_for_customer', 'escalated_to_jira', 'resolved', 'closed'];
     await transaction(async (client) => {
-      // Decrement engineer workload if assigned
-      const ticketResult = await clientQuery(client, 'SELECT assigned_engineer_id FROM tickets WHERE id = ?', [ticketId]);
+      // Decrement engineer workload if assigned and ticket is in an active (non-paused) state
+      const ticketResult = await clientQuery(client, 'SELECT assigned_engineer_id, status FROM tickets WHERE id = ?', [ticketId]);
       const ticket = ticketResult.rows[0];
-      if (ticket?.assigned_engineer_id) {
+      if (ticket?.assigned_engineer_id && !PAUSED_STATUSES.includes(ticket.status)) {
         await clientQuery(client, 'UPDATE engineers SET current_workload = GREATEST(0, current_workload - 1) WHERE id = ?', [ticket.assigned_engineer_id]);
       }
       // Delete all related records before removing the ticket
@@ -941,7 +942,13 @@ export async function mergeTickets(req: AuthenticatedRequest, res: Response): Pr
         [targetId, req.user!.userId, req.user!.name || 'Admin', 'merged', `Merged ticket ${sourceTicket.ticketNumber} into this ticket`]
       );
 
-      // Close source ticket and add note
+      // Close source ticket and decrement workload if it was active
+      const PAUSED_STATUSES_MERGE = ['waiting_for_customer', 'escalated_to_jira', 'resolved', 'closed'];
+      if (sourceTicket.assignedEngineerId && !PAUSED_STATUSES_MERGE.includes(sourceTicket.status)) {
+        await clientQuery(client,
+          'UPDATE engineers SET current_workload = GREATEST(0, current_workload - 1), updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+          [sourceTicket.assignedEngineerId]);
+      }
       await clientQuery(client,
         "UPDATE tickets SET status = 'closed', updated_at = CURRENT_TIMESTAMP WHERE id = ?",
         [sourceId]
@@ -1002,16 +1009,19 @@ export async function bulkAssign(req: AuthenticatedRequest, res: Response): Prom
     res.status(400).json({ error: 'ticketIds array and engineerId are required' });
     return;
   }
+  const PAUSED_STATUSES = ['waiting_for_customer', 'escalated_to_jira', 'resolved', 'closed'];
+  let newWorkloadCount = 0;
   await transaction(async (client) => {
     for (const id of ticketIds) {
-      const ticketResult = await clientQuery(client, 'SELECT assigned_engineer_id FROM tickets WHERE id = ?', [id]);
+      const ticketResult = await clientQuery(client, 'SELECT assigned_engineer_id, status FROM tickets WHERE id = ?', [id]);
       const ticket = ticketResult.rows[0];
-      if (ticket?.assigned_engineer_id) {
+      if (ticket?.assigned_engineer_id && !PAUSED_STATUSES.includes(ticket.status)) {
         await clientQuery(client, 'UPDATE engineers SET current_workload = GREATEST(0, current_workload - 1) WHERE id = ?', [ticket.assigned_engineer_id]);
       }
       await clientQuery(client, "UPDATE tickets SET assigned_engineer_id = ?, status = 'assigned', updated_at = CURRENT_TIMESTAMP WHERE id = ?", [engineerId, id]);
+      newWorkloadCount++;
     }
-    await clientQuery(client, "UPDATE engineers SET current_workload = current_workload + ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", [ticketIds.length, engineerId]);
+    await clientQuery(client, "UPDATE engineers SET current_workload = current_workload + ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", [newWorkloadCount, engineerId]);
   });
   res.json({ message: `${ticketIds.length} tickets assigned` });
 }
@@ -1022,11 +1032,12 @@ export async function bulkDelete(req: AuthenticatedRequest, res: Response): Prom
     res.status(400).json({ error: 'ticketIds array is required' });
     return;
   }
+  const PAUSED_STATUSES = ['waiting_for_customer', 'escalated_to_jira', 'resolved', 'closed'];
   await transaction(async (client) => {
     for (const id of ticketIds) {
-      const ticketResult = await clientQuery(client, 'SELECT assigned_engineer_id FROM tickets WHERE id = ?', [id]);
+      const ticketResult = await clientQuery(client, 'SELECT assigned_engineer_id, status FROM tickets WHERE id = ?', [id]);
       const ticket = ticketResult.rows[0];
-      if (ticket?.assigned_engineer_id) {
+      if (ticket?.assigned_engineer_id && !PAUSED_STATUSES.includes(ticket.status)) {
         await clientQuery(client, 'UPDATE engineers SET current_workload = GREATEST(0, current_workload - 1) WHERE id = ?', [ticket.assigned_engineer_id]);
       }
       await clientQuery(client, 'DELETE FROM ticket_responses WHERE ticket_id = ?', [id]);
@@ -1614,11 +1625,18 @@ export async function escalateToJira(req: AuthenticatedRequest, res: Response): 
     }
 
     // Update ticket with Jira key and status — append to array
+    const PAUSED_STATUSES = ['waiting_for_customer', 'escalated_to_jira', 'resolved', 'closed'];
+    const oldStatus = ticket.status;
     await query(`UPDATE tickets SET
       jira_issue_key = COALESCE(jira_issue_key, ?),
       jira_issue_keys = COALESCE(jira_issue_keys, '[]'::jsonb) || ?::jsonb,
       status = 'escalated_to_jira', updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
       [result.issueKey, JSON.stringify([result.issueKey]), ticket.id]);
+
+    // Decrement workload if transitioning from active to paused state
+    if (ticket.assignedEngineerId && !PAUSED_STATUSES.includes(oldStatus)) {
+      await query('UPDATE engineers SET current_workload = GREATEST(0, current_workload - 1), updated_at = CURRENT_TIMESTAMP WHERE id = ?', [ticket.assignedEngineerId]);
+    }
 
     await activityService.logActivity(ticket.id, req.user!.userId, 'Admin', 'escalated_to_jira', `Escalated to Jira: ${result.issueKey}`);
 

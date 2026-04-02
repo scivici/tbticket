@@ -262,7 +262,14 @@ export async function listTickets(filters: {
   };
 }
 
+// Statuses where the engineer is not actively working — workload should not count
+const PAUSED_STATUSES = ['waiting_for_customer', 'escalated_to_jira', 'resolved', 'closed'];
+
 export async function updateTicketStatus(ticketId: number, status: string) {
+  const ticket = await queryOne<any>('SELECT status, assigned_engineer_id FROM tickets WHERE id = ?', [ticketId]);
+  const oldStatus = ticket?.status;
+  const engineerId = ticket?.assigned_engineer_id;
+
   const updates: string[] = ["status = ?", "updated_at = CURRENT_TIMESTAMP"];
   const params: any[] = [status];
 
@@ -271,6 +278,20 @@ export async function updateTicketStatus(ticketId: number, status: string) {
   }
 
   await query(`UPDATE tickets SET ${updates.join(', ')} WHERE id = ?`, [...params, ticketId]);
+
+  // Adjust engineer workload based on status transitions
+  if (engineerId && oldStatus !== status) {
+    const wasPaused = PAUSED_STATUSES.includes(oldStatus);
+    const nowPaused = PAUSED_STATUSES.includes(status);
+
+    if (!wasPaused && nowPaused) {
+      // Entering a paused state → decrement workload
+      await query('UPDATE engineers SET current_workload = GREATEST(0, current_workload - 1), updated_at = CURRENT_TIMESTAMP WHERE id = ?', [engineerId]);
+    } else if (wasPaused && !nowPaused) {
+      // Returning to active state → increment workload
+      await query('UPDATE engineers SET current_workload = current_workload + 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [engineerId]);
+    }
+  }
 }
 
 export async function assignTicket(ticketId: number, engineerId: number): Promise<number | null> {
@@ -280,12 +301,14 @@ export async function assignTicket(ticketId: number, engineerId: number): Promis
   await transaction(async (client) => {
     // Check if ticket already has an assigned engineer
     const existing = await clientQuery(client, `
-      SELECT assigned_engineer_id FROM tickets WHERE id = ?
+      SELECT assigned_engineer_id, status FROM tickets WHERE id = ?
     `, [ticketId]);
     oldEngineerId = existing?.rows?.[0]?.assigned_engineer_id || null;
+    const oldStatus = existing?.rows?.[0]?.status;
+    const wasPaused = PAUSED_STATUSES.includes(oldStatus);
 
-    // If reassigning, decrement old engineer's workload
-    if (oldEngineerId && oldEngineerId !== engineerId) {
+    // If reassigning, decrement old engineer's workload only if ticket was active
+    if (oldEngineerId && oldEngineerId !== engineerId && !wasPaused) {
       await clientQuery(client, `
         UPDATE engineers SET current_workload = GREATEST(0, current_workload - 1), updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
@@ -297,8 +320,8 @@ export async function assignTicket(ticketId: number, engineerId: number): Promis
       WHERE id = ?
     `, [engineerId, ticketId]);
 
-    // Only increment new engineer's workload if it's a different engineer
-    if (oldEngineerId !== engineerId) {
+    // Increment new engineer's workload (assigned = active state)
+    if (oldEngineerId !== engineerId || wasPaused) {
       await clientQuery(client, `
         UPDATE engineers SET current_workload = current_workload + 1, updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
