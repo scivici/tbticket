@@ -379,3 +379,52 @@ export async function sendTicketStatusEmail(email: string, ticketNumber: string,
     emailTemplate('Ticket Status Updated', body, ticketNumber),
   );
 }
+
+export function sendWelcomeEmail(email: string, name: string, password: string) {
+  const loginUrl = `${config.appUrl}/login`;
+
+  const body = `
+    <p style="margin:0 0 16px 0;color:#334155;font-size:15px;line-height:1.6;font-family:${FONT_STACK}">
+      Hi ${name}, welcome to TelcoBridges Support! Your account has been created by an administrator.
+    </p>
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 20px 0;background-color:#f8fafc;border-radius:8px">
+      <tr>
+        <td style="padding:20px">
+          <table width="100%" cellpadding="0" cellspacing="0" border="0">
+            <tr>
+              <td style="padding:6px 0;color:#64748b;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;font-family:${FONT_STACK};width:120px">Login URL</td>
+              <td style="padding:6px 0;font-family:${FONT_STACK}"><a href="${loginUrl}" style="color:#0ea5e9;font-size:14px;font-weight:500;text-decoration:none">${loginUrl}</a></td>
+            </tr>
+            <tr>
+              <td style="padding:6px 0;color:#64748b;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;font-family:${FONT_STACK}">Email</td>
+              <td style="padding:6px 0;color:#1a2332;font-size:14px;font-weight:500;font-family:${FONT_STACK}">${email}</td>
+            </tr>
+            <tr>
+              <td style="padding:6px 0;color:#64748b;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;font-family:${FONT_STACK}">Password</td>
+              <td style="padding:6px 0;font-family:Consolas,Monaco,'Courier New',monospace">
+                <code style="background:#e0f2fe;color:#0369a1;padding:4px 12px;border-radius:4px;font-size:14px;font-weight:600;letter-spacing:0.5px">${password}</code>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+    <p style="margin:0 0 12px 0;color:#475569;font-size:14px;line-height:1.6;font-family:${FONT_STACK}">
+      For security, we recommend changing your password after your first login.
+    </p>
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:16px 0">
+      <tr>
+        <td align="center">
+          <a href="${loginUrl}" target="_blank" style="display:inline-block;padding:12px 32px;background-color:#0ea5e9;color:#ffffff;font-size:15px;font-weight:600;border-radius:8px;text-decoration:none;font-family:${FONT_STACK}">
+            Sign In to Your Account
+          </a>
+        </td>
+      </tr>
+    </table>`;
+
+  return sendEmail(
+    email,
+    'Welcome to TelcoBridges Support — Your Account Details',
+    emailTemplate('Welcome to TelcoBridges Support', body),
+  );
+}

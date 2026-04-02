@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { query, queryOne, queryAll } from '../db/connection';
+import { sendWelcomeEmail } from '../services/email.service';
 
 export async function getCustomers(_req: Request, res: Response): Promise<void> {
   const customers = await queryAll<any>(`
@@ -40,6 +41,8 @@ export async function createCustomer(req: Request, res: Response): Promise<void>
     'INSERT INTO customers (email, name, company, password_hash, role) VALUES (?, ?, ?, ?, ?) RETURNING id',
     [email, name, company || null, passwordHash, 'customer']
   );
+
+  sendWelcomeEmail(email, name, password);
 
   res.status(201).json({ id: result.rows[0].id, message: 'Customer created' });
 }
