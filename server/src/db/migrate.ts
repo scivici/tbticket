@@ -222,6 +222,16 @@ export async function runMigrations(): Promise<void> {
     console.log('[DB] Migration: added is_company_admin and can_create_tickets columns to customers');
   }
 
+  // Sync engineer workloads: count only active (non-paused) tickets
+  await query(`
+    UPDATE engineers SET current_workload = (
+      SELECT COUNT(*) FROM tickets
+      WHERE assigned_engineer_id = engineers.id
+        AND status NOT IN ('waiting_for_customer', 'escalated_to_jira', 'resolved', 'closed')
+    )
+  `);
+  console.log('[DB] Synced engineer workloads from actual active ticket counts');
+
   // Migration: rename pending_info → waiting_for_customer (constraint first, then data)
   const checkConstraint = await query(`
     SELECT conname FROM pg_constraint

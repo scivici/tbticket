@@ -29,6 +29,7 @@ async function runScheduledTasks() {
     await sendIdleTicketAlerts();
     await sendCustomerReminderAlerts();
     await sendSlaBreachAlerts();
+    await syncEngineerWorkloads();
   } catch (error) {
     log.error('Error running scheduled tasks', { error: (error as Error).message });
   }
@@ -262,5 +263,26 @@ async function sendSlaBreachAlerts() {
   } catch (error) {
     // SLA service might not have all fields — gracefully skip
     log.warn('SLA breach check skipped', { error: (error as any)?.message });
+  }
+}
+
+/**
+ * Sync engineer workloads with actual active ticket counts.
+ * Corrects any drift caused by edge cases or past bugs.
+ */
+async function syncEngineerWorkloads() {
+  const result = await query(`
+    UPDATE engineers SET current_workload = sub.active_count
+    FROM (
+      SELECT e.id, COUNT(t.id) as active_count
+      FROM engineers e
+      LEFT JOIN tickets t ON t.assigned_engineer_id = e.id
+        AND t.status NOT IN ('waiting_for_customer', 'escalated_to_jira', 'resolved', 'closed')
+      GROUP BY e.id
+    ) sub
+    WHERE engineers.id = sub.id AND engineers.current_workload != sub.active_count
+  `);
+  if (result.rowCount && result.rowCount > 0) {
+    log.info(`Synced workloads for ${result.rowCount} engineers`);
   }
 }
