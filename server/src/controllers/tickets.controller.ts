@@ -577,7 +577,7 @@ export async function updateStatus(req: AuthenticatedRequest, res: Response): Pr
   const { id } = req.params;
   const { status } = req.body;
 
-  const validStatuses = ['new', 'analyzing', 'assigned', 'in_progress', 'pending_info', 'escalated_to_jira', 'resolved', 'closed'];
+  const validStatuses = ['new', 'analyzing', 'assigned', 'in_progress', 'waiting_for_customer', 'escalated_to_jira', 'resolved', 'closed'];
   if (!validStatuses.includes(status)) {
     res.status(400).json({ error: 'Invalid status' });
     return;
@@ -603,7 +603,7 @@ export async function updateStatus(req: AuthenticatedRequest, res: Response): Pr
     const statusLabels: Record<string, string> = {
       assigned: 'Your ticket has been assigned to an engineer',
       in_progress: 'An engineer is working on your ticket',
-      pending_info: 'More information is needed for your ticket',
+      waiting_for_customer: 'More information is needed for your ticket',
       resolved: 'Your ticket has been resolved',
       closed: 'Your ticket has been closed',
     };

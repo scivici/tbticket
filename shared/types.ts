@@ -1,6 +1,6 @@
 // ============ Enums ============
 
-export type TicketStatus = 'new' | 'analyzing' | 'assigned' | 'in_progress' | 'pending_info' | 'resolved' | 'closed';
+export type TicketStatus = 'new' | 'analyzing' | 'assigned' | 'in_progress' | 'waiting_for_customer' | 'resolved' | 'closed';
 export type TicketPriority = 'low' | 'medium' | 'high' | 'critical';
 export type UserRole = 'customer' | 'admin';
 export type QuestionType = 'text' | 'textarea' | 'select' | 'multiselect' | 'radio' | 'checkbox' | 'number' | 'date' | 'file';

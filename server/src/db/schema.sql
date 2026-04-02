@@ -93,7 +93,7 @@ CREATE TABLE IF NOT EXISTS tickets (
     subject TEXT NOT NULL,
     description TEXT NOT NULL,
     product_key TEXT,
-    status TEXT NOT NULL DEFAULT 'new' CHECK(status IN ('new', 'analyzing', 'assigned', 'in_progress', 'pending_info', 'escalated_to_jira', 'resolved', 'closed')),
+    status TEXT NOT NULL DEFAULT 'new' CHECK(status IN ('new', 'analyzing', 'assigned', 'in_progress', 'waiting_for_customer', 'escalated_to_jira', 'resolved', 'closed')),
     priority TEXT NOT NULL DEFAULT 'medium' CHECK(priority IN ('low', 'medium', 'high', 'critical')),
     assigned_engineer_id INTEGER REFERENCES engineers(id),
     jira_issue_key TEXT,

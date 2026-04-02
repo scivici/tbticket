@@ -5,7 +5,7 @@ const statusColors: Record<string, string> = {
   analyzing: 'bg-purple-200 text-purple-800',
   assigned: 'bg-status-warn-bg text-status-warn-text',
   in_progress: 'bg-amber-100 text-amber-800',
-  pending_info: 'bg-gray-200 text-gray-700',
+  waiting_for_customer: 'bg-yellow-100 text-yellow-800',
   escalated_to_jira: 'bg-orange-200 text-orange-800',
   resolved: 'bg-status-active-bg text-status-active-text',
   closed: 'bg-gray-300 text-gray-600',

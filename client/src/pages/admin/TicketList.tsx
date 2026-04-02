@@ -5,7 +5,7 @@ import { StatusBadge, PriorityBadge } from '../../components/StatusBadge';
 import { RefreshCw, Download, Trash2, CheckSquare, Search, Filter, X } from 'lucide-react';
 import Pagination from '../../components/Pagination';
 
-const STATUS_OPTIONS = ['new', 'analyzing', 'assigned', 'in_progress', 'pending_info', 'escalated_to_jira', 'resolved', 'closed'];
+const STATUS_OPTIONS = ['new', 'analyzing', 'assigned', 'in_progress', 'waiting_for_customer', 'escalated_to_jira', 'resolved', 'closed'];
 
 export default function TicketList() {
   const [searchParams] = useSearchParams();

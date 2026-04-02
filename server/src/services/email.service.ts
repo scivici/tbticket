@@ -309,7 +309,7 @@ export async function sendTicketStatusEmail(email: string, ticketNumber: string,
     analyzing:         { label: 'Analyzing',     color: '#8b5cf6', bg: '#ede9fe' },
     assigned:          { label: 'Assigned',      color: '#3b82f6', bg: '#dbeafe' },
     in_progress:       { label: 'In Progress',   color: '#f59e0b', bg: '#fef3c7' },
-    pending_info:      { label: 'Pending Info',  color: '#f97316', bg: '#ffedd5' },
+    waiting_for_customer: { label: 'Waiting for Customer', color: '#f97316', bg: '#ffedd5' },
     escalated_to_jira: { label: 'Escalated',     color: '#ef4444', bg: '#fee2e2' },
     resolved:          { label: 'Resolved',      color: '#22c55e', bg: '#dcfce7' },
     closed:            { label: 'Closed',        color: '#64748b', bg: '#f1f5f9' },
@@ -367,7 +367,7 @@ export async function sendTicketStatusEmail(email: string, ticketNumber: string,
       The ticket will be automatically closed after a period of inactivity.
       If the issue persists, please reply through the support portal and we will reopen the investigation.
     </p>${surveyHtml}` : ''}
-    ${newStatus === 'pending_info' ? `
+    ${newStatus === 'waiting_for_customer' ? `
     <p style="margin:0;color:#475569;font-size:14px;line-height:1.6;font-family:${FONT_STACK}">
       We need additional information from you to continue working on this ticket.
       Please check the latest response in the support portal and provide the requested details.

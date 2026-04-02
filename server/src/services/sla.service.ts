@@ -74,7 +74,7 @@ export async function getTicketSlaStatus(ticketId: number): Promise<SlaStatus | 
 }
 
 export async function getBreachedTickets() {
-  const openTickets = await queryAll<any>("SELECT id FROM tickets WHERE status NOT IN ('resolved', 'closed')");
+  const openTickets = await queryAll<any>("SELECT id FROM tickets WHERE status NOT IN ('resolved', 'closed', 'waiting_for_customer')");
   const results = [];
   for (const t of openTickets) {
     const status = await getTicketSlaStatus(t.id);

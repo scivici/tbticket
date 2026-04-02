@@ -43,13 +43,13 @@ async function autoCloseInactiveTickets() {
   const days = parseInt(daysStr);
   if (isNaN(days) || days <= 0) return;
 
-  // Find tickets in resolved/pending_info status that haven't been updated in X days
+  // Find tickets in resolved/waiting_for_customer status that haven't been updated in X days
   const staleTickets = await queryAll<any>(`
     SELECT t.id, t.ticket_number, t.customer_id, t.status,
            c.email as customer_email
     FROM tickets t
     JOIN customers c ON t.customer_id = c.id
-    WHERE t.status IN ('resolved', 'pending_info')
+    WHERE t.status IN ('resolved', 'waiting_for_customer')
       AND t.updated_at < CURRENT_TIMESTAMP - INTERVAL '${days} days'
   `);
 
@@ -73,18 +73,18 @@ async function autoCloseInactiveTickets() {
 
 /**
  * 5.3 - Auto-state transitions based on responses
- * When customer replies to a pending_info ticket → move to in_progress
+ * When customer replies to a waiting_for_customer ticket → move to in_progress
  * When admin replies to a new/assigned ticket → move to in_progress
  */
 async function autoStateTransitions() {
   const enabled = await getSetting('auto_state_transitions');
   if (enabled === 'false') return;
 
-  // Find pending_info tickets where the last response is from customer
+  // Find waiting_for_customer tickets where the last response is from customer
   const pendingWithCustomerReply = await queryAll<any>(`
     SELECT t.id, t.ticket_number, t.customer_id
     FROM tickets t
-    WHERE t.status = 'pending_info'
+    WHERE t.status = 'waiting_for_customer'
       AND EXISTS (
         SELECT 1 FROM ticket_responses tr
         WHERE tr.ticket_id = t.id
@@ -103,7 +103,7 @@ async function autoStateTransitions() {
   }
 
   if (pendingWithCustomerReply.length > 0) {
-    log.info(`Auto-transitioned ${pendingWithCustomerReply.length} tickets from pending_info to in_progress`);
+    log.info(`Auto-transitioned ${pendingWithCustomerReply.length} tickets from waiting_for_customer to in_progress`);
   }
 }
 
@@ -155,7 +155,7 @@ async function sendIdleTicketAlerts() {
 }
 
 /**
- * 5.2 - Auto-reminders for customers with pending_info tickets
+ * 5.2 - Auto-reminders for customers with waiting_for_customer tickets
  */
 async function sendCustomerReminderAlerts() {
   const hoursStr = await getSetting('customer_reminder_hours');
@@ -163,13 +163,13 @@ async function sendCustomerReminderAlerts() {
   const hours = parseInt(hoursStr);
   if (isNaN(hours) || hours <= 0) return;
 
-  // Find pending_info tickets where we haven't sent a reminder recently
+  // Find waiting_for_customer tickets where we haven't sent a reminder recently
   const pendingTickets = await queryAll<any>(`
     SELECT t.id, t.ticket_number, t.customer_id, t.subject,
            c.email as customer_email, c.name as customer_name
     FROM tickets t
     JOIN customers c ON t.customer_id = c.id
-    WHERE t.status = 'pending_info'
+    WHERE t.status = 'waiting_for_customer'
       AND t.updated_at < CURRENT_TIMESTAMP - INTERVAL '${hours} hours'
       AND NOT EXISTS (
         SELECT 1 FROM ticket_activity_log tal

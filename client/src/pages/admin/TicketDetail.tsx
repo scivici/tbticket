@@ -1317,8 +1317,8 @@ export default function TicketDetail() {
               <div>
                 <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Change Status</label>
                 <select value={ticket.status} onChange={e => handleStatusChange(e.target.value)} disabled={!!actionLoading} className="tb-select w-full">
-                  {['new', 'analyzing', 'assigned', 'in_progress', 'pending_info', 'escalated_to_jira', 'resolved', 'closed'].map(s => (
-                    <option key={s} value={s}>{s.replace('_', ' ')}</option>
+                  {['new', 'analyzing', 'assigned', 'in_progress', 'waiting_for_customer', 'escalated_to_jira', 'resolved', 'closed'].map(s => (
+                    <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
                   ))}
                 </select>
               </div>

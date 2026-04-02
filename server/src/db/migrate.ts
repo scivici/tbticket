@@ -221,4 +221,27 @@ export async function runMigrations(): Promise<void> {
     await query("ALTER TABLE customers ADD COLUMN can_create_tickets BOOLEAN NOT NULL DEFAULT TRUE");
     console.log('[DB] Migration: added is_company_admin and can_create_tickets columns to customers');
   }
+
+  // Migration: rename pending_info status to waiting_for_customer
+  const hasPendingInfo = await query(
+    "SELECT 1 FROM tickets WHERE status = 'pending_info' LIMIT 1"
+  );
+  if (hasPendingInfo.rows.length > 0) {
+    await query("UPDATE tickets SET status = 'waiting_for_customer' WHERE status = 'pending_info'");
+    console.log('[DB] Migration: renamed pending_info to waiting_for_customer');
+  }
+
+  // Update CHECK constraint to use waiting_for_customer instead of pending_info
+  const checkConstraint = await query(`
+    SELECT conname FROM pg_constraint
+    WHERE conrelid = 'tickets'::regclass AND contype = 'c'
+      AND pg_get_constraintdef(oid) LIKE '%pending_info%'
+  `);
+  if (checkConstraint.rows.length > 0) {
+    for (const row of checkConstraint.rows) {
+      await query(`ALTER TABLE tickets DROP CONSTRAINT "${row.conname}"`);
+    }
+    await query(`ALTER TABLE tickets ADD CONSTRAINT tickets_status_check CHECK(status IN ('new', 'analyzing', 'assigned', 'in_progress', 'waiting_for_customer', 'escalated_to_jira', 'resolved', 'closed'))`);
+    console.log('[DB] Migration: updated status CHECK constraint (pending_info → waiting_for_customer)');
+  }
 }

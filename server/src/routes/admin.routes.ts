@@ -307,7 +307,7 @@ router.get('/sla-compliance', authenticate, requireAdminOrEngineer, async (req: 
     const resolved = t.resolved_at ? new Date(t.resolved_at).getTime() : null;
 
     const respBreached = firstResp ? firstResp > respDeadline : Date.now() > respDeadline;
-    const resolBreached = resolved ? resolved > resolDeadline : (t.status !== 'resolved' && t.status !== 'closed' && Date.now() > resolDeadline);
+    const resolBreached = resolved ? resolved > resolDeadline : (t.status !== 'resolved' && t.status !== 'closed' && t.status !== 'waiting_for_customer' && Date.now() > resolDeadline);
 
     if (respBreached) responseBreach++; else responseOnTime++;
     if (resolBreached) resolutionBreach++; else resolutionOnTime++;
@@ -473,7 +473,7 @@ router.get('/sla-dashboard', authenticate, requireAdminOrEngineer, async (_req: 
       const resolved = t.resolved_at ? new Date(t.resolved_at).getTime() : null;
 
       const respBreached = firstResp ? firstResp > respDeadline : now > respDeadline;
-      const resolBreached = resolved ? resolved > resolDeadline : (t.status !== 'resolved' && t.status !== 'closed' && now > resolDeadline);
+      const resolBreached = resolved ? resolved > resolDeadline : (t.status !== 'resolved' && t.status !== 'closed' && t.status !== 'waiting_for_customer' && now > resolDeadline);
 
       if (!respBreached) complianceByPriority[priority].responseMet++;
       if (!resolBreached) complianceByPriority[priority].resolutionMet++;
@@ -483,8 +483,8 @@ router.get('/sla-dashboard', authenticate, requireAdminOrEngineer, async (_req: 
         complianceByPriority[priority].respondedCount++;
       }
 
-      // Currently breached (open tickets only)
-      if ((respBreached || resolBreached) && t.status !== 'resolved' && t.status !== 'closed') {
+      // Currently breached (open tickets only, exclude waiting_for_customer — SLA paused)
+      if ((respBreached || resolBreached) && t.status !== 'resolved' && t.status !== 'closed' && t.status !== 'waiting_for_customer') {
         const overdueHours = respBreached && !firstResp
           ? (now - respDeadline) / 3600000
           : resolBreached ? (now - resolDeadline) / 3600000 : 0;
@@ -547,7 +547,7 @@ router.get('/sla-dashboard', authenticate, requireAdminOrEngineer, async (_req: 
       if (resolved && resolved > resolDeadline) {
         const breachDate = new Date(resolDeadline).toISOString().split('T')[0];
         if (trend[breachDate] !== undefined) trend[breachDate]++;
-      } else if (!resolved && t.status !== 'resolved' && t.status !== 'closed' && now > resolDeadline) {
+      } else if (!resolved && t.status !== 'resolved' && t.status !== 'closed' && t.status !== 'waiting_for_customer' && now > resolDeadline) {
         const breachDate = new Date(resolDeadline).toISOString().split('T')[0];
         if (trend[breachDate] !== undefined) trend[breachDate]++;
       }
