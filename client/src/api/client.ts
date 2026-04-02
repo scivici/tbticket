@@ -187,6 +187,8 @@ export const admin = {
   customers: () => request<any[]>('/admin/customers'),
   createCustomer: (data: { email: string; name: string; company?: string; password: string }) =>
     request<any>('/admin/customers', { method: 'POST', body: JSON.stringify(data) }),
+  changeCustomerPassword: (id: number, password: string) =>
+    request<any>(`/admin/customers/${id}/password`, { method: 'PUT', body: JSON.stringify({ password }) }),
   getCustomer: (id: number) => request<any>(`/admin/customers/${id}`),
   customerTickets: (id: number) => request<any[]>(`/admin/customers/${id}/tickets`),
   updateCustomer: (id: number, data: any) =>

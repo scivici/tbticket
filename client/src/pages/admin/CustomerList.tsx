@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { admin } from '../../api/client';
 import { StatusBadge, PriorityBadge } from '../../components/StatusBadge';
-import { Users, Search, ChevronDown, ChevronRight, Save, ExternalLink, Globe, FileText, Building2, User, Ticket, Plus, Eye, EyeOff, RefreshCw } from 'lucide-react';
+import { Users, Search, ChevronDown, ChevronRight, Save, ExternalLink, Globe, FileText, Building2, User, Ticket, Plus, Eye, EyeOff, RefreshCw, Key } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 
 interface Customer {
@@ -51,6 +51,12 @@ export default function CustomerList() {
   const [createSaving, setCreateSaving] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
+  // Change password form
+  const [pwUserId, setPwUserId] = useState<number | null>(null);
+  const [pwValue, setPwValue] = useState('');
+  const [pwSaving, setPwSaving] = useState(false);
+  const [showPwValue, setShowPwValue] = useState(false);
+
   const loadCustomers = () => {
     admin.customers()
       .then(setCustomers)
@@ -81,6 +87,24 @@ export default function CustomerList() {
       toast.error(err?.message || 'Failed to create customer');
     }
     setCreateSaving(false);
+  };
+
+  const handleChangePassword = async (id: number) => {
+    if (!pwValue) {
+      toast.error('Password is required');
+      return;
+    }
+    setPwSaving(true);
+    try {
+      await admin.changeCustomerPassword(id, pwValue);
+      toast.success('Password changed and email sent to customer');
+      setPwUserId(null);
+      setPwValue('');
+      setShowPwValue(false);
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to change password');
+    }
+    setPwSaving(false);
   };
 
   // Group customers by company
@@ -483,6 +507,51 @@ export default function CustomerList() {
                                         ))}
                                         <button onClick={addLink} className="text-xs text-accent-blue hover:underline">+ Add Link</button>
                                       </div>
+                                    </div>
+
+                                    {/* Change Password */}
+                                    <div className="col-span-2 border-t border-gray-200 dark:border-gray-700 pt-4 mt-2">
+                                      <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3 flex items-center gap-2">
+                                        <Key className="w-4 h-4 text-amber-500" /> Change Password
+                                      </h4>
+                                      {pwUserId === c.id ? (
+                                        <div className="flex items-end gap-3">
+                                          <div className="flex-1 max-w-sm">
+                                            <div className="flex gap-2">
+                                              <div className="relative flex-1">
+                                                <input type={showPwValue ? 'text' : 'password'} value={pwValue}
+                                                  onChange={e => setPwValue(e.target.value)}
+                                                  placeholder="Min 8 chars, upper+lower+number" className="tb-input w-full pr-10 text-sm" />
+                                                <button type="button" onClick={() => setShowPwValue(!showPwValue)}
+                                                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                                                  {showPwValue ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                                </button>
+                                              </div>
+                                              <button type="button" onClick={() => { setPwValue(generatePassword()); setShowPwValue(true); }}
+                                                className="flex items-center gap-1 px-3 py-2 text-xs text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors whitespace-nowrap"
+                                                title="Generate password">
+                                                <RefreshCw className="w-3.5 h-3.5" /> Generate
+                                              </button>
+                                            </div>
+                                          </div>
+                                          <button onClick={() => handleChangePassword(c.id)} disabled={pwSaving}
+                                            className="px-4 py-2 bg-amber-500 text-white rounded-lg text-sm font-medium hover:bg-amber-600 disabled:opacity-50 transition-colors">
+                                            {pwSaving ? 'Saving...' : 'Update'}
+                                          </button>
+                                          <button onClick={() => { setPwUserId(null); setPwValue(''); setShowPwValue(false); }}
+                                            className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">
+                                            Cancel
+                                          </button>
+                                        </div>
+                                      ) : (
+                                        <button onClick={() => { setPwUserId(c.id); setPwValue(''); setShowPwValue(false); }}
+                                          className="flex items-center gap-2 px-3 py-2 text-sm text-amber-600 dark:text-amber-400 border border-amber-300 dark:border-amber-600 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors">
+                                          <Key className="w-3.5 h-3.5" /> Change Password
+                                        </button>
+                                      )}
+                                      <p className="text-xs text-gray-500 mt-2">
+                                        An email with the new password will be sent to the customer.
+                                      </p>
                                     </div>
 
                                     {/* Save */}

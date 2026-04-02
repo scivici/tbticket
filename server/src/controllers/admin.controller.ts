@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { query, queryOne, queryAll } from '../db/connection';
-import { sendWelcomeEmail } from '../services/email.service';
+import { sendWelcomeEmail, sendPasswordChangedEmail } from '../services/email.service';
 
 export async function getCustomers(_req: Request, res: Response): Promise<void> {
   const customers = await queryAll<any>(`
@@ -45,6 +45,34 @@ export async function createCustomer(req: Request, res: Response): Promise<void>
   sendWelcomeEmail(email, name, password);
 
   res.status(201).json({ id: result.rows[0].id, message: 'Customer created' });
+}
+
+export async function changeCustomerPassword(req: Request, res: Response): Promise<void> {
+  const { id } = req.params;
+  const { password } = req.body;
+
+  if (!password) {
+    res.status(400).json({ error: 'Password is required' });
+    return;
+  }
+
+  if (password.length < 8 || !/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password)) {
+    res.status(400).json({ error: 'Password must be at least 8 characters with uppercase, lowercase, and a number' });
+    return;
+  }
+
+  const customer = await queryOne<any>('SELECT id, email, name FROM customers WHERE id = ? AND role = ?', [id, 'customer']);
+  if (!customer) {
+    res.status(404).json({ error: 'Customer not found' });
+    return;
+  }
+
+  const passwordHash = bcrypt.hashSync(password, 10);
+  await query('UPDATE customers SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [passwordHash, id]);
+
+  sendPasswordChangedEmail(customer.email, customer.name, password);
+
+  res.json({ message: 'Password changed' });
 }
 
 export async function getDashboardStats(_req: Request, res: Response): Promise<void> {
