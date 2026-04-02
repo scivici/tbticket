@@ -60,6 +60,11 @@ function scanFile(filePath: string): Promise<{ clean: boolean; virus?: string }>
         resolve({ clean: false, virus: match?.[1]?.trim() || 'Unknown threat' });
       } else if (response.includes('OK')) {
         resolve({ clean: true });
+      } else if (response.includes('INSTREAM size limit exceeded')) {
+        log.error('ClamAV stream size limit exceeded — increase StreamMaxLength in clamd.conf', { filePath, response });
+        resolve(CLAMAV_REQUIRED
+          ? { clean: false, virus: '__SCANNER_ERROR__' }
+          : { clean: true });
       } else {
         // Unexpected response
         log.error('ClamAV unexpected response', { filePath, response });

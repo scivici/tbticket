@@ -21,6 +21,7 @@ services:
     volumes:
       - clamav_data:/var/lib/clamav
       - /home/support/incoming/uploads:/app/server/uploads:ro
+      - ./clamav/clamd.conf:/etc/clamav/clamd.conf:ro
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "echo PING | nc localhost 3310 | grep -q PONG"]
