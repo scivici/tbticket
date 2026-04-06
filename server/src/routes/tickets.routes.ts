@@ -83,6 +83,7 @@ router.get('/:id/jira-status', authenticate, requireAdminOrEngineer, ticketsCont
 router.patch('/:id/bugzilla', authenticate, requireAdminOrEngineer, ticketsController.updateBugzillaKeys);
 router.post('/:id/analyze', authenticate, requireAdminOrEngineer, ticketsController.reanalyzeTicket);
 router.post('/:id/merge', authenticate, requireAdminOrEngineer, ticketsController.mergeTickets);
+router.patch('/:id/sla-pause', authenticate, requireAdminOrEngineer, ticketsController.toggleSlaPause);
 // Admin only
 router.delete('/:id', authenticate, requireAdmin, ticketsController.deleteTicket);
 

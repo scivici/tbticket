@@ -1701,3 +1701,45 @@ export async function getSatisfaction(req: AuthenticatedRequest, res: Response):
     res.status(500).json({ error: 'Failed to get satisfaction rating' });
   }
 }
+
+export async function toggleSlaPause(req: AuthenticatedRequest, res: Response): Promise<void> {
+  const { id } = req.params;
+  const { paused } = req.body;
+  const ticketId = parseInt(id);
+
+  if (typeof paused !== 'boolean') {
+    res.status(400).json({ error: 'paused (boolean) is required' });
+    return;
+  }
+
+  const ticket = await queryOne<any>('SELECT id, ticket_number, sla_paused_at, sla_total_paused_ms FROM tickets WHERE id = ?', [ticketId]);
+  if (!ticket) {
+    res.status(404).json({ error: 'Ticket not found' });
+    return;
+  }
+
+  if (paused) {
+    // Pause SLA
+    if (ticket.sla_paused_at) {
+      res.json({ message: 'SLA already paused' });
+      return;
+    }
+    await query('UPDATE tickets SET sla_paused_at = CURRENT_TIMESTAMP, sla_manually_paused = TRUE, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [ticketId]);
+  } else {
+    // Resume SLA
+    if (!ticket.sla_paused_at) {
+      res.json({ message: 'SLA already running' });
+      return;
+    }
+    const pausedAt = new Date(ticket.sla_paused_at).getTime();
+    const pausedMs = Math.max(0, Date.now() - pausedAt);
+    await query('UPDATE tickets SET sla_total_paused_ms = sla_total_paused_ms + ?, sla_paused_at = NULL, sla_manually_paused = FALSE, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [pausedMs, ticketId]);
+  }
+
+  // Log activity
+  const user = await queryOne<any>('SELECT name FROM customers WHERE id = ?', [req.user!.userId]);
+  await activityService.logActivity(ticketId, req.user!.userId, user?.name || 'Unknown', 'sla_pause_toggled', `SLA ${paused ? 'paused' : 'resumed'} manually`);
+
+  const slaStatus = await slaService.getTicketSlaStatus(ticketId);
+  res.json({ message: `SLA ${paused ? 'paused' : 'resumed'}`, slaStatus });
+}

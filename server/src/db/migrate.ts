@@ -222,6 +222,19 @@ export async function runMigrations(): Promise<void> {
     console.log('[DB] Migration: added is_company_admin and can_create_tickets columns to customers');
   }
 
+  // Migration: add SLA pause tracking columns to tickets
+  const slaPausedCol = await query(
+    "SELECT column_name FROM information_schema.columns WHERE table_name = 'tickets' AND column_name = 'sla_paused_at'"
+  );
+  if (slaPausedCol.rows.length === 0) {
+    await query("ALTER TABLE tickets ADD COLUMN sla_paused_at TIMESTAMPTZ");
+    await query("ALTER TABLE tickets ADD COLUMN sla_total_paused_ms BIGINT NOT NULL DEFAULT 0");
+    await query("ALTER TABLE tickets ADD COLUMN sla_manually_paused BOOLEAN NOT NULL DEFAULT FALSE");
+    // Backfill: mark currently waiting_for_customer tickets as SLA-paused
+    await query("UPDATE tickets SET sla_paused_at = updated_at WHERE status = 'waiting_for_customer' AND sla_paused_at IS NULL");
+    console.log('[DB] Migration: added SLA pause tracking columns (sla_paused_at, sla_total_paused_ms, sla_manually_paused)');
+  }
+
   // Sync engineer workloads: count only active (non-paused) tickets
   await query(`
     UPDATE engineers SET current_workload = (

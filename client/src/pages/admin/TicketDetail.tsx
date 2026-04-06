@@ -10,7 +10,7 @@ import {
   Brain, FileText, RefreshCw, MessageSquare, Send, Lock, Clock, ShieldAlert,
   Trash2, Tag, X, Plus, PlusCircle, ArrowRightCircle, UserCheck, AlertTriangle,
   MessageSquarePlus, Image as ImageIcon, Star, Upload, Paperclip, Link2, Users, ExternalLink,
-  Timer, Sparkles, BookOpen, Play, Square, Printer, Merge,
+  Timer, Sparkles, BookOpen, Play, Square, Printer, Merge, PauseCircle, PlayCircle,
   Search, Server, Zap, Target, Activity, Shield, ListChecks, Info, ChevronDown
 } from 'lucide-react';
 
@@ -1403,10 +1403,44 @@ export default function TicketDetail() {
           {/* SLA Status Card */}
           {ticket.slaStatus && (
             <div className="tb-card p-6">
-              <div className="flex items-center gap-2 mb-3">
-                <ShieldAlert className="w-5 h-5 text-accent-blue" />
-                <h3 className="font-semibold text-gray-900 dark:text-white">SLA Status</h3>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <ShieldAlert className="w-5 h-5 text-accent-blue" />
+                  <h3 className="font-semibold text-gray-900 dark:text-white">SLA Status</h3>
+                </div>
+                {(authUser?.role === 'admin' || authUser?.role === 'engineer') && ticket.status !== 'resolved' && ticket.status !== 'closed' && (
+                  <button
+                    onClick={async () => {
+                      try {
+                        const newPaused = !ticket.slaStatus.slaPaused;
+                        await ticketsApi.toggleSlaPause(ticket.id, newPaused);
+                        toast.success(`SLA ${newPaused ? 'paused' : 'resumed'}`);
+                        load();
+                      } catch (e: any) {
+                        toast.error(e.message || 'Failed to toggle SLA');
+                      }
+                    }}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
+                      ticket.slaStatus.slaPaused
+                        ? 'bg-accent-green/10 text-accent-green hover:bg-accent-green/20'
+                        : 'bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/20'
+                    }`}
+                    title={ticket.slaStatus.slaPaused ? 'Resume SLA timer' : 'Pause SLA timer'}
+                  >
+                    {ticket.slaStatus.slaPaused ? <PlayCircle className="w-3.5 h-3.5" /> : <PauseCircle className="w-3.5 h-3.5" />}
+                    {ticket.slaStatus.slaPaused ? 'Resume' : 'Pause'}
+                  </button>
+                )}
               </div>
+              {ticket.slaStatus.slaPaused && (
+                <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 text-xs font-medium">
+                  <PauseCircle className="w-4 h-4" />
+                  SLA paused{ticket.slaStatus.slaManuallyPaused ? ' (manual)' : ' (waiting for customer)'}
+                  {ticket.slaStatus.totalPausedHours > 0 && (
+                    <span className="ml-auto text-yellow-500">{ticket.slaStatus.totalPausedHours}h paused</span>
+                  )}
+                </div>
+              )}
               <div className="space-y-4 text-sm">
                 <SlaDeadlineRow
                   label="Response Deadline"
@@ -1414,6 +1448,7 @@ export default function TicketDetail() {
                   breached={ticket.slaStatus.responseBreached}
                   remaining={ticket.slaStatus.responseRemaining}
                   completed={ticket.slaStatus.firstResponseAt !== null}
+                  paused={ticket.slaStatus.slaPaused}
                 />
                 <SlaDeadlineRow
                   label="Resolution Deadline"
@@ -1421,6 +1456,7 @@ export default function TicketDetail() {
                   breached={ticket.slaStatus.resolutionBreached}
                   remaining={ticket.slaStatus.resolutionRemaining}
                   completed={ticket.slaStatus.resolvedAt !== null}
+                  paused={ticket.slaStatus.slaPaused}
                 />
               </div>
             </div>
@@ -1717,12 +1753,13 @@ export default function TicketDetail() {
   );
 }
 
-function SlaDeadlineRow({ label, deadline, breached, remaining, completed }: {
+function SlaDeadlineRow({ label, deadline, breached, remaining, completed, paused }: {
   label: string;
   deadline: string;
   breached: boolean;
   remaining: number | null;
   completed: boolean;
+  paused?: boolean;
 }) {
   let statusColor = 'text-accent-green';
   let statusBg = 'bg-accent-green/10';
@@ -1732,6 +1769,10 @@ function SlaDeadlineRow({ label, deadline, breached, remaining, completed }: {
     statusText = breached ? 'Completed (was breached)' : 'Completed';
     statusColor = breached ? 'text-red-400' : 'text-accent-green';
     statusBg = breached ? 'bg-red-500/10' : 'bg-accent-green/10';
+  } else if (paused) {
+    statusText = 'PAUSED';
+    statusColor = 'text-yellow-500';
+    statusBg = 'bg-yellow-500/10';
   } else if (breached) {
     statusText = 'BREACHED';
     statusColor = 'text-red-400';

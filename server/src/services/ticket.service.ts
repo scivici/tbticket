@@ -266,7 +266,7 @@ export async function listTickets(filters: {
 const PAUSED_STATUSES = ['waiting_for_customer', 'escalated_to_jira', 'resolved', 'closed'];
 
 export async function updateTicketStatus(ticketId: number, status: string) {
-  const ticket = await queryOne<any>('SELECT status, assigned_engineer_id FROM tickets WHERE id = ?', [ticketId]);
+  const ticket = await queryOne<any>('SELECT status, assigned_engineer_id, sla_paused_at, sla_manually_paused FROM tickets WHERE id = ?', [ticketId]);
   const oldStatus = ticket?.status;
   const engineerId = ticket?.assigned_engineer_id;
 
@@ -275,6 +275,22 @@ export async function updateTicketStatus(ticketId: number, status: string) {
 
   if (status === 'resolved') {
     updates.push("resolved_at = CURRENT_TIMESTAMP");
+  }
+
+  // SLA pause logic: auto-pause when entering waiting_for_customer, resume when leaving
+  const SLA_PAUSE_STATUSES = ['waiting_for_customer'];
+  const enteringPause = SLA_PAUSE_STATUSES.includes(status) && !SLA_PAUSE_STATUSES.includes(oldStatus);
+  const leavingPause = SLA_PAUSE_STATUSES.includes(oldStatus) && !SLA_PAUSE_STATUSES.includes(status);
+
+  if (enteringPause && !ticket?.sla_paused_at && !ticket?.sla_manually_paused) {
+    // Start SLA pause (only if not already paused manually)
+    updates.push("sla_paused_at = CURRENT_TIMESTAMP");
+  } else if (leavingPause && ticket?.sla_paused_at && !ticket?.sla_manually_paused) {
+    // Accumulate paused duration and resume SLA
+    const pausedAt = new Date(ticket.sla_paused_at).getTime();
+    const pausedMs = Date.now() - pausedAt;
+    updates.push("sla_total_paused_ms = sla_total_paused_ms + " + Math.max(0, pausedMs));
+    updates.push("sla_paused_at = NULL");
   }
 
   await query(`UPDATE tickets SET ${updates.join(', ')} WHERE id = ?`, [...params, ticketId]);

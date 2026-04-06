@@ -148,6 +148,8 @@ export const tickets = {
 
   extractAttachmentData: (id: number, attachmentId: number) =>
     request<any>(`/tickets/${id}/extract-data/${attachmentId}`, { method: 'POST' }),
+  toggleSlaPause: (id: number, paused: boolean) =>
+    request<any>(`/tickets/${id}/sla-pause`, { method: 'PATCH', body: JSON.stringify({ paused }) }),
   getActivities: (id: number) => request<any[]>(`/tickets/${id}/activities`),
   getTags: (id: number) => request<string[]>(`/tickets/${id}/tags`),
   addTag: (id: number, tag: string) =>

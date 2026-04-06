@@ -276,6 +276,7 @@ router.get('/sla-compliance', authenticate, requireAdminOrEngineer, async (req: 
   const tickets = await queryAll<any>(`
     SELECT t.id, t.ticket_number, t.subject, t.priority, t.status,
            t.created_at, t.resolved_at,
+           t.sla_paused_at, t.sla_total_paused_ms,
            p.name as product_name,
            c.name as customer_name, c.company,
            e.name as engineer_name,
@@ -302,14 +303,23 @@ router.get('/sla-compliance', authenticate, requireAdminOrEngineer, async (req: 
     totalTickets++;
 
     const created = new Date(t.created_at).getTime();
-    const respDeadline = created + t.response_time_hours * 3600000;
-    const resolDeadline = created + t.resolution_time_hours * 3600000;
+
+    // Account for paused time in compliance calculations
+    let cPausedMs = Number(t.sla_total_paused_ms) || 0;
+    if (t.sla_paused_at) {
+      cPausedMs += Date.now() - new Date(t.sla_paused_at).getTime();
+    }
+    cPausedMs = Math.max(0, cPausedMs);
+
+    const respDeadline = created + t.response_time_hours * 3600000 + cPausedMs;
+    const resolDeadline = created + t.resolution_time_hours * 3600000 + cPausedMs;
+    const cIsSlaPaused = !!t.sla_paused_at;
 
     const firstResp = t.first_response_at ? new Date(t.first_response_at).getTime() : null;
     const resolved = t.resolved_at ? new Date(t.resolved_at).getTime() : null;
 
-    const respBreached = firstResp ? firstResp > respDeadline : Date.now() > respDeadline;
-    const resolBreached = resolved ? resolved > resolDeadline : (t.status !== 'resolved' && t.status !== 'closed' && t.status !== 'waiting_for_customer' && Date.now() > resolDeadline);
+    const respBreached = cIsSlaPaused ? false : (firstResp ? firstResp > respDeadline : Date.now() > respDeadline);
+    const resolBreached = cIsSlaPaused ? false : (resolved ? resolved > resolDeadline : (t.status !== 'resolved' && t.status !== 'closed' && t.status !== 'waiting_for_customer' && Date.now() > resolDeadline));
 
     if (respBreached) responseBreach++; else responseOnTime++;
     if (resolBreached) resolutionBreach++; else resolutionOnTime++;
@@ -441,6 +451,7 @@ router.get('/sla-dashboard', authenticate, requireAdminOrEngineer, async (_req: 
     const allTickets = await queryAll<any>(`
       SELECT t.id, t.ticket_number, t.subject, t.priority, t.status,
              t.created_at, t.resolved_at,
+             t.sla_paused_at, t.sla_total_paused_ms,
              sp.response_time_hours, sp.resolution_time_hours,
              e.name as engineer_name,
              c.name as customer_name,
@@ -468,14 +479,23 @@ router.get('/sla-dashboard', authenticate, requireAdminOrEngineer, async (_req: 
 
       complianceByPriority[priority].total++;
       const created = new Date(t.created_at).getTime();
-      const respDeadline = created + t.response_time_hours * 3600000;
-      const resolDeadline = created + t.resolution_time_hours * 3600000;
+
+      // Calculate total paused time for this ticket
+      let pausedMs = Number(t.sla_total_paused_ms) || 0;
+      if (t.sla_paused_at) {
+        pausedMs += now - new Date(t.sla_paused_at).getTime();
+      }
+      pausedMs = Math.max(0, pausedMs);
+
+      const respDeadline = created + t.response_time_hours * 3600000 + pausedMs;
+      const resolDeadline = created + t.resolution_time_hours * 3600000 + pausedMs;
 
       const firstResp = t.first_response_at ? new Date(t.first_response_at).getTime() : null;
       const resolved = t.resolved_at ? new Date(t.resolved_at).getTime() : null;
+      const isSlaPaused = !!t.sla_paused_at;
 
-      const respBreached = firstResp ? firstResp > respDeadline : now > respDeadline;
-      const resolBreached = resolved ? resolved > resolDeadline : (t.status !== 'resolved' && t.status !== 'closed' && t.status !== 'waiting_for_customer' && now > resolDeadline);
+      const respBreached = isSlaPaused ? false : (firstResp ? firstResp > respDeadline : now > respDeadline);
+      const resolBreached = isSlaPaused ? false : (resolved ? resolved > resolDeadline : (t.status !== 'resolved' && t.status !== 'closed' && t.status !== 'waiting_for_customer' && now > resolDeadline));
 
       if (!respBreached) complianceByPriority[priority].responseMet++;
       if (!resolBreached) complianceByPriority[priority].resolutionMet++;
@@ -485,8 +505,8 @@ router.get('/sla-dashboard', authenticate, requireAdminOrEngineer, async (_req: 
         complianceByPriority[priority].respondedCount++;
       }
 
-      // Currently breached (open tickets only, exclude waiting_for_customer — SLA paused)
-      if ((respBreached || resolBreached) && t.status !== 'resolved' && t.status !== 'closed' && t.status !== 'waiting_for_customer') {
+      // Currently breached (open tickets only, exclude paused SLA)
+      if ((respBreached || resolBreached) && t.status !== 'resolved' && t.status !== 'closed' && !isSlaPaused) {
         const overdueHours = respBreached && !firstResp
           ? (now - respDeadline) / 3600000
           : resolBreached ? (now - resolDeadline) / 3600000 : 0;
@@ -531,27 +551,38 @@ router.get('/sla-dashboard', authenticate, requireAdminOrEngineer, async (_req: 
     for (const t of allTickets) {
       if (!t.response_time_hours) continue;
       const created = new Date(t.created_at).getTime();
-      const respDeadline = created + t.response_time_hours * 3600000;
-      const resolDeadline = created + t.resolution_time_hours * 3600000;
+
+      // Account for paused time in trend calculations
+      let tPausedMs = Number(t.sla_total_paused_ms) || 0;
+      if (t.sla_paused_at) {
+        tPausedMs += now - new Date(t.sla_paused_at).getTime();
+      }
+      tPausedMs = Math.max(0, tPausedMs);
+
+      const respDeadline = created + t.response_time_hours * 3600000 + tPausedMs;
+      const resolDeadline = created + t.resolution_time_hours * 3600000 + tPausedMs;
+      const isSlaPaused = !!t.sla_paused_at;
 
       const firstResp = t.first_response_at ? new Date(t.first_response_at).getTime() : null;
       const resolved = t.resolved_at ? new Date(t.resolved_at).getTime() : null;
 
-      // Check if response SLA was breached and when
-      if (firstResp && firstResp > respDeadline) {
-        const breachDate = new Date(respDeadline).toISOString().split('T')[0];
-        if (trend[breachDate] !== undefined) trend[breachDate]++;
-      } else if (!firstResp && now > respDeadline) {
-        const breachDate = new Date(respDeadline).toISOString().split('T')[0];
-        if (trend[breachDate] !== undefined) trend[breachDate]++;
-      }
+      // Check if response SLA was breached and when (skip paused tickets)
+      if (!isSlaPaused) {
+        if (firstResp && firstResp > respDeadline) {
+          const breachDate = new Date(respDeadline).toISOString().split('T')[0];
+          if (trend[breachDate] !== undefined) trend[breachDate]++;
+        } else if (!firstResp && now > respDeadline) {
+          const breachDate = new Date(respDeadline).toISOString().split('T')[0];
+          if (trend[breachDate] !== undefined) trend[breachDate]++;
+        }
 
-      if (resolved && resolved > resolDeadline) {
-        const breachDate = new Date(resolDeadline).toISOString().split('T')[0];
-        if (trend[breachDate] !== undefined) trend[breachDate]++;
-      } else if (!resolved && t.status !== 'resolved' && t.status !== 'closed' && t.status !== 'waiting_for_customer' && now > resolDeadline) {
-        const breachDate = new Date(resolDeadline).toISOString().split('T')[0];
-        if (trend[breachDate] !== undefined) trend[breachDate]++;
+        if (resolved && resolved > resolDeadline) {
+          const breachDate = new Date(resolDeadline).toISOString().split('T')[0];
+          if (trend[breachDate] !== undefined) trend[breachDate]++;
+        } else if (!resolved && t.status !== 'resolved' && t.status !== 'closed' && now > resolDeadline) {
+          const breachDate = new Date(resolDeadline).toISOString().split('T')[0];
+          if (trend[breachDate] !== undefined) trend[breachDate]++;
+        }
       }
     }
 
