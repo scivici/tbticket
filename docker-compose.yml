@@ -24,7 +24,7 @@ services:
       - ./clamav/clamd.conf:/etc/clamav/clamd.conf:ro
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "echo PING | nc -w 3 localhost 3310 | grep -q PONG"]
+      test: ["CMD", "clamdscan", "--ping", "3"]
       interval: 30s
       timeout: 10s
       retries: 5
