@@ -50,7 +50,9 @@ function scanFile(filePath: string): Promise<{ clean: boolean; virus?: string }>
     const socket = new net.Socket();
     let resolved = false;
 
-    socket.setTimeout(30_000);
+    // ClamAV decompresses archives before scanning — ~4s/MB observed for tar.gz
+    // 5 minutes accommodates files up to ~75 MB comfortably
+    socket.setTimeout(300_000);
 
     function done(result: { clean: boolean; virus?: string }) {
       if (!resolved) {
@@ -93,7 +95,12 @@ function scanFile(filePath: string): Promise<{ clean: boolean; virus?: string }>
         const lengthBuf = Buffer.alloc(4);
         lengthBuf.writeUInt32BE(chunk.length, 0);
         socket.write(lengthBuf);
-        socket.write(chunk);
+        const canContinue = socket.write(chunk);
+        // Pause file stream if socket buffer is full (backpressure)
+        if (!canContinue) {
+          fileStream.pause();
+          socket.once('drain', () => fileStream.resume());
+        }
       });
       fileStream.on('end', () => {
         // Zero-length chunk signals end of stream
