@@ -26,57 +26,66 @@ const CLAMAV_REQUIRED = process.env.CLAMAV_REQUIRED !== 'false';
  * Scan a file using the ClamAV daemon INSTREAM protocol.
  * Streams the file contents to clamd over TCP — no local clamdscan binary needed.
  */
+function handleResponse(response: string, filePath: string): { clean: boolean; virus?: string } {
+  if (response.includes('FOUND')) {
+    const match = response.match(/:\s*(.+)\s+FOUND/);
+    return { clean: false, virus: match?.[1]?.trim() || 'Unknown threat' };
+  } else if (response.includes('OK')) {
+    return { clean: true };
+  } else if (response.includes('INSTREAM size limit exceeded')) {
+    log.error('ClamAV stream size limit exceeded — increase StreamMaxLength in clamd.conf', { filePath, response });
+    return CLAMAV_REQUIRED
+      ? { clean: false, virus: '__SCANNER_ERROR__' }
+      : { clean: true };
+  } else {
+    log.error('ClamAV unexpected response', { filePath, response });
+    return CLAMAV_REQUIRED
+      ? { clean: false, virus: '__SCANNER_ERROR__' }
+      : { clean: true };
+  }
+}
+
 function scanFile(filePath: string): Promise<{ clean: boolean; virus?: string }> {
   return new Promise((resolve) => {
     const socket = new net.Socket();
-    let responseData = '';
+    let resolved = false;
 
     socket.setTimeout(30_000);
 
+    function done(result: { clean: boolean; virus?: string }) {
+      if (!resolved) {
+        resolved = true;
+        socket.destroy();
+        resolve(result);
+      }
+    }
+
     socket.on('timeout', () => {
-      socket.destroy();
       log.error('ClamAV scan timeout', { filePath });
-      resolve(CLAMAV_REQUIRED
+      done(CLAMAV_REQUIRED
         ? { clean: false, virus: '__SCANNER_ERROR__' }
         : { clean: true });
     });
 
     socket.on('error', (err) => {
       log.error('ClamAV connection error', { filePath, error: err.message });
-      resolve(CLAMAV_REQUIRED
+      done(CLAMAV_REQUIRED
         ? { clean: false, virus: '__SCANNER_ERROR__' }
         : { clean: true });
     });
 
+    // In z-command session mode, ClamAV sends the response as data
+    // but does NOT close the connection. Process response in 'data' event.
     socket.on('data', (data) => {
-      responseData += data.toString();
-    });
-
-    socket.on('end', () => {
-      const response = responseData.trim();
-      if (response.includes('FOUND')) {
-        // e.g. "stream: Eicar-Signature FOUND"
-        const match = response.match(/:\s*(.+)\s+FOUND/);
-        resolve({ clean: false, virus: match?.[1]?.trim() || 'Unknown threat' });
-      } else if (response.includes('OK')) {
-        resolve({ clean: true });
-      } else if (response.includes('INSTREAM size limit exceeded')) {
-        log.error('ClamAV stream size limit exceeded — increase StreamMaxLength in clamd.conf', { filePath, response });
-        resolve(CLAMAV_REQUIRED
-          ? { clean: false, virus: '__SCANNER_ERROR__' }
-          : { clean: true });
-      } else {
-        // Unexpected response
-        log.error('ClamAV unexpected response', { filePath, response });
-        resolve(CLAMAV_REQUIRED
-          ? { clean: false, virus: '__SCANNER_ERROR__' }
-          : { clean: true });
+      const response = data.toString().replace(/\0/g, '').trim();
+      if (response.length > 0) {
+        done(handleResponse(response, filePath));
       }
     });
 
     socket.connect(CLAMAV_PORT, CLAMAV_HOST, () => {
-      // Use INSTREAM command: send file data in chunks, then a zero-length chunk to end
-      socket.write('INSTREAM\n');
+      // Use zINSTREAM (null-terminated session mode) — ClamAV 1.4 requires z-prefix
+      socket.write('zINSTREAM\0');
 
       const fileStream = fs.createReadStream(filePath);
       fileStream.on('data', (chunk: Buffer) => {
