@@ -66,7 +66,7 @@ services:
       postgres:
         condition: service_healthy
       clamav:
-        condition: service_started
+        condition: service_healthy
     restart: unless-stopped
     dns:
       - 10.0.0.1
