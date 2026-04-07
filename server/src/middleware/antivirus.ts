@@ -76,7 +76,7 @@ function scanFile(filePath: string): Promise<{ clean: boolean; virus?: string }>
 
     socket.connect(CLAMAV_PORT, CLAMAV_HOST, () => {
       // Use INSTREAM command: send file data in chunks, then a zero-length chunk to end
-      socket.write('zINSTREAM\0');
+      socket.write('INSTREAM\n');
 
       const fileStream = fs.createReadStream(filePath);
       fileStream.on('data', (chunk: Buffer) => {
