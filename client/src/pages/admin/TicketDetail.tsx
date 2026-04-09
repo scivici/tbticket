@@ -934,9 +934,13 @@ export default function TicketDetail() {
 
           {/* Activity Log */}
           {activities.length > 0 && (
-            <div className="tb-card p-6">
-              <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Activity Log</h3>
-              <div className="space-y-3">
+            <details className="tb-card p-6">
+              <summary className="cursor-pointer flex items-center gap-2 font-semibold text-gray-900 dark:text-white select-none">
+                <ChevronDown className="w-4 h-4 transition-transform details-open:rotate-0 -rotate-90" />
+                Activity Log
+                <span className="ml-auto text-sm font-normal text-gray-500">{activities.length} event{activities.length !== 1 ? 's' : ''}</span>
+              </summary>
+              <div className="space-y-3 mt-4">
                 {activities.map((act: any, i: number) => {
                   const IconComp = activityIcons[act.action] || PlusCircle;
                   return (
@@ -957,7 +961,7 @@ export default function TicketDetail() {
                   );
                 })}
               </div>
-            </div>
+            </details>
           )}
 
           {/* Time Entries */}
