@@ -22,9 +22,6 @@ export default function Navbar() {
           Submit Ticket
         </Link>
       )}
-      <Link to="/track" onClick={closeMobile} className="text-gray-600 dark:text-gray-300 hover:text-primary-500 dark:hover:text-accent-blue hover:bg-gray-100 dark:hover:bg-tb-bg px-3 py-2 rounded-lg text-sm font-medium transition-colors">
-        Track Ticket
-      </Link>
       <Link to="/knowledge-base" onClick={closeMobile} className="text-gray-600 dark:text-gray-300 hover:text-primary-500 dark:hover:text-accent-blue hover:bg-gray-100 dark:hover:bg-tb-bg px-3 py-2 rounded-lg text-sm font-medium transition-colors">
         Knowledge Base
       </Link>

@@ -51,7 +51,7 @@ export default function ReviewSubmit({ data, onUpdate, onPrev }: Props) {
         <p className="text-2xl font-mono font-bold text-accent-blue mb-6">{result.ticketNumber}</p>
         <p className="text-sm text-gray-500 mb-6">Save this number to track your ticket status.</p>
         <div className="flex justify-center gap-4">
-          <button onClick={() => navigate('/track')} className="tb-btn-primary px-6">Track Ticket</button>
+          <button onClick={() => navigate('/my-tickets')} className="tb-btn-primary px-6">My Tickets</button>
           <button onClick={() => navigate('/')} className="tb-btn-secondary px-6">Back to Home</button>
         </div>
       </div>
