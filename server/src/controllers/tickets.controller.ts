@@ -5,7 +5,7 @@ import { analyzeTicket, getAutoAssignThreshold } from '../services/claude.servic
 import * as claudeSshService from '../services/claude-ssh.service';
 import * as claudeWrapperService from '../services/claude-wrapper.service';
 import { getSetting } from '../services/settings.service';
-import { getBestEngineer } from '../services/assignment.service';
+import { getBestEngineer, isEngineerOnShift } from '../services/assignment.service';
 import { config } from '../config';
 import * as fs from 'fs';
 import * as notificationService from '../services/notification.service';
@@ -250,18 +250,21 @@ async function triggerSshAnalysis(ticketId: number, skipAssignment?: boolean) {
   const ticket = await ticketService.getTicketById(ticketId);
   if (!ticket) return;
 
-  // Gather engineer info
-  const engineers = await queryAll<any>('SELECT * FROM engineers WHERE is_active = TRUE AND current_workload < max_workload');
+  // Gather engineer info — filter by working hours first
+  const allEngineers = await queryAll<any>('SELECT * FROM engineers WHERE is_active = TRUE AND current_workload < max_workload');
+  const onShiftEngineers = allEngineers.filter((e: any) => isEngineerOnShift(e));
+  const engineers = onShiftEngineers.length > 0 ? onShiftEngineers : allEngineers;
   const engineerList = [];
   for (const e of engineers) {
     const skills = await queryAll<any>('SELECT s.name, es.proficiency FROM engineer_skills es JOIN skills s ON es.skill_id = s.id WHERE es.engineer_id = ?', [e.id]);
     const expertise = await queryAll<any>('SELECT p.name as pname, COALESCE(pc.name, \'General\') as cname, epe.expertise_level FROM engineer_product_expertise epe JOIN products p ON epe.product_id = p.id LEFT JOIN product_categories pc ON epe.category_id = pc.id WHERE epe.engineer_id = ?', [e.id]);
+    const shiftInfo = e.shift_start && e.shift_end ? ` [Working hours: ${e.shift_start}-${e.shift_end} ${e.timezone || 'UTC'}]` : '';
     engineerList.push({
       id: e.id,
       name: e.name,
       skills: skills.map((s: any) => `${s.name}(${s.proficiency}/5)`).join(', '),
       expertise: expertise.map((ex: any) => `${ex.pname}/${ex.cname}(${ex.expertise_level}/5)`).join(', '),
-      workload: `${e.current_workload}/${e.max_workload}`,
+      workload: `${e.current_workload}/${e.max_workload}${shiftInfo}`,
     });
   }
 
@@ -365,18 +368,21 @@ async function triggerWrapperAnalysis(ticketId: number, productId: number, categ
   const ticket = await ticketService.getTicketById(ticketId);
   if (!ticket) return;
 
-  // Gather engineer info
-  const engineers = await queryAll<any>('SELECT * FROM engineers WHERE is_active = TRUE AND current_workload < max_workload');
+  // Gather engineer info — filter by working hours first, then skills/workload
+  const allEngineers = await queryAll<any>('SELECT * FROM engineers WHERE is_active = TRUE AND current_workload < max_workload');
+  const onShiftEngineers = allEngineers.filter((e: any) => isEngineerOnShift(e));
+  const engineers = onShiftEngineers.length > 0 ? onShiftEngineers : allEngineers;
   const engineerList = [];
   for (const e of engineers) {
     const skills = await queryAll<any>('SELECT s.name, es.proficiency FROM engineer_skills es JOIN skills s ON es.skill_id = s.id WHERE es.engineer_id = ?', [e.id]);
     const expertise = await queryAll<any>('SELECT p.name as pname, COALESCE(pc.name, \'General\') as cname, epe.expertise_level FROM engineer_product_expertise epe JOIN products p ON epe.product_id = p.id LEFT JOIN product_categories pc ON epe.category_id = pc.id WHERE epe.engineer_id = ?', [e.id]);
+    const shiftInfo = e.shift_start && e.shift_end ? ` [Working hours: ${e.shift_start}-${e.shift_end} ${e.timezone || 'UTC'}]` : '';
     engineerList.push({
       id: e.id,
       name: e.name,
       skills: skills.map((s: any) => `${s.name}(${s.proficiency}/5)`).join(', '),
       expertise: expertise.map((ex: any) => `${ex.pname}/${ex.cname}(${ex.expertise_level}/5)`).join(', '),
-      workload: `${e.current_workload}/${e.max_workload}`,
+      workload: `${e.current_workload}/${e.max_workload}${shiftInfo}`,
     });
   }
 

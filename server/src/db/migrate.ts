@@ -235,6 +235,17 @@ export async function runMigrations(): Promise<void> {
     console.log('[DB] Migration: added SLA pause tracking columns (sla_paused_at, sla_total_paused_ms, sla_manually_paused)');
   }
 
+  // Migration: add working hours columns to engineers (shift_start, shift_end, timezone)
+  const shiftStartCol = await query(
+    "SELECT column_name FROM information_schema.columns WHERE table_name = 'engineers' AND column_name = 'shift_start'"
+  );
+  if (shiftStartCol.rows.length === 0) {
+    await query("ALTER TABLE engineers ADD COLUMN shift_start TEXT");
+    await query("ALTER TABLE engineers ADD COLUMN shift_end TEXT");
+    await query("ALTER TABLE engineers ADD COLUMN timezone TEXT DEFAULT 'UTC'");
+    console.log('[DB] Migration: added shift_start, shift_end, timezone columns to engineers');
+  }
+
   // Sync engineer workloads: count only active (non-paused) tickets
   await query(`
     UPDATE engineers SET current_workload = (

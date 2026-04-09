@@ -1,10 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { engineers as engineersApi, products as productsApi } from '../../api/client';
-import { User, Star, ChevronDown, ChevronUp, Plus, Pencil, Trash2, X, Save, PlusCircle, ExternalLink, Eye, EyeOff, Key, Mail, RefreshCw } from 'lucide-react';
+import { User, Star, ChevronDown, ChevronUp, Plus, Pencil, Trash2, X, Save, PlusCircle, ExternalLink, Eye, EyeOff, Key, Mail, RefreshCw, Clock } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 
-interface EngineerForm { name: string; email: string; location: string; maxWorkload: number; isActive: boolean; password: string; }
-const emptyForm: EngineerForm = { name: '', email: '', location: '', maxWorkload: 5, isActive: true, password: '' };
+interface EngineerForm { name: string; email: string; location: string; maxWorkload: number; isActive: boolean; password: string; shiftStart: string; shiftEnd: string; timezone: string; }
+const emptyForm: EngineerForm = { name: '', email: '', location: '', maxWorkload: 5, isActive: true, password: '', shiftStart: '', shiftEnd: '', timezone: 'America/Toronto' };
+
+const TIMEZONES = [
+  'America/Toronto', 'America/New_York', 'America/Chicago', 'America/Denver',
+  'America/Los_Angeles', 'America/Vancouver', 'Europe/London', 'Europe/Paris',
+  'Europe/Istanbul', 'Asia/Dubai', 'Asia/Kolkata', 'Asia/Tokyo', 'Australia/Sydney', 'UTC',
+];
 
 function generatePassword(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
@@ -148,7 +154,7 @@ export default function EngineerManager() {
 
   // CRUD
   const startCreate = () => { setCreating(true); setEditing(null); setForm(emptyForm); setError(''); };
-  const startEdit = (eng: any) => { setEditing(eng.id); setCreating(false); setForm({ name: eng.name, email: eng.email, location: eng.location, maxWorkload: eng.maxWorkload, isActive: eng.isActive, password: '' }); setError(''); };
+  const startEdit = (eng: any) => { setEditing(eng.id); setCreating(false); setForm({ name: eng.name, email: eng.email, location: eng.location, maxWorkload: eng.maxWorkload, isActive: eng.isActive, password: '', shiftStart: eng.shiftStart || '', shiftEnd: eng.shiftEnd || '', timezone: eng.timezone || 'America/Toronto' }); setError(''); };
   const cancel = () => { setCreating(false); setEditing(null); setForm(emptyForm); setError(''); };
 
   const handleSave = async () => {
@@ -186,6 +192,26 @@ export default function EngineerManager() {
             <div><label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Location *</label><input type="text" value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} className="tb-input" /></div>
             <div><label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Max Workload</label><input type="number" min={1} max={20} value={form.maxWorkload} onChange={e => setForm(f => ({ ...f, maxWorkload: parseInt(e.target.value) || 5 }))} className="tb-input" /></div>
             {editing && (<div className="flex items-center"><label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={form.isActive} onChange={e => setForm(f => ({ ...f, isActive: e.target.checked }))} className="rounded text-primary-500 bg-white dark:bg-tb-card border-gray-300 dark:border-gray-600" /><span className="text-sm font-medium text-gray-600 dark:text-gray-300">Active</span></label></div>)}
+            <div className="sm:col-span-2 border-t border-gray-200 dark:border-gray-700 pt-4 mt-2">
+              <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3 flex items-center gap-2"><Clock className="w-4 h-4 text-accent-blue" /> Working Hours (Weekdays Only)</h4>
+              <div className="grid sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Start Time</label>
+                  <input type="time" value={form.shiftStart} onChange={e => setForm(f => ({ ...f, shiftStart: e.target.value }))} className="tb-input" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">End Time</label>
+                  <input type="time" value={form.shiftEnd} onChange={e => setForm(f => ({ ...f, shiftEnd: e.target.value }))} className="tb-input" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Timezone</label>
+                  <select value={form.timezone} onChange={e => setForm(f => ({ ...f, timezone: e.target.value }))} className="tb-input">
+                    {TIMEZONES.map(tz => <option key={tz} value={tz}>{tz}</option>)}
+                  </select>
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">Leave empty for 24/7 availability. Tickets are only auto-assigned during working hours on weekdays.</p>
+            </div>
             {creating && (
               <div>
                 <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Password</label>
@@ -215,7 +241,17 @@ export default function EngineerManager() {
             <div className="flex items-center justify-between p-4">
               <button onClick={() => toggleExpand(eng.id)} className="flex items-center gap-3 flex-1 text-left hover:bg-black/5 dark:hover:bg-white/5 -m-2 p-2 rounded-lg">
                 <div className="w-10 h-10 bg-primary-500/20 rounded-full flex items-center justify-center"><User className="w-5 h-5 text-accent-blue" /></div>
-                <div><p className="font-medium text-gray-900 dark:text-white">{eng.name}</p><p className="text-sm text-gray-500 dark:text-gray-400">{eng.email} - {eng.location}</p></div>
+                <div>
+                  <p className="font-medium text-gray-900 dark:text-white">{eng.name}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {eng.email} - {eng.location}
+                    {eng.shiftStart && eng.shiftEnd && (
+                      <span className="ml-2 inline-flex items-center gap-1 text-xs text-accent-blue">
+                        <Clock className="w-3 h-3" />{eng.shiftStart}-{eng.shiftEnd} ({eng.timezone})
+                      </span>
+                    )}
+                  </p>
+                </div>
               </button>
               <div className="flex items-center gap-3">
                 <div className="text-right">
