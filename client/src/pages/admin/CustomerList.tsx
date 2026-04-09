@@ -51,6 +51,12 @@ export default function CustomerList() {
   const [createSaving, setCreateSaving] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
+  // Add user to company form
+  const [addingToCompany, setAddingToCompany] = useState<string | null>(null);
+  const [addUserForm, setAddUserForm] = useState({ email: '', name: '', password: '' });
+  const [addUserSaving, setAddUserSaving] = useState(false);
+  const [showAddUserPw, setShowAddUserPw] = useState(false);
+
   // Change password form
   const [pwUserId, setPwUserId] = useState<number | null>(null);
   const [pwValue, setPwValue] = useState('');
@@ -105,6 +111,30 @@ export default function CustomerList() {
       toast.error(err?.message || 'Failed to change password');
     }
     setPwSaving(false);
+  };
+
+  const handleAddUserToCompany = async (companyName: string) => {
+    if (!addUserForm.email || !addUserForm.name || !addUserForm.password) {
+      toast.error('Email, name, and password are required');
+      return;
+    }
+    setAddUserSaving(true);
+    try {
+      await admin.createCustomer({
+        email: addUserForm.email,
+        name: addUserForm.name,
+        company: companyName === 'No Company' ? undefined : companyName,
+        password: addUserForm.password,
+      });
+      toast.success(`User added to ${companyName}`);
+      setAddingToCompany(null);
+      setAddUserForm({ email: '', name: '', password: '' });
+      setShowAddUserPw(false);
+      loadCustomers();
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to add user');
+    }
+    setAddUserSaving(false);
   };
 
   // Group customers by company
@@ -342,6 +372,69 @@ export default function CustomerList() {
               {/* Expanded: Users List */}
               {expandedCompany === group.name && (
                 <div className="border-t border-gray-200 dark:border-gray-700">
+                  {/* Add User to Company */}
+                  <div className="px-5 py-3 pl-12 border-b border-gray-100 dark:border-gray-800">
+                    {addingToCompany === group.name ? (
+                      <div className="bg-accent-blue/5 dark:bg-accent-blue/10 border border-accent-blue/20 rounded-lg p-4">
+                        <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                          <Plus className="w-4 h-4 text-accent-blue" />
+                          Add User to {group.name}
+                        </h4>
+                        <div className="grid md:grid-cols-2 gap-3 max-w-2xl">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Name *</label>
+                            <input type="text" value={addUserForm.name}
+                              onChange={e => setAddUserForm({ ...addUserForm, name: e.target.value })}
+                              placeholder="Full name" className="tb-input w-full text-sm" />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Email *</label>
+                            <input type="email" value={addUserForm.email}
+                              onChange={e => setAddUserForm({ ...addUserForm, email: e.target.value })}
+                              placeholder="email@company.com" className="tb-input w-full text-sm" />
+                          </div>
+                          <div className="md:col-span-2">
+                            <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Password *</label>
+                            <div className="flex gap-2">
+                              <div className="relative flex-1 max-w-sm">
+                                <input type={showAddUserPw ? 'text' : 'password'} value={addUserForm.password}
+                                  onChange={e => setAddUserForm({ ...addUserForm, password: e.target.value })}
+                                  placeholder="Min 8 chars, upper+lower+number" className="tb-input w-full pr-10 text-sm" />
+                                <button type="button" onClick={() => setShowAddUserPw(!showAddUserPw)}
+                                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                                  {showAddUserPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                </button>
+                              </div>
+                              <button type="button" onClick={() => { setAddUserForm({ ...addUserForm, password: generatePassword() }); setShowAddUserPw(true); }}
+                                className="flex items-center gap-1 px-3 py-2 text-xs text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors whitespace-nowrap">
+                                <RefreshCw className="w-3.5 h-3.5" /> Generate
+                              </button>
+                            </div>
+                          </div>
+                          <div className="md:col-span-2 flex gap-2 justify-end mt-1">
+                            <button onClick={() => { setAddingToCompany(null); setAddUserForm({ email: '', name: '', password: '' }); setShowAddUserPw(false); }}
+                              className="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                              Cancel
+                            </button>
+                            <button onClick={() => handleAddUserToCompany(group.name)} disabled={addUserSaving}
+                              className="flex items-center gap-1.5 px-4 py-1.5 bg-accent-blue text-white rounded-lg text-sm font-medium hover:bg-accent-blue/80 disabled:opacity-50 transition-colors">
+                              <Plus className="w-3.5 h-3.5" />
+                              {addUserSaving ? 'Adding...' : 'Add User'}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => { setAddingToCompany(group.name); setAddUserForm({ email: '', name: '', password: '' }); setShowAddUserPw(false); }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-accent-blue border border-accent-blue/30 rounded-lg hover:bg-accent-blue/10 transition-colors"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        Add User to {group.name}
+                      </button>
+                    )}
+                  </div>
+
                   {group.customers.map(c => (
                     <div key={c.id}>
                       {/* User Row */}
