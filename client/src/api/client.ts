@@ -87,6 +87,8 @@ export const tickets = {
     request<any>(`/tickets/${id}/analyze`, { method: 'POST', body: JSON.stringify({ customPrompt }) }),
   addAttachments: (id: number, formData: FormData) =>
     request<any>(`/tickets/${id}/attachments`, { method: 'POST', body: formData }),
+  deleteAttachment: (id: number, attachmentId: number) =>
+    request<any>(`/tickets/${id}/attachments/${attachmentId}`, { method: 'DELETE' }),
   getResponses: (id: number) => request<any[]>(`/tickets/${id}/responses`),
   addResponse: (id: number, message: string, isInternal?: boolean) =>
     request<any>(`/tickets/${id}/responses`, { method: 'POST', body: JSON.stringify({ message, isInternal: isInternal || false }) }),

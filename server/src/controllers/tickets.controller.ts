@@ -7,6 +7,7 @@ import * as claudeWrapperService from '../services/claude-wrapper.service';
 import { getSetting } from '../services/settings.service';
 import { getBestEngineer } from '../services/assignment.service';
 import { config } from '../config';
+import * as fs from 'fs';
 import * as notificationService from '../services/notification.service';
 import * as emailService from '../services/email.service';
 import * as webhookService from '../services/webhook.service';
@@ -731,6 +732,45 @@ export async function addAttachments(req: AuthenticatedRequest, res: Response): 
   }
 }
 
+export async function deleteAttachment(req: AuthenticatedRequest, res: Response): Promise<void> {
+  try {
+    const { id, attachmentId } = req.params;
+    const ticketId = parseInt(id);
+    const attId = parseInt(attachmentId);
+
+    const ticket = await ticketService.getTicketById(ticketId);
+    if (!ticket) { res.status(404).json({ error: 'Ticket not found' }); return; }
+
+    // Check access: admin/engineer can delete any, customer only own tickets
+    if (req.user?.role !== 'admin' && req.user?.role !== 'engineer' && ticket.customerId !== req.user?.userId) {
+      res.status(403).json({ error: 'Access denied' }); return;
+    }
+
+    const attachment = await queryOne<any>('SELECT * FROM ticket_attachments WHERE id = ? AND ticket_id = ?', [attId, ticketId]);
+    if (!attachment) { res.status(404).json({ error: 'Attachment not found' }); return; }
+
+    // Delete file from filesystem
+    try { fs.unlinkSync(attachment.path); } catch (e) { /* file may already be gone */ }
+
+    // Delete from database
+    await query('DELETE FROM ticket_attachments WHERE id = ?', [attId]);
+
+    // Log activity
+    const user = await queryOne<any>(
+      req.user!.role === 'admin' || req.user!.role === 'engineer'
+        ? 'SELECT name FROM admin_users WHERE id = ?'
+        : 'SELECT name FROM customers WHERE id = ?',
+      [req.user!.userId]
+    );
+    await activityService.logActivity(ticketId, req.user!.userId, user?.name || 'Unknown', 'attachment_deleted', `Deleted file: ${attachment.original_name}`);
+
+    res.json({ message: 'Attachment deleted' });
+  } catch (error: any) {
+    console.error('[Tickets] Delete attachment error:', error);
+    res.status(500).json({ error: 'Failed to delete attachment' });
+  }
+}
+
 export async function addResponse(req: AuthenticatedRequest, res: Response): Promise<void> {
   try {
     const { id } = req.params;
@@ -1148,7 +1188,6 @@ export async function extractAttachmentData(req: AuthenticatedRequest, res: Resp
 
     if (!attachment) { res.status(404).json({ error: 'Attachment not found' }); return; }
 
-    const fs = await import('fs');
     if (!fs.existsSync(attachment.path)) { res.status(404).json({ error: 'File not found on disk' }); return; }
 
     // Read file content (text-based files only)

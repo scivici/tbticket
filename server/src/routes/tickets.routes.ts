@@ -27,6 +27,7 @@ router.get('/:id', authenticate, ticketsController.getTicket);
 
 // Authenticated - attachments
 router.post('/:id/attachments', authenticate, upload.array('files', 10), validateFileContent, antivirusScan, ticketsController.addAttachments);
+router.delete('/:id/attachments/:attachmentId', authenticate, ticketsController.deleteAttachment);
 
 // Authenticated - responses
 router.get('/:id/responses', authenticate, ticketsController.getResponses);

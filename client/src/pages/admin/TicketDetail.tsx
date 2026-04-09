@@ -253,6 +253,9 @@ export default function TicketDetail() {
   // File upload
   const [uploadingFiles, setUploadingFiles] = useState(false);
 
+  // Pasted images for response
+  const [pastedImages, setPastedImages] = useState<File[]>([]);
+
   // CC users
   const [ccUsers, setCcUsers] = useState<any[]>([]);
   const [newCcEmail, setNewCcEmail] = useState('');
@@ -368,18 +371,47 @@ export default function TicketDetail() {
   };
 
   const handleSendResponse = async () => {
-    if (!responseMessage.trim() || !ticket) return;
+    if ((!responseMessage.trim() && pastedImages.length === 0) || !ticket) return;
     setSendingResponse(true);
     try {
-      await ticketsApi.addResponse(ticket.id, responseMessage.trim(), isInternal);
+      if (responseMessage.trim()) {
+        await ticketsApi.addResponse(ticket.id, responseMessage.trim(), isInternal);
+      }
+      // Upload pasted images as attachments
+      if (pastedImages.length > 0) {
+        const formData = new FormData();
+        pastedImages.forEach(f => formData.append('files', f));
+        await ticketsApi.addAttachments(ticket.id, formData);
+      }
       setResponseMessage('');
+      setPastedImages([]);
       setIsInternal(false);
       loadResponses();
       loadActivities();
+      load();
     } catch (err) {
       console.error(err);
     } finally {
       setSendingResponse(false);
+    }
+  };
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    const images: File[] = [];
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.startsWith('image/')) {
+        const file = items[i].getAsFile();
+        if (file) {
+          const named = new File([file], `screenshot-${Date.now()}-${images.length}.png`, { type: file.type });
+          images.push(named);
+        }
+      }
+    }
+    if (images.length > 0) {
+      e.preventDefault();
+      setPastedImages(prev => [...prev, ...images]);
     }
   };
 
@@ -521,6 +553,177 @@ export default function TicketDetail() {
             <p className="text-gray-600 dark:text-gray-300 whitespace-pre-wrap">{ticket.description}</p>
           </div>
 
+          {/* Responses Section */}
+          <div className="tb-card p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <MessageSquare className="w-5 h-5 text-accent-blue" />
+              <h3 className="font-semibold text-gray-900 dark:text-white">Responses</h3>
+              <span className="ml-auto text-sm text-gray-500">{responses.length} message{responses.length !== 1 ? 's' : ''}</span>
+            </div>
+
+            {responses.length === 0 ? (
+              <p className="text-gray-500 dark:text-gray-400 text-sm">No responses yet.</p>
+            ) : (
+              <div className="space-y-4">
+                {responses.map((r: any) => (
+                  <div key={r.id} id={`response-${r.id}`} className={`p-4 rounded-lg scroll-mt-20 ${
+                    r.is_internal
+                      ? 'border-2 border-dashed border-yellow-500/30 bg-yellow-50 dark:bg-yellow-900/10'
+                      : r.author_role === 'admin'
+                        ? 'border-l-4 border-blue-500 bg-blue-50 dark:bg-blue-900/10'
+                        : 'border-l-4 border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50'
+                  }`}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="font-medium text-gray-900 dark:text-white text-sm">{r.author_name}</span>
+                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                        r.author_role === 'admin'
+                          ? 'bg-status-role-bg text-white'
+                          : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300'
+                      }`}>
+                        {r.author_role === 'admin' ? 'Admin' : 'Customer'}
+                      </span>
+                      {r.is_internal ? (
+                        <span className="flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-yellow-200 dark:bg-yellow-800 text-yellow-800 dark:text-yellow-200">
+                          <Lock className="w-3 h-3" /> Internal Note
+                        </span>
+                      ) : null}
+                      <span className="ml-auto flex items-center gap-1 text-xs text-gray-500">
+                        <Clock className="w-3 h-3" />
+                        {new Date(r.created_at).toLocaleString()}
+                        <button onClick={() => {
+                          const url = `${window.location.origin}${window.location.pathname}#response-${r.id}`;
+                          navigator.clipboard.writeText(url);
+                        }} title="Copy link to this response" className="ml-1 text-gray-400 hover:text-accent-blue">
+                          <Link2 className="w-3 h-3" />
+                        </button>
+                      </span>
+                    </div>
+                    <p className="text-gray-700 dark:text-gray-300 text-sm whitespace-pre-wrap">{r.message}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Response Form */}
+            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+              {/* Response Tools */}
+              <div className="flex items-center gap-2 mb-3 flex-wrap">
+                <div className="relative">
+                  <button
+                    onClick={() => setShowCanned(!showCanned)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:border-accent-blue hover:text-accent-blue transition-colors"
+                  >
+                    <MessageSquarePlus className="w-4 h-4" />
+                    Canned Responses
+                  </button>
+                {showCanned && (
+                  <div className="absolute z-10 mt-1 w-80 max-h-64 overflow-y-auto bg-white dark:bg-tb-card border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
+                    {cannedList.length === 0 ? (
+                      <p className="px-4 py-3 text-sm text-gray-500">No canned responses available.</p>
+                    ) : (
+                      cannedList.map((c: any) => (
+                        <button
+                          key={c.id}
+                          onClick={() => { setResponseMessage(c.content); setShowCanned(false); }}
+                          className="w-full text-left px-4 py-3 hover:bg-gray-100 dark:hover:bg-white/5 border-b border-gray-100 dark:border-gray-700 last:border-0 transition-colors"
+                        >
+                          <p className="text-sm font-medium text-gray-900 dark:text-white">{c.title}</p>
+                          {c.category && (
+                            <span className="text-xs text-purple-400">{c.category}</span>
+                          )}
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2">{c.content}</p>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+                </div>
+                <button
+                  onClick={async () => {
+                    if (!ticket) return;
+                    setSuggestingReply(true);
+                    try {
+                      const result = await ticketsApi.suggestReply(ticket.id);
+                      if (result.suggestion) setResponseMessage(result.suggestion);
+                      if (result.note) setAiSuggestion(result.note);
+                    } catch (err) { console.error(err); }
+                    setSuggestingReply(false);
+                  }}
+                  disabled={suggestingReply}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-purple-400 border border-purple-400/30 rounded-lg hover:bg-purple-500/10 disabled:opacity-50 transition-colors"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  {suggestingReply ? 'Thinking...' : 'AI Suggest'}
+                </button>
+                {(ticket.status === 'resolved' || ticket.status === 'closed') && (
+                  <button
+                    onClick={async () => {
+                      if (!ticket) return;
+                      try {
+                        await ticketsApi.createKbArticle(ticket.id);
+                        toast.success('Knowledge base article created!');
+                        loadActivities();
+                      } catch (err) { console.error(err); }
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-green-500 border border-green-500/30 rounded-lg hover:bg-green-500/10 transition-colors"
+                  >
+                    <BookOpen className="w-4 h-4" />
+                    Save to KB
+                  </button>
+                )}
+              </div>
+
+              {aiSuggestion && (
+                <p className="text-xs text-purple-400 mb-2">{aiSuggestion}</p>
+              )}
+
+              <textarea
+                value={responseMessage}
+                onChange={e => setResponseMessage(e.target.value)}
+                onPaste={handlePaste}
+                placeholder="Type your response... (paste screenshots with Ctrl+V)"
+                rows={3}
+                className="tb-input w-full mb-3"
+              />
+              {pastedImages.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {pastedImages.map((img, idx) => (
+                    <div key={idx} className="relative group">
+                      <img src={URL.createObjectURL(img)} alt={img.name} className="h-20 rounded-lg border border-gray-200 dark:border-gray-700 object-cover" />
+                      <button
+                        onClick={() => setPastedImages(prev => prev.filter((_, i) => i !== idx))}
+                        className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                      <p className="text-[10px] text-gray-400 mt-0.5 truncate max-w-[80px]">{img.name}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={isInternal}
+                    onChange={e => setIsInternal(e.target.checked)}
+                    className="rounded border-gray-300 dark:border-gray-600"
+                  />
+                  <Lock className="w-4 h-4" />
+                  Internal note (not visible to customer)
+                </label>
+                <button
+                  onClick={handleSendResponse}
+                  disabled={sendingResponse || (!responseMessage.trim() && pastedImages.length === 0)}
+                  className="flex items-center gap-2 px-4 py-2 bg-accent-blue text-white rounded-lg text-sm font-medium hover:bg-accent-blue/80 disabled:opacity-50 transition-colors"
+                >
+                  <Send className="w-4 h-4" />
+                  {sendingResponse ? 'Sending...' : 'Send Response'}
+                </button>
+              </div>
+            </div>
+          </div>
+
           {ticket.answers?.length > 0 && (
             <div className="tb-card p-6">
               <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Questionnaire Responses</h3>
@@ -545,29 +748,44 @@ export default function TicketDetail() {
             {ticket.attachments?.length > 0 && (
               <div className="space-y-3 mb-4">
                 {ticket.attachments.map((att: any) => (
-                  <div key={att.id}>
-                    {isImageFile(att.original_name || att.filename) ? (
-                      <div className="space-y-2">
+                  <div key={att.id} className="group flex items-start gap-2">
+                    <div className="flex-1 min-w-0">
+                      {isImageFile(att.original_name || att.filename) ? (
+                        <div className="space-y-2">
+                          <a href={`/uploads/${att.filename}`} target="_blank" rel="noreferrer"
+                            className="block max-w-xs">
+                            <img
+                              src={`/uploads/${att.filename}`}
+                              alt={att.original_name}
+                              className="rounded-lg border border-gray-200 dark:border-gray-700 max-h-48 object-cover hover:opacity-80 transition-opacity cursor-pointer"
+                            />
+                          </a>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                            <ImageIcon className="w-3 h-3" />
+                            {att.original_name} ({(att.size / 1024).toFixed(1)} KB)
+                          </p>
+                        </div>
+                      ) : (
                         <a href={`/uploads/${att.filename}`} target="_blank" rel="noreferrer"
-                          className="block max-w-xs">
-                          <img
-                            src={`/uploads/${att.filename}`}
-                            alt={att.original_name}
-                            className="rounded-lg border border-gray-200 dark:border-gray-700 max-h-48 object-cover hover:opacity-80 transition-opacity cursor-pointer"
-                          />
-                        </a>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                          <ImageIcon className="w-3 h-3" />
+                          className="flex items-center gap-2 text-accent-blue hover:underline text-sm">
+                          <FileText className="w-4 h-4" />
                           {att.original_name} ({(att.size / 1024).toFixed(1)} KB)
-                        </p>
-                      </div>
-                    ) : (
-                      <a href={`/uploads/${att.filename}`} target="_blank" rel="noreferrer"
-                        className="flex items-center gap-2 text-accent-blue hover:underline text-sm">
-                        <FileText className="w-4 h-4" />
-                        {att.original_name} ({(att.size / 1024).toFixed(1)} KB)
-                      </a>
-                    )}
+                        </a>
+                      )}
+                    </div>
+                    <button
+                      onClick={async () => {
+                        if (!window.confirm(`Delete "${att.original_name}"?`)) return;
+                        try {
+                          await ticketsApi.deleteAttachment(ticket.id, att.id);
+                          load();
+                        } catch (err) { console.error(err); }
+                      }}
+                      className="flex-shrink-0 p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
+                      title="Delete attachment"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
                 ))}
               </div>
@@ -713,160 +931,6 @@ export default function TicketDetail() {
               </div>
             </details>
           )}
-
-          {/* Responses Section */}
-          <div className="tb-card p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <MessageSquare className="w-5 h-5 text-accent-blue" />
-              <h3 className="font-semibold text-gray-900 dark:text-white">Responses</h3>
-              <span className="ml-auto text-sm text-gray-500">{responses.length} message{responses.length !== 1 ? 's' : ''}</span>
-            </div>
-
-            {responses.length === 0 ? (
-              <p className="text-gray-500 dark:text-gray-400 text-sm">No responses yet.</p>
-            ) : (
-              <div className="space-y-4">
-                {responses.map((r: any) => (
-                  <div key={r.id} id={`response-${r.id}`} className={`p-4 rounded-lg scroll-mt-20 ${
-                    r.is_internal
-                      ? 'border-2 border-dashed border-yellow-500/30 bg-yellow-50 dark:bg-yellow-900/10'
-                      : r.author_role === 'admin'
-                        ? 'border-l-4 border-blue-500 bg-blue-50 dark:bg-blue-900/10'
-                        : 'border-l-4 border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50'
-                  }`}>
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="font-medium text-gray-900 dark:text-white text-sm">{r.author_name}</span>
-                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                        r.author_role === 'admin'
-                          ? 'bg-status-role-bg text-white'
-                          : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300'
-                      }`}>
-                        {r.author_role === 'admin' ? 'Admin' : 'Customer'}
-                      </span>
-                      {r.is_internal ? (
-                        <span className="flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-yellow-200 dark:bg-yellow-800 text-yellow-800 dark:text-yellow-200">
-                          <Lock className="w-3 h-3" /> Internal Note
-                        </span>
-                      ) : null}
-                      <span className="ml-auto flex items-center gap-1 text-xs text-gray-500">
-                        <Clock className="w-3 h-3" />
-                        {new Date(r.created_at).toLocaleString()}
-                        <button onClick={() => {
-                          const url = `${window.location.origin}${window.location.pathname}#response-${r.id}`;
-                          navigator.clipboard.writeText(url);
-                        }} title="Copy link to this response" className="ml-1 text-gray-400 hover:text-accent-blue">
-                          <Link2 className="w-3 h-3" />
-                        </button>
-                      </span>
-                    </div>
-                    <p className="text-gray-700 dark:text-gray-300 text-sm whitespace-pre-wrap">{r.message}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Response Form */}
-            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-              {/* Response Tools */}
-              <div className="flex items-center gap-2 mb-3 flex-wrap">
-                <div className="relative">
-                  <button
-                    onClick={() => setShowCanned(!showCanned)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:border-accent-blue hover:text-accent-blue transition-colors"
-                  >
-                    <MessageSquarePlus className="w-4 h-4" />
-                    Canned Responses
-                  </button>
-                {showCanned && (
-                  <div className="absolute z-10 mt-1 w-80 max-h-64 overflow-y-auto bg-white dark:bg-tb-card border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
-                    {cannedList.length === 0 ? (
-                      <p className="px-4 py-3 text-sm text-gray-500">No canned responses available.</p>
-                    ) : (
-                      cannedList.map((c: any) => (
-                        <button
-                          key={c.id}
-                          onClick={() => { setResponseMessage(c.content); setShowCanned(false); }}
-                          className="w-full text-left px-4 py-3 hover:bg-gray-100 dark:hover:bg-white/5 border-b border-gray-100 dark:border-gray-700 last:border-0 transition-colors"
-                        >
-                          <p className="text-sm font-medium text-gray-900 dark:text-white">{c.title}</p>
-                          {c.category && (
-                            <span className="text-xs text-purple-400">{c.category}</span>
-                          )}
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2">{c.content}</p>
-                        </button>
-                      ))
-                    )}
-                  </div>
-                )}
-                </div>
-                <button
-                  onClick={async () => {
-                    if (!ticket) return;
-                    setSuggestingReply(true);
-                    try {
-                      const result = await ticketsApi.suggestReply(ticket.id);
-                      if (result.suggestion) setResponseMessage(result.suggestion);
-                      if (result.note) setAiSuggestion(result.note);
-                    } catch (err) { console.error(err); }
-                    setSuggestingReply(false);
-                  }}
-                  disabled={suggestingReply}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-purple-400 border border-purple-400/30 rounded-lg hover:bg-purple-500/10 disabled:opacity-50 transition-colors"
-                >
-                  <Sparkles className="w-4 h-4" />
-                  {suggestingReply ? 'Thinking...' : 'AI Suggest'}
-                </button>
-                {(ticket.status === 'resolved' || ticket.status === 'closed') && (
-                  <button
-                    onClick={async () => {
-                      if (!ticket) return;
-                      try {
-                        await ticketsApi.createKbArticle(ticket.id);
-                        toast.success('Knowledge base article created!');
-                        loadActivities();
-                      } catch (err) { console.error(err); }
-                    }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-green-500 border border-green-500/30 rounded-lg hover:bg-green-500/10 transition-colors"
-                  >
-                    <BookOpen className="w-4 h-4" />
-                    Save to KB
-                  </button>
-                )}
-              </div>
-
-              {aiSuggestion && (
-                <p className="text-xs text-purple-400 mb-2">{aiSuggestion}</p>
-              )}
-
-              <textarea
-                value={responseMessage}
-                onChange={e => setResponseMessage(e.target.value)}
-                placeholder="Type your response..."
-                rows={3}
-                className="tb-input w-full mb-3"
-              />
-              <div className="flex items-center justify-between">
-                <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={isInternal}
-                    onChange={e => setIsInternal(e.target.checked)}
-                    className="rounded border-gray-300 dark:border-gray-600"
-                  />
-                  <Lock className="w-4 h-4" />
-                  Internal note (not visible to customer)
-                </label>
-                <button
-                  onClick={handleSendResponse}
-                  disabled={sendingResponse || !responseMessage.trim()}
-                  className="flex items-center gap-2 px-4 py-2 bg-accent-blue text-white rounded-lg text-sm font-medium hover:bg-accent-blue/80 disabled:opacity-50 transition-colors"
-                >
-                  <Send className="w-4 h-4" />
-                  {sendingResponse ? 'Sending...' : 'Send Response'}
-                </button>
-              </div>
-            </div>
-          </div>
 
           {/* Activity Log */}
           {activities.length > 0 && (

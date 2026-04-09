@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { tickets as ticketsApi } from '../api/client';
 import { StatusBadge, PriorityBadge } from '../components/StatusBadge';
 import { useAuth } from '../context/AuthContext';
-import { MessageSquare, Send, Clock, FileText, ArrowLeft, Star, Upload, Paperclip } from 'lucide-react';
+import { MessageSquare, Send, Clock, FileText, ArrowLeft, Star, Upload, Paperclip, Trash2, X, Image as ImageIcon } from 'lucide-react';
 import ChatWidget from '../components/ChatWidget';
 
 export default function CustomerTicketDetail() {
@@ -16,6 +16,7 @@ export default function CustomerTicketDetail() {
   const [sendingResponse, setSendingResponse] = useState(false);
   const [error, setError] = useState('');
   const [uploadingFiles, setUploadingFiles] = useState(false);
+  const [pastedImages, setPastedImages] = useState<File[]>([]);
 
   // Satisfaction
   const [satisfaction, setSatisfaction] = useState<any>(null);
@@ -79,18 +80,48 @@ export default function CustomerTicketDetail() {
   }, [ticket?.status]);
 
   const handleSendResponse = async () => {
-    if (!responseMessage.trim() || !ticket) return;
+    if ((!responseMessage.trim() && pastedImages.length === 0) || !ticket) return;
     setSendingResponse(true);
     try {
-      await ticketsApi.addResponse(ticket.id, responseMessage.trim());
+      if (responseMessage.trim()) {
+        await ticketsApi.addResponse(ticket.id, responseMessage.trim());
+      }
+      if (pastedImages.length > 0) {
+        const formData = new FormData();
+        pastedImages.forEach(f => formData.append('files', f));
+        await ticketsApi.addAttachments(ticket.id, formData);
+      }
       setResponseMessage('');
+      setPastedImages([]);
       loadResponses();
+      load();
     } catch (err) {
       console.error(err);
     } finally {
       setSendingResponse(false);
     }
   };
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    const images: File[] = [];
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.startsWith('image/')) {
+        const file = items[i].getAsFile();
+        if (file) {
+          const named = new File([file], `screenshot-${Date.now()}-${images.length}.png`, { type: file.type });
+          images.push(named);
+        }
+      }
+    }
+    if (images.length > 0) {
+      e.preventDefault();
+      setPastedImages(prev => [...prev, ...images]);
+    }
+  };
+
+  const isImageFile = (filename: string) => /\.(png|jpg|jpeg|gif|webp)$/i.test(filename);
 
   if (!user) {
     return (
@@ -126,77 +157,6 @@ export default function CustomerTicketDetail() {
           <div className="tb-card p-6">
             <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Description</h3>
             <p className="text-gray-600 dark:text-gray-300 whitespace-pre-wrap">{ticket.description}</p>
-          </div>
-
-          {ticket.answers?.length > 0 && (
-            <div className="tb-card p-6">
-              <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Questionnaire Responses</h3>
-              <div className="space-y-3">
-                {ticket.answers.map((a: any) => (
-                  <div key={a.id}>
-                    <p className="text-sm text-gray-500">{a.question_text}</p>
-                    <p className="font-medium text-gray-700 dark:text-gray-200">{a.answer}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="tb-card p-6">
-            <div className="flex items-center gap-2 mb-3">
-              <Paperclip className="w-5 h-5 text-accent-blue" />
-              <h3 className="font-semibold text-gray-900 dark:text-white">Attachments</h3>
-              <span className="ml-auto text-sm text-gray-500">{ticket.attachments?.length || 0} file{ticket.attachments?.length !== 1 ? 's' : ''}</span>
-            </div>
-            {ticket.attachments?.length > 0 && (
-              <div className="space-y-2 mb-4">
-                {ticket.attachments.map((att: any) => (
-                  <a key={att.id} href={`/uploads/${att.filename}`} target="_blank" rel="noreferrer"
-                    className="flex items-center gap-2 text-accent-blue hover:underline text-sm">
-                    <FileText className="w-4 h-4" />
-                    {att.original_name} ({(att.size / 1024).toFixed(1)} KB)
-                  </a>
-                ))}
-              </div>
-            )}
-            {/* Upload more files */}
-            <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
-              <label className={`inline-flex items-center gap-2 px-4 py-2 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium cursor-pointer transition-colors ${
-                uploadingFiles ? 'opacity-50 cursor-not-allowed' : 'text-gray-600 dark:text-gray-300 hover:border-accent-blue hover:text-accent-blue'
-              }`}>
-                <Upload className="w-4 h-4" />
-                {uploadingFiles ? 'Uploading...' : 'Add Files'}
-                <input
-                  type="file"
-                  multiple
-                  className="hidden"
-                  disabled={uploadingFiles}
-                  accept="image/*,.pdf,.txt,.csv,.log,.json,.zip,.pcap,.pcapng,.gz,.tgz,.html"
-                  onChange={async (e) => {
-                    if (!e.target.files?.length || !ticket) return;
-                    // Validate HTML files: only call_trace*.html allowed
-                    for (const file of Array.from(e.target.files)) {
-                      const ext = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
-                      if ((ext === '.html' || ext === '.htm') && !file.name.toLowerCase().startsWith('call_trace')) {
-                        alert('HTML files are only allowed for call trace exports (filename must start with "call_trace")');
-                        e.target.value = '';
-                        return;
-                      }
-                    }
-                    setUploadingFiles(true);
-                    try {
-                      const formData = new FormData();
-                      for (const file of Array.from(e.target.files)) formData.append('files', file);
-                      await ticketsApi.addAttachments(ticket.id, formData);
-                      load();
-                    } catch (err) { console.error(err); }
-                    setUploadingFiles(false);
-                    e.target.value = '';
-                  }}
-                />
-              </label>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">PDF, images, text, log, JSON, PCAP, ZIP (max 10MB per file)</p>
-            </div>
           </div>
 
           {/* Responses Section */}
@@ -242,14 +202,31 @@ export default function CustomerTicketDetail() {
               <textarea
                 value={responseMessage}
                 onChange={e => setResponseMessage(e.target.value)}
-                placeholder="Type your response..."
+                onPaste={handlePaste}
+                placeholder="Type your response... (paste screenshots with Ctrl+V)"
                 rows={3}
                 className="tb-input w-full mb-3"
               />
+              {pastedImages.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {pastedImages.map((img, idx) => (
+                    <div key={idx} className="relative group">
+                      <img src={URL.createObjectURL(img)} alt={img.name} className="h-20 rounded-lg border border-gray-200 dark:border-gray-700 object-cover" />
+                      <button
+                        onClick={() => setPastedImages(prev => prev.filter((_, i) => i !== idx))}
+                        className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                      <p className="text-[10px] text-gray-400 mt-0.5 truncate max-w-[80px]">{img.name}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
               <div className="flex justify-end">
                 <button
                   onClick={handleSendResponse}
-                  disabled={sendingResponse || !responseMessage.trim()}
+                  disabled={sendingResponse || (!responseMessage.trim() && pastedImages.length === 0)}
                   className="flex items-center gap-2 px-4 py-2 bg-accent-blue text-white rounded-lg text-sm font-medium hover:bg-accent-blue/80 disabled:opacity-50 transition-colors"
                 >
                   <Send className="w-4 h-4" />
@@ -258,6 +235,108 @@ export default function CustomerTicketDetail() {
               </div>
             </div>
           </div>
+
+          {ticket.answers?.length > 0 && (
+            <div className="tb-card p-6">
+              <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Questionnaire Responses</h3>
+              <div className="space-y-3">
+                {ticket.answers.map((a: any) => (
+                  <div key={a.id}>
+                    <p className="text-sm text-gray-500">{a.question_text}</p>
+                    <p className="font-medium text-gray-700 dark:text-gray-200">{a.answer}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="tb-card p-6">
+            <div className="flex items-center gap-2 mb-3">
+              <Paperclip className="w-5 h-5 text-accent-blue" />
+              <h3 className="font-semibold text-gray-900 dark:text-white">Attachments</h3>
+              <span className="ml-auto text-sm text-gray-500">{ticket.attachments?.length || 0} file{ticket.attachments?.length !== 1 ? 's' : ''}</span>
+            </div>
+            {ticket.attachments?.length > 0 && (
+              <div className="space-y-3 mb-4">
+                {ticket.attachments.map((att: any) => (
+                  <div key={att.id} className="group flex items-start gap-2">
+                    <div className="flex-1 min-w-0">
+                      {isImageFile(att.original_name || att.filename) ? (
+                        <div className="space-y-2">
+                          <a href={`/uploads/${att.filename}`} target="_blank" rel="noreferrer" className="block max-w-xs">
+                            <img src={`/uploads/${att.filename}`} alt={att.original_name}
+                              className="rounded-lg border border-gray-200 dark:border-gray-700 max-h-48 object-cover hover:opacity-80 transition-opacity cursor-pointer" />
+                          </a>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                            <ImageIcon className="w-3 h-3" />
+                            {att.original_name} ({(att.size / 1024).toFixed(1)} KB)
+                          </p>
+                        </div>
+                      ) : (
+                        <a href={`/uploads/${att.filename}`} target="_blank" rel="noreferrer"
+                          className="flex items-center gap-2 text-accent-blue hover:underline text-sm">
+                          <FileText className="w-4 h-4" />
+                          {att.original_name} ({(att.size / 1024).toFixed(1)} KB)
+                        </a>
+                      )}
+                    </div>
+                    <button
+                      onClick={async () => {
+                        if (!window.confirm(`Delete "${att.original_name}"?`)) return;
+                        try {
+                          await ticketsApi.deleteAttachment(ticket.id, att.id);
+                          load();
+                        } catch (err) { console.error(err); }
+                      }}
+                      className="flex-shrink-0 p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
+                      title="Delete attachment"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {/* Upload more files */}
+            <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
+              <label className={`inline-flex items-center gap-2 px-4 py-2 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium cursor-pointer transition-colors ${
+                uploadingFiles ? 'opacity-50 cursor-not-allowed' : 'text-gray-600 dark:text-gray-300 hover:border-accent-blue hover:text-accent-blue'
+              }`}>
+                <Upload className="w-4 h-4" />
+                {uploadingFiles ? 'Uploading...' : 'Add Files'}
+                <input
+                  type="file"
+                  multiple
+                  className="hidden"
+                  disabled={uploadingFiles}
+                  accept="image/*,.pdf,.txt,.csv,.log,.json,.zip,.pcap,.pcapng,.gz,.tgz,.html"
+                  onChange={async (e) => {
+                    if (!e.target.files?.length || !ticket) return;
+                    // Validate HTML files: only call_trace*.html allowed
+                    for (const file of Array.from(e.target.files)) {
+                      const ext = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
+                      if ((ext === '.html' || ext === '.htm') && !file.name.toLowerCase().startsWith('call_trace')) {
+                        alert('HTML files are only allowed for call trace exports (filename must start with "call_trace")');
+                        e.target.value = '';
+                        return;
+                      }
+                    }
+                    setUploadingFiles(true);
+                    try {
+                      const formData = new FormData();
+                      for (const file of Array.from(e.target.files)) formData.append('files', file);
+                      await ticketsApi.addAttachments(ticket.id, formData);
+                      load();
+                    } catch (err) { console.error(err); }
+                    setUploadingFiles(false);
+                    e.target.value = '';
+                  }}
+                />
+              </label>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">PDF, images, text, log, JSON, PCAP, ZIP (max 10MB per file)</p>
+            </div>
+          </div>
+
         </div>
 
         <div className="space-y-4">
