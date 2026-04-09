@@ -31,6 +31,7 @@ export default function CategorySelect({ data, onUpdate, onNext, onPrev }: Props
 
   const selectCategory = (category: any) => {
     onUpdate({ category, answers: {}, questions: [] });
+    setTimeout(onNext, 150);
   };
 
   if (loading) return <div className="text-center py-8 text-gray-500">Loading categories...</div>;
@@ -58,7 +59,7 @@ export default function CategorySelect({ data, onUpdate, onNext, onPrev }: Props
       </div>
       <div className="flex justify-between mt-6">
         <button onClick={onPrev} className="tb-btn-secondary">Back</button>
-        <button onClick={onNext} disabled={!data.category} className="tb-btn-primary px-6 disabled:cursor-not-allowed">Next</button>
+        {data.category && <button onClick={onNext} className="tb-btn-primary px-6">Next</button>}
       </div>
     </div>
   );

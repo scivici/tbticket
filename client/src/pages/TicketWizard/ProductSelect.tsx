@@ -18,6 +18,7 @@ export default function ProductSelect({ data, onUpdate, onNext }: Props) {
 
   const selectProduct = (product: any) => {
     onUpdate({ product, category: null, answers: {}, questions: [] });
+    setTimeout(onNext, 150);
   };
 
   if (loading) return <div className="text-center py-8 text-gray-500">Loading products...</div>;
@@ -44,9 +45,11 @@ export default function ProductSelect({ data, onUpdate, onNext }: Props) {
           </button>
         ))}
       </div>
-      <div className="flex justify-end mt-6">
-        <button onClick={onNext} disabled={!data.product} className="tb-btn-primary px-6 disabled:cursor-not-allowed">Next</button>
-      </div>
+      {data.product && (
+        <div className="flex justify-end mt-6">
+          <button onClick={onNext} className="tb-btn-primary px-6">Next</button>
+        </div>
+      )}
     </div>
   );
 }
