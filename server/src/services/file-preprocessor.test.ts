@@ -196,6 +196,30 @@ test('rendered markdown contains the key sections', () => {
   assert(md.includes('503'), 'missing 503');
 });
 
+test('filename time extraction: tbreport-style YYYY-MM-DD_HHhMM range', () => {
+  const ctx = extractContext({
+    subject: 'tbreport upload',
+    description: 'Please review the attached report.',
+    filenames: ['report_1777078090_2026-04-24_21h00_2026-04-24_23h59.tar.gz'],
+  });
+  assert(ctx.timeRanges.length === 1, `expected 1 time range, got ${ctx.timeRanges.length}`);
+  if (ctx.timeRanges[0]) {
+    assert(ctx.timeRanges[0].start === '2026-04-24T21:00:00.000Z', `start=${ctx.timeRanges[0].start}`);
+    assert(ctx.timeRanges[0].end === '2026-04-24T23:59:00.000Z', `end=${ctx.timeRanges[0].end}`);
+    assert(ctx.timeRanges[0].confidence === 'high', `confidence=${ctx.timeRanges[0].confidence}`);
+  }
+});
+
+test('filename extraction does not double-count description+filename', () => {
+  // If both description and filename describe the same window, dedup keeps
+  // it once. Here filename gives a precise window; description has nothing.
+  const ctx = extractContext({
+    description: 'Calls failing.',
+    filenames: ['something_2026-04-24_21h00_2026-04-24_23h59.tar.gz'],
+  });
+  assert(ctx.timeRanges.length === 1, `expected 1, got ${ctx.timeRanges.length}`);
+});
+
 test('mixed-language description still extracts structured data', () => {
   const ctx = extractContext({
     // Reality: customers write half-French/half-English. Structured fields

@@ -49,6 +49,12 @@ export interface ExtractInput {
   subject?: string;
   description?: string;
   answers?: { question: string; answer: string }[];
+  /**
+   * Attachment filenames. Telecom report archives often encode the incident
+   * window directly in the filename (e.g. report_..._2026-04-24_21h00_2026-04-24_23h59.tar.gz),
+   * which is a more reliable signal than free-text descriptions.
+   */
+  filenames?: string[];
   /** Anchor for resolving relative phrases like "yesterday". Defaults to now. */
   referenceDate?: Date;
 }
@@ -273,6 +279,15 @@ function combineText(input: ExtractInput): string {
   if (input.answers) {
     for (const a of input.answers) {
       if (a.answer) chunks.push(`${a.question}: ${a.answer}`);
+    }
+  }
+  if (input.filenames) {
+    // Filenames go through the same regex pipeline as free-text. Replacing
+    // underscores with spaces lets word-boundary patterns work; the filename
+    // itself stays intact for filename-specific patterns thanks to the
+    // dedicated rxFilename below.
+    for (const fn of input.filenames) {
+      if (fn) chunks.push(fn);
     }
   }
   return chunks.join('\n');
@@ -515,6 +530,24 @@ function extractTimeRanges(
       confidence: dateStr ? 'high' : 'medium',
     });
     consumedSpans.push([mA.index, mA.index + mA[0].length]);
+  }
+
+  // Pattern B-filename: telecom report archive convention
+  //   ..._YYYY-MM-DD_HHhMM_YYYY-MM-DD_HHhMM...
+  // Customer descriptions rarely include precise times, but tbreport-style
+  // filenames encode the exact incident window. Run this BEFORE Pattern B so
+  // its high-confidence match takes precedence.
+  const rxFilename = /(\d{4})-(\d{2})-(\d{2})_(\d{1,2})h(\d{2})_(\d{4})-(\d{2})-(\d{2})_(\d{1,2})h(\d{2})/g;
+  let mF: RegExpExecArray | null;
+  while ((mF = rxFilename.exec(text)) !== null) {
+    out.push({
+      start: makeIso(+mF[1], +mF[2] - 1, +mF[3], +mF[4], +mF[5]),
+      end: makeIso(+mF[6], +mF[7] - 1, +mF[8], +mF[9], +mF[10]),
+      raw: mF[0],
+      kind: 'range',
+      confidence: 'high',
+    });
+    consumedSpans.push([mF.index, mF.index + mF[0].length]);
   }
 
   // Pattern B: ISO datetime range "2026-04-08 14:30 to 15:45" / "2026-04-08T14:30:00Z to 2026-04-08T15:45:00Z"

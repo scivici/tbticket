@@ -138,6 +138,39 @@ function renderDigestMarkdown(input) {
     lines.push(`### ${name}`);
     lines.push(`- **Original size:** ${bytesHuman(r.originalBytes)}`);
 
+    if (r.kind === 'archive') {
+      // Archive entry: render extraction info + nested children. Even if the
+      // archive itself has skipped=true (e.g. extraction error), we still want
+      // to show what we tried.
+      if (r.skipped) {
+        lines.push(`- **Pre-extracted:** no — ${r.skippedReason}`);
+        lines.push(`- **Read this path:** \`${r.filePath}\` _(Claude must extract it itself)_`);
+        continue;
+      }
+      lines.push(`- **Pre-extracted to:** \`${r.extractedAt}\``);
+      lines.push(`- **Extracted contents:** ${r.totalExtractedFiles} files, ${bytesHuman(r.totalExtractedBytes)}`);
+      const filteredKids = (r.childReports || []).filter((c) => !c.skipped && c.outputPath);
+      if (filteredKids.length > 0) {
+        lines.push(`- **Filtered:** ${filteredKids.length} of ${r.childReports.length} files (${bytesHuman(r.filteredBytes)} retained)`);
+      } else {
+        lines.push(`- **Filtered:** no children matched filters; read originals from the extraction dir`);
+      }
+      lines.push('');
+      lines.push('  **Files inside this archive:**');
+      for (const c of (r.childReports || [])) {
+        const childName = path.basename(c.filePath);
+        if (c.skipped) {
+          lines.push(`  - \`${childName}\` _(${bytesHuman(c.originalBytes)}, ${c.skippedReason})_ → \`${c.filePath}\``);
+        } else if (c.outputPath) {
+          const reduction = reductionPct(c.originalBytes, c.filteredBytes);
+          lines.push(`  - \`${childName}\` _(${bytesHuman(c.originalBytes)} → ${bytesHuman(c.filteredBytes)}, -${reduction}%)_ → \`${c.outputPath}\``);
+        } else {
+          lines.push(`  - \`${childName}\` _(${bytesHuman(c.originalBytes)})_ → \`${c.filePath}\``);
+        }
+      }
+      continue;
+    }
+
     if (r.skipped) {
       lines.push(`- **Filtered:** no — ${r.skippedReason}`);
       lines.push(`- **Read this path:** \`${r.filePath}\``);

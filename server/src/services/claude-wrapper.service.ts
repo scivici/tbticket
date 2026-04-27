@@ -115,10 +115,14 @@ export async function analyzeTicketViaWrapper(input: WrapperInput): Promise<Wrap
     // Stage 1 — Context extraction. Pure regex, no AI, no I/O. We send both
     // the rendered markdown (for _ticket_context.md) and the structured object
     // (for log/CDR/PCAP filtering on the wrapper side) to the wrapper.
+    // Filenames feed the extractor too — telecom tbreport archives often
+    // encode the incident window in the filename (e.g.
+    // report_..._2026-04-24_21h00_2026-04-24_23h59.tar.gz).
     const extracted = extractContext({
       subject: input.subject,
       description: input.description,
       answers: input.answers,
+      filenames: input.attachments.map((a) => a.originalName),
     });
     const extractedContextMarkdown = renderExtractedContextMarkdown(extracted);
     console.log(`[Preprocessor] Ticket ${input.ticketNumber}: ${summarizeExtraction(extracted)}`);

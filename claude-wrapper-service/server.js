@@ -30,6 +30,7 @@ const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
 const { runPreprocessor } = require('./preprocessor');
+const { cleanupExtractedDir } = require('./preprocessor/archive-extractor');
 
 // Feature flag: set PREPROCESSOR_ENABLED=false to disable Stage 2/3 entirely.
 const PREPROCESSOR_ENABLED = (process.env.PREPROCESSOR_ENABLED || 'true').toLowerCase() !== 'false';
@@ -435,9 +436,10 @@ A preprocessor has already scanned the attached files and written a summary at:
 \`${digestPath}\`
 
 That digest contains:
-- Structured context extracted from the customer's description (time ranges, IPs, error codes, SIP Call-IDs, affected services)
+- Structured context extracted from the customer's description and filenames (time ranges, IPs, error codes, SIP Call-IDs, affected services)
 - Per-file size + reduction stats
 - For each filtered file, the path of a trimmed copy (\`*.filtered.<ext>\`) you should read **instead of** the original. The trimmed copy contains only lines/rows/packets relevant to the reported incident window.
+- For archives (.tar.gz / .tbreport / .zip): the archive is **already extracted** to \`/tmp/preprocess-${ticketNumber}/<archive-name>/\`. The digest lists each file inside (with its filtered path where applicable). **Do NOT run \`tar xzf\` again — read the extracted files directly from that path.** This saves time and avoids double-extraction.
 - Top error/warning messages and counts already computed for each log
 
 **Read \`${digestPath}\` before opening any other file.** Use the filtered paths it lists. Fall back to the original file ONLY if the digest's stats suggest something relevant outside the filtered window (e.g. an error spike before the customer's reported start time).
@@ -508,12 +510,17 @@ No markdown fences around the JSON. The JSON must be the very last thing you out
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
     console.log(`[Analyze] Claude finished in ${elapsed}s for ${ticketNumber}`);
 
-    // Step 5: Cleanup /tmp extraction directory
+    // Step 5: Cleanup /tmp extraction directories
+    //   - tmpDir: where Claude itself extracts archives during analysis
+    //   - /tmp/preprocess-<ticket>: where the preprocessor pre-extracts archives
     try {
       if (fs.existsSync(tmpDir)) {
         fs.rmSync(tmpDir, { recursive: true, force: true });
         console.log(`[Analyze] Cleaned up ${tmpDir}`);
       }
+    } catch { /* ignore cleanup errors */ }
+    try {
+      cleanupExtractedDir(ticketNumber);
     } catch { /* ignore cleanup errors */ }
 
     if (!result.success) {

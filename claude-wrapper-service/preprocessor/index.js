@@ -23,16 +23,18 @@ const { filterLogFile } = require('./log-filter');
 const { filterCdrFile } = require('./cdr-filter');
 const { filterPcapFile } = require('./pcap-filter');
 const { renderDigestMarkdown, scanLogStats } = require('./digest');
+const { extractAndFilterArchive, isArchive } = require('./archive-extractor');
 
 function classifyFile(filename) {
   const lower = filename.toLowerCase();
+  if (isArchive(filename)) return 'archive';
   if (/\.log(\.gz)?$/.test(lower) || /\.txt$/.test(lower)) return 'log';
   if (/\.csv$/.test(lower)) return 'cdr';
   if (/\.pcap(ng)?$/.test(lower)) return 'pcap';
   return 'other';
 }
 
-async function processOne(filePath, extractedContext) {
+async function processOne(filePath, extractedContext, options = {}) {
   const kind = classifyFile(filePath);
   const ctx = extractedContext || {};
   let stat;
@@ -42,6 +44,13 @@ async function processOne(filePath, extractedContext) {
   }
 
   try {
+    if (kind === 'archive') {
+      return await extractAndFilterArchive(filePath, {
+        ticketNumber: options.ticketNumber,
+        extractedContext: ctx,
+      });
+    }
+
     if (kind === 'log') {
       const r = await filterLogFile(filePath, { timeRanges: ctx.timeRanges || [] });
       const report = {
@@ -127,16 +136,25 @@ async function runPreprocessor({ ticketNumber, ticketDir, files, extractedContex
   const fileReports = [];
   for (const filename of files || []) {
     const fp = path.join(ticketDir, filename);
-    const report = await processOne(fp, extractedContext || {});
+    const report = await processOne(fp, extractedContext || {}, { ticketNumber });
     fileReports.push(report);
   }
 
+  // Totals roll up archive children too — an archive that had any filtered
+  // child counts as "filtered" overall.
   const totals = fileReports.reduce(
     (acc, r) => {
       acc.originalBytes += r.originalBytes || 0;
       acc.filteredBytes += r.filteredBytes || 0;
-      if (!r.skipped && r.outputPath) acc.filteredCount += 1;
-      else acc.skippedCount += 1;
+      if (r.kind === 'archive' && Array.isArray(r.childReports)) {
+        const anyChildFiltered = r.childReports.some((c) => !c.skipped && c.outputPath);
+        if (anyChildFiltered) acc.filteredCount += 1;
+        else acc.skippedCount += 1;
+      } else if (!r.skipped && r.outputPath) {
+        acc.filteredCount += 1;
+      } else {
+        acc.skippedCount += 1;
+      }
       return acc;
     },
     { originalBytes: 0, filteredBytes: 0, filteredCount: 0, skippedCount: 0 }
