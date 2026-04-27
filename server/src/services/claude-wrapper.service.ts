@@ -14,6 +14,11 @@ import http from 'http';
 import { getSettings } from './settings.service';
 import { config } from '../config';
 import type { ClaudeAnalysisResult } from './claude.service';
+import {
+  extractContext,
+  renderExtractedContextMarkdown,
+  summarizeExtraction,
+} from './file-preprocessor.service';
 
 /**
  * Make an HTTP request with no socket timeout (supports long-running analyses).
@@ -107,6 +112,17 @@ export async function analyzeTicketViaWrapper(input: WrapperInput): Promise<Wrap
   }
 
   try {
+    // Stage 1 — Context extraction. Pure regex, no AI, no I/O. We send both
+    // the rendered markdown (for _ticket_context.md) and the structured object
+    // (for log/CDR/PCAP filtering on the wrapper side) to the wrapper.
+    const extracted = extractContext({
+      subject: input.subject,
+      description: input.description,
+      answers: input.answers,
+    });
+    const extractedContextMarkdown = renderExtractedContextMarkdown(extracted);
+    console.log(`[Preprocessor] Ticket ${input.ticketNumber}: ${summarizeExtraction(extracted)}`);
+
     const useSharedFs = !!config.uploadHostPath;
     let payload: any;
 
@@ -134,6 +150,8 @@ export async function analyzeTicketViaWrapper(input: WrapperInput): Promise<Wrap
         attachments: [],       // empty — no base64 transfer
         filePaths,             // host paths for shared filesystem
         customPrompt: input.customPrompt || undefined,
+        extractedContextMarkdown: extractedContextMarkdown || undefined,
+        extractedContext: extracted,
       };
       console.log(`[Wrapper] Using shared filesystem mode (${filePaths.length} files via path reference)`);
     } else {
@@ -165,6 +183,8 @@ export async function analyzeTicketViaWrapper(input: WrapperInput): Promise<Wrap
         answers: input.answers,
         engineers: input.engineers,
         attachments: encodedAttachments,
+        extractedContextMarkdown: extractedContextMarkdown || undefined,
+        extractedContext: extracted,
       };
       console.log(`[Wrapper] Using legacy base64 mode (${encodedAttachments.length} files encoded)`);
     }
@@ -179,6 +199,13 @@ export async function analyzeTicketViaWrapper(input: WrapperInput): Promise<Wrap
     });
 
     if (httpResponse.status >= 400) {
+      // Parse error response to extract diagnostic info
+      try {
+        const errData = JSON.parse(httpResponse.body);
+        if (errData.stdout) {
+          console.error(`[Wrapper] CLI stdout from wrapper: ${errData.stdout.substring(0, 500)}`);
+        }
+      } catch { /* not JSON */ }
       throw new Error(`Wrapper returned ${httpResponse.status}: ${httpResponse.body}`);
     }
 

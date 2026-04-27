@@ -29,6 +29,10 @@ const { execFile, execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
+const { runPreprocessor } = require('./preprocessor');
+
+// Feature flag: set PREPROCESSOR_ENABLED=false to disable Stage 2/3 entirely.
+const PREPROCESSOR_ENABLED = (process.env.PREPROCESSOR_ENABLED || 'true').toLowerCase() !== 'false';
 
 const app = express();
 app.use(express.json({ limit: '50mb' }));
@@ -275,6 +279,10 @@ app.post('/analyze', authenticate, async (req, res) => {
 
   const filePaths = req.body.filePaths || [];  // Shared filesystem mode
   const customPrompt = req.body.customPrompt || null;  // Optional custom analysis prompt
+  // Stage 1 — pre-extracted context. Markdown for _ticket_context.md, the
+  // structured object for the Stage 2/3 preprocessor. Both optional.
+  const extractedContextMarkdown = (req.body.extractedContextMarkdown || '').trim();
+  const extractedContext = req.body.extractedContext || null;
 
   if (!ticketNumber || !subject) {
     return res.status(400).json({ error: 'ticketNumber and subject are required' });
@@ -362,6 +370,10 @@ app.post('/analyze', authenticate, async (req, res) => {
       ? `## Attached Files\nFiles are located at: ${ticketDir}/\n${safeFiles.map(f => `- ${ticketDir}/${f}`).join('\n')}`
       : 'No attachments.';
 
+    const extractedBlock = extractedContextMarkdown
+      ? `\n${extractedContextMarkdown}\n`
+      : '';
+
     const contextContent = `# Support Ticket: ${ticketNumber}
 
 ## Product
@@ -374,7 +386,7 @@ ${subject}
 
 ## Customer Description
 ${description || 'No description provided.'}
-
+${extractedBlock}
 ## Questionnaire Responses
 ${answersText || 'No questionnaire responses.'}
 
@@ -385,28 +397,74 @@ ${engineersText || 'No engineers available.'}
 `;
     fs.writeFileSync(contextFile, contextContent);
 
+    // Step 2.5: Preprocessor pipeline (Phase 2/3/4) — filter logs/CDRs/PCAPs
+    // and write a _file_digest.md so Claude knows what's in each file before
+    // opening it. Best-effort: per-file failures are caught inside.
+    let preprocessorSummary = '';
+    let digestPath = null;
+    if (PREPROCESSOR_ENABLED && safeFiles.length > 0) {
+      try {
+        const ppStart = Date.now();
+        const pp = await runPreprocessor({
+          ticketNumber,
+          ticketDir,
+          files: safeFiles,
+          extractedContext,
+        });
+        digestPath = pp.digestPath;
+        const elapsedMs = Date.now() - ppStart;
+        preprocessorSummary =
+          `[Preprocessor] ${ticketNumber}: ${pp.totals.filteredCount} filtered, ` +
+          `${pp.totals.skippedCount} passed-through, ` +
+          `${pp.totals.originalBytes} → ${pp.totals.filteredBytes} bytes, ` +
+          `digest at ${pp.digestPath} (${elapsedMs}ms)`;
+        console.log(preprocessorSummary);
+      } catch (e) {
+        console.error(`[Preprocessor] ${ticketNumber}: pipeline error — ${e.message}`);
+        // Continue without preprocessor output; Claude reads originals.
+      }
+    }
+
     // Step 3: Build the Claude CLI prompt with security preamble
+    const digestInstruction = digestPath
+      ? `
+
+## Pre-Processed Digest (READ FIRST)
+
+A preprocessor has already scanned the attached files and written a summary at:
+\`${digestPath}\`
+
+That digest contains:
+- Structured context extracted from the customer's description (time ranges, IPs, error codes, SIP Call-IDs, affected services)
+- Per-file size + reduction stats
+- For each filtered file, the path of a trimmed copy (\`*.filtered.<ext>\`) you should read **instead of** the original. The trimmed copy contains only lines/rows/packets relevant to the reported incident window.
+- Top error/warning messages and counts already computed for each log
+
+**Read \`${digestPath}\` before opening any other file.** Use the filtered paths it lists. Fall back to the original file ONLY if the digest's stats suggest something relevant outside the filtered window (e.g. an error spike before the customer's reported start time).
+`
+      : '';
+
     const prompt = SECURITY_PREAMBLE + `
 You are performing first-line triage for a TelcoBridges support ticket.
 Your analysis will be read by support engineers and potentially shared with the customer.
 
 IMPORTANT: Take your time. Use tools iteratively — read files, analyze what you find, then dig deeper.
 Do NOT rush to produce output. Analyze as thoroughly as you would in an interactive support session.
-
+${digestInstruction}
 ## Your Task
 
-1. Read the ticket context at: ${ticketDir}/_ticket_context.md
-2. Analyze ALL attached files in ${ticketDir}/ — extract archives to ${tmpDir}/ first if needed:
+1. Read the ticket context at: ${ticketDir}/_ticket_context.md${digestPath ? `\n2. Read the file digest at: ${digestPath}` : ''}
+${digestPath ? '3' : '2'}. Analyze attached files in ${ticketDir}/ — **prefer the filtered paths listed in the digest**; extract archives to ${tmpDir}/ first if needed:
    \`mkdir -p ${tmpDir} && tar xzf <file> -C ${tmpDir}\`
    **IMPORTANT:** Only extract archives that are listed in the "Attached Files" section. Do NOT extract any files listed under "Blocked Archives".
-3. For EVERY file you find, read it and analyze it:
+${digestPath ? '4' : '3'}. For EVERY file you analyze, read it carefully:
    - Log files: search for errors (TBLV0), warnings (TBLV1), crashes, anomalies. Quote exact lines.
    - pcap files: use \`strings\` and \`hexdump\` to extract SIP messages, look at SDP bodies for codec/ptime/IP info, identify RTP streams from headers
    - Config files: check for misconfigurations
    - Core dumps: use gdb if available
    - tbreport contents: examine ALL files in the extracted archive
-4. Cross-reference with bmad_docs/ and source code — grep for error messages, read relevant components
-5. Select the best engineer from the list in the ticket context
+${digestPath ? '5' : '4'}. Cross-reference with bmad_docs/ and source code — grep for error messages, read relevant components
+${digestPath ? '6' : '5'}. Select the best engineer from the list in the ticket context
 
 ## Analysis Approach — Work like an expert support engineer
 
@@ -460,10 +518,13 @@ No markdown fences around the JSON. The JSON must be the very last thing you out
 
     if (!result.success) {
       console.error(`[Analyze] CLI failed: ${result.error}`);
+      console.error(`[Analyze] CLI stderr: ${result.stderr || '(empty)'}`);
+      console.error(`[Analyze] CLI stdout (first 500 chars): ${(result.output || '').substring(0, 500)}`);
       return res.status(500).json({
         error: 'Claude analysis failed',
         detail: result.error,
         stderr: result.stderr,
+        stdout: (result.output || '').substring(0, 2000), // include stdout for debugging
       });
     }
 
@@ -566,7 +627,7 @@ function runClaude(prompt, cwd) {
           success: false,
           output: stdout || '',
           stderr: stderr || '',
-          error: error.message,
+          error: `Exit code ${error.code || 'unknown'}: ${error.message}`,
         });
       } else {
         resolve({

@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ticket Analysis Report</title>
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --card: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --accent: #2563eb;
+      --accent-soft: #eff6ff;
+      --danger: #b91c1c;
+      --warning: #b45309;
+      --success: #047857;
+      --shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+      --radius: 16px;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 32px auto;
+      padding: 0 20px 48px;
+    }
+
+    .hero, .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .hero {
+      padding: 28px;
+      margin-bottom: 24px;
+    }
+
+    h1, h2, h3 {
+      margin-top: 0;
+      line-height: 1.25;
+    }
+
+    h1 { font-size: 2rem; margin-bottom: 10px; }
+    h2 { font-size: 1.3rem; margin-bottom: 14px; }
+    h3 { font-size: 1rem; margin-bottom: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+
+    .lead {
+      color: var(--muted);
+      font-size: 1rem;
+      margin: 0;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 18px;
+      margin-bottom: 24px;
+    }
+
+    .card {
+      padding: 22px;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      margin-right: 10px;
+      margin-bottom: 10px;
+    }
+
+    .badge.high { background: #fee2e2; color: var(--danger); }
+    .badge.complex { background: #fff7ed; color: var(--warning); }
+    .badge.confidence { background: #ecfdf5; color: var(--success); }
+
+    .meta {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 14px;
+      margin-top: 18px;
+    }
+
+    .meta .item {
+      background: #fafafa;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+    }
+
+    .label {
+      font-size: 0.8rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 4px;
+    }
+
+    .value {
+      font-size: 1rem;
+      font-weight: 700;
+    }
+
+    ul, ol {
+      padding-left: 20px;
+      margin: 0;
+    }
+
+    li + li { margin-top: 10px; }
+
+    .section { margin-bottom: 24px; }
+
+    .codebox {
+      background: #0f172a;
+      color: #e2e8f0;
+      border-radius: 14px;
+      padding: 18px;
+      overflow-x: auto;
+      font-family: Consolas, Monaco, monospace;
+      font-size: 0.9rem;
+      white-space: pre-wrap;
+    }
+
+    .highlight {
+      background: var(--accent-soft);
+      border-left: 4px solid var(--accent);
+      padding: 14px 16px;
+      border-radius: 10px;
+    }
+
+    .skills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .chip {
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: #f3f4f6;
+      border: 1px solid var(--border);
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <section class="hero">
+      <h1>Ticket Analysis Report</h1>
+      <p class="lead">HTTP/HTTPS module resource exhaustion during STIR/SHAKEN identity verification caused by an unresponsive external identity server.</p>
+      <div style="margin-top:16px;">
+        <span class="badge high">Severity: High</span>
+        <span class="badge complex">Complexity: High</span>
+        <span class="badge confidence">Confidence: 0.92</span>
+      </div>
+      <div class="meta">
+        <div class="item"><div class="label">System</div><div class="value">freesbc-6</div></div>
+        <div class="item"><div class="label">Version</div><div class="value">ProSBC v3.3.12.53</div></div>
+        <div class="item"><div class="label">OS</div><div class="value">CentOS 7</div></div>
+        <div class="item"><div class="label">Recommended Engineer</div><div class="value">Serdar Civici</div></div>
+      </div>
+    </section>
+
+    <div class="grid">
+      <section class="card">
+        <h2>Key Findings Summary</h2>
+        <ol>
+          <li>External STIR/SHAKEN identity server <strong>pa2-call-identity-vm-1.netw.fr</strong> became unresponsive.</li>
+          <li>Each incoming call triggered an HTTPS query via script.</li>
+          <li>Because the HTTP layer used <strong>thread-per-request</strong> with <strong>no connection pooling</strong>, stalled requests accumulated rapidly.</li>
+          <li>Concurrent requests rose from <strong>0 to 439+</strong> in about 4 minutes.</li>
+          <li>This exhausted file descriptors (<strong>EMFILE errno 24</strong>), causing total HTTPS failure and cascading CMC errors.</li>
+        </ol>
+      </section>
+
+      <section class="card">
+        <h2>Timeline</h2>
+        <ul>
+          <li><strong>16:04</strong> — Normal state</li>
+          <li><strong>16:07:06</strong> — First timeout observed</li>
+          <li><strong>16:08:00</strong> — ConcurrentRequests reached about 84</li>
+          <li><strong>16:11:07</strong> — Peak around 439</li>
+          <li><strong>16:11:07.911</strong> — EMFILE / too many open files</li>
+          <li><strong>~16:14</strong> — Mass failure and recovery window</li>
+        </ul>
+      </section>
+    </div>
+
+    <section class="card section">
+      <h2>Classification</h2>
+      <p>HTTP/HTTPS module resource exhaustion during STIR/SHAKEN identity verification — external server unresponsiveness caused file descriptor exhaustion via thread-per-request HTTP architecture.</p>
+    </section>
+
+    <section class="card section">
+      <h2>Root Cause Hypothesis</h2>
+      <div class="highlight">
+        The external STIR/SHAKEN identity verification server became unresponsive around 16:05–16:07. The SBC created one thread and one new HTTP client per request, without connection reuse. As requests piled up, sockets and file descriptors were consumed until the process hit its limit and could no longer open new TCP connections.
+      </div>
+    </section>
+
+    <section class="card section">
+      <h2>Suggested Skills</h2>
+      <div class="skills">
+        <span class="chip">SIP &amp; VoIP</span>
+        <span class="chip">Cloud &amp; DevOps</span>
+        <span class="chip">ProSBC / General</span>
+      </div>
+    </section>
+
+    <section class="card section">
+      <h2>Recommended Actions</h2>
+      <ol>
+        <li>Verify availability and response times of <strong>pa2-call-identity-vm-1.netw.fr</strong> and <strong>pa3-call-identity-vm-1.netw.fr</strong>.</li>
+        <li>Review the routing script HTTP <code>timeout_ms</code> value and reduce it to a reasonable range such as <strong>2000–5000 ms</strong>.</li>
+        <li>Lower <code>max_http_query_pending_requests</code> from <strong>1000</strong> to something safer such as <strong>50–100</strong>.</li>
+        <li>Increase process file descriptor limits, for example <code>ulimit -n</code> to <strong>4096–8192</strong>.</li>
+        <li>Raise a development ticket for HTTP connection pooling and circuit breaker behavior in <code>CTBCAFHttpQueryMgr</code>.</li>
+        <li>Ask the customer whether the identity server had an outage or slowdown around <strong>March 5, 16:05–16:10</strong>.</li>
+        <li>Check whether this is recurring, since the ticket mentions a volume of errors the same day.</li>
+      </ol>
+    </section>
+
+    <section class="card section">
+      <h2>Full JSON Block</h2>
+      <div class="codebox">{
+  "classification": "HTTP/HTTPS module resource exhaustion during STIR/SHAKEN identity verification — external server unresponsiveness caused file descriptor exhaustion via thread-per-request HTTP architecture",
+  "severity": "high",
+  "recommendedEngineerName": "Serdar Civici",
+  "confidence": 0.92,
+  "estimatedComplexity": "high"
+}</div>
+    </section>
+
+    <section class="card section">
+      <h2>Full Report</h2>
+      <h3>Summary</h3>
+      <p>The ProSBC system experienced a cascading failure on 2026-03-05 between 16:05 and 16:14 UTC+1. The external STIR/SHAKEN identity verification server became unresponsive, causing HTTPS queries from the routing script to accumulate. Because the HTTP layer used a thread-per-request model with no connection pooling, ConcurrentRequests climbed from 0 to 439+ in about four minutes. This exhausted file descriptors and triggered widespread HTTPS, CMC, and verification failures.</p>
+
+      <h3>Impact</h3>
+      <p>All calls requiring STIR/SHAKEN verification were affected during the degradation window. Secondary effects included SIP RawSip pool exhaustion and CMC entity lookup failures.</p>
+
+      <h3>Escalation Notes</h3>
+      <p>This issue includes both an operational cause and a product architecture weakness. Support can mitigate it through timeouts, limits, and OS tuning, but the core design issue should still be escalated as a development improvement request.</p>
+    </section>
+  </div>
+</body>
+</html>
