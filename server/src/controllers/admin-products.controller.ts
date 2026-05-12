@@ -49,7 +49,18 @@ export async function deleteProduct(req: Request, res: Response): Promise<void> 
 
     const ticketRef = await queryOne<any>('SELECT id FROM tickets WHERE product_id = ? LIMIT 1', [id]);
     if (ticketRef) {
-      res.status(409).json({ error: 'Cannot delete product: tickets reference it. Resolve or delete those tickets first.' });
+      // Soft delete: tickets reference this product; keep the row so historical
+      // tickets still resolve their product/category, but hide it everywhere else.
+      await transaction(async (client) => {
+        await clientQuery(client, 'UPDATE products SET deleted_at = NOW() WHERE id = ?', [id]);
+        await clientQuery(client, 'UPDATE product_categories SET deleted_at = NOW() WHERE product_id = ? AND deleted_at IS NULL', [id]);
+        await clientQuery(client, `
+          UPDATE question_templates SET deleted_at = NOW()
+          WHERE category_id IN (SELECT id FROM product_categories WHERE product_id = ?)
+            AND deleted_at IS NULL
+        `, [id]);
+      });
+      res.json({ message: 'Product archived (referenced by existing tickets)' });
       return;
     }
 

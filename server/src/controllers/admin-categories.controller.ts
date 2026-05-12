@@ -49,7 +49,13 @@ export async function deleteCategory(req: Request, res: Response): Promise<void>
 
     const ticketRef = await queryOne<any>('SELECT id FROM tickets WHERE category_id = ? LIMIT 1', [id]);
     if (ticketRef) {
-      res.status(409).json({ error: 'Cannot delete category: tickets reference it. Resolve or delete those tickets first.' });
+      // Soft delete: tickets reference this category. Hide from lists but keep
+      // the row so existing ticket detail pages still resolve category names.
+      await transaction(async (client) => {
+        await clientQuery(client, 'UPDATE product_categories SET deleted_at = NOW() WHERE id = ?', [id]);
+        await clientQuery(client, 'UPDATE question_templates SET deleted_at = NOW() WHERE category_id = ? AND deleted_at IS NULL', [id]);
+      });
+      res.json({ message: 'Category archived (referenced by existing tickets)' });
       return;
     }
 

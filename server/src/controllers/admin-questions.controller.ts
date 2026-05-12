@@ -5,7 +5,7 @@ export async function listQuestions(req: Request, res: Response): Promise<void> 
   const { categoryId } = req.params;
 
   const questions = await queryAll<any>(
-    'SELECT * FROM question_templates WHERE category_id = ? ORDER BY display_order',
+    'SELECT * FROM question_templates WHERE category_id = ? AND deleted_at IS NULL ORDER BY display_order',
     [categoryId]
   );
 
@@ -96,7 +96,10 @@ export async function deleteQuestion(req: Request, res: Response): Promise<void>
 
   const answerRef = await queryOne<any>('SELECT id FROM ticket_answers WHERE question_template_id = ? LIMIT 1', [id]);
   if (answerRef) {
-    res.status(409).json({ error: 'Cannot delete question: existing ticket answers reference it. This question was already used in submitted tickets.' });
+    // Soft delete: ticket answers reference this question. Hide from new
+    // questionnaires while keeping the row so existing answers still resolve.
+    await query('UPDATE question_templates SET deleted_at = NOW() WHERE id = ?', [id]);
+    res.json({ message: 'Question archived (referenced by existing ticket answers)' });
     return;
   }
 

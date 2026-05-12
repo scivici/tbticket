@@ -256,6 +256,18 @@ export async function runMigrations(): Promise<void> {
   `);
   console.log('[DB] Synced engineer workloads from actual active ticket counts');
 
+  // Migration: add deleted_at to products / product_categories / question_templates for soft delete
+  for (const table of ['products', 'product_categories', 'question_templates']) {
+    const col = await query(
+      "SELECT column_name FROM information_schema.columns WHERE table_name = ? AND column_name = 'deleted_at'",
+      [table],
+    );
+    if (col.rows.length === 0) {
+      await query(`ALTER TABLE ${table} ADD COLUMN deleted_at TIMESTAMPTZ`);
+      console.log(`[DB] Migration: added deleted_at column to ${table}`);
+    }
+  }
+
   // Migration: rename pending_info → waiting_for_customer (constraint first, then data)
   const checkConstraint = await query(`
     SELECT conname FROM pg_constraint

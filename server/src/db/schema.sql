@@ -23,7 +23,8 @@ CREATE TABLE IF NOT EXISTS products (
     model TEXT NOT NULL,
     description TEXT NOT NULL,
     image_url TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMPTZ
 );
 
 CREATE TABLE IF NOT EXISTS product_categories (
@@ -33,7 +34,8 @@ CREATE TABLE IF NOT EXISTS product_categories (
     description TEXT NOT NULL,
     icon TEXT,
     display_order INTEGER NOT NULL DEFAULT 0,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMPTZ
 );
 
 CREATE TABLE IF NOT EXISTS question_templates (
@@ -48,7 +50,8 @@ CREATE TABLE IF NOT EXISTS question_templates (
     conditional_value TEXT,
     placeholder TEXT,
     validation_rules JSONB,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMPTZ
 );
 
 CREATE TABLE IF NOT EXISTS engineers (
