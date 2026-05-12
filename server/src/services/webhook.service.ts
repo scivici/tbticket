@@ -38,7 +38,7 @@ export async function sendTeamsNotification(
     ? [{
         type: 'Action.OpenUrl',
         title: 'View Ticket',
-        url: `${config.appUrl}/tickets/${ticketNumber}`,
+        url: `${config.appUrl}/${ticketNumber}`,
       }]
     : [];
 

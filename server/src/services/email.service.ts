@@ -176,6 +176,27 @@ export async function sendEmail(to: string, subject: string, html: string): Prom
   }
 }
 
+function ticketUrl(ticketNumber: string): string {
+  return `${config.appUrl}/${ticketNumber}`;
+}
+
+function viewTicketButton(ticketNumber: string, label: string = 'View Ticket'): string {
+  const url = ticketUrl(ticketNumber);
+  return `
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:20px 0">
+      <tr>
+        <td align="center">
+          <!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" style="height:44px;v-text-anchor:middle;width:220px" arcsize="14%" fillcolor="#0ea5e9" stroke="f"><v:textbox><center style="color:#ffffff;font-family:${FONT_STACK};font-size:15px;font-weight:600">${label}</center></v:textbox></v:roundrect><![endif]-->
+          <!--[if !mso]><!-->
+          <a href="${url}" target="_blank" style="display:inline-block;padding:12px 32px;background-color:#0ea5e9;color:#ffffff;font-size:15px;font-weight:600;border-radius:8px;text-decoration:none;font-family:${FONT_STACK}">
+            ${label}
+          </a>
+          <!--<![endif]-->
+        </td>
+      </tr>
+    </table>`;
+}
+
 export function sendTicketCreatedEmail(email: string, ticketNumber: string, subject: string) {
   const body = `
     <p style="margin:0 0 16px 0;color:#334155;font-size:15px;line-height:1.6;font-family:${FONT_STACK}">
@@ -189,6 +210,7 @@ export function sendTicketCreatedEmail(email: string, ticketNumber: string, subj
         </td>
       </tr>
     </table>
+    ${viewTicketButton(ticketNumber)}
     <p style="margin:16px 0 0 0;color:#475569;font-size:14px;line-height:1.6;font-family:${FONT_STACK}">
       We will review your ticket and respond as soon as possible. You will receive email notifications when there are updates.
     </p>`;
@@ -214,6 +236,7 @@ export function sendTicketResponseEmail(email: string, ticketNumber: string, aut
         </td>
       </tr>
     </table>
+    ${viewTicketButton(ticketNumber, 'Open Ticket')}
     <p style="margin:0;color:#94a3b8;font-size:12px;font-family:${FONT_STACK}">
       You can reply to this ticket through the support portal.
     </p>`;
@@ -292,8 +315,9 @@ export function sendEngineerAssignedEmail(
         </td>
       </tr>
     </table>
+    ${viewTicketButton(ticketNumber, 'Open Ticket')}
     <p style="margin:0;color:#475569;font-size:14px;line-height:1.6;font-family:${FONT_STACK}">
-      Please review the ticket details in the admin panel and respond within the SLA target.
+      Please review the ticket details and respond within the SLA target.
     </p>`;
 
   return sendEmail(
@@ -303,7 +327,7 @@ export function sendEngineerAssignedEmail(
   );
 }
 
-export async function sendTicketStatusEmail(email: string, ticketNumber: string, newStatus: string, ticketId?: number) {
+export async function sendTicketStatusEmail(email: string, ticketNumber: string, newStatus: string, _ticketId?: number) {
   const statusLabels: Record<string, { label: string; color: string; bg: string }> = {
     new:               { label: 'New',           color: '#0ea5e9', bg: '#e0f2fe' },
     analyzing:         { label: 'Analyzing',     color: '#8b5cf6', bg: '#ede9fe' },
@@ -323,22 +347,11 @@ export async function sendTicketStatusEmail(email: string, ticketNumber: string,
 
   // Build survey link for resolved tickets
   let surveyHtml = '';
-  if (newStatus === 'resolved' && ticketId) {
-    const surveyUrl = `${config.appUrl}/my-tickets/${ticketId}`;
-    surveyHtml = `
-    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:20px 0">
+  if (newStatus === 'resolved') {
+    surveyHtml = `${viewTicketButton(ticketNumber, 'Rate Your Experience')}
+    <table width="100%" cellpadding="0" cellspacing="0" border="0">
       <tr>
-        <td align="center">
-          <!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" style="height:44px;v-text-anchor:middle;width:260px" arcsize="14%" fillcolor="#0ea5e9" stroke="f"><v:textbox><center style="color:#ffffff;font-family:${FONT_STACK};font-size:15px;font-weight:600">Rate Your Experience</center></v:textbox></v:roundrect><![endif]-->
-          <!--[if !mso]><!-->
-          <a href="${surveyUrl}" target="_blank" style="display:inline-block;padding:12px 32px;background-color:#0ea5e9;color:#ffffff;font-size:15px;font-weight:600;border-radius:8px;text-decoration:none;font-family:${FONT_STACK}">
-            Rate Your Experience
-          </a>
-          <!--<![endif]-->
-        </td>
-      </tr>
-      <tr>
-        <td align="center" style="padding:8px 0 0 0">
+        <td align="center" style="padding:0 0 8px 0">
           <p style="margin:0;color:#94a3b8;font-size:12px;font-family:${FONT_STACK}">Your feedback helps us improve our support.</p>
         </td>
       </tr>
@@ -371,7 +384,8 @@ export async function sendTicketStatusEmail(email: string, ticketNumber: string,
     <p style="margin:0;color:#475569;font-size:14px;line-height:1.6;font-family:${FONT_STACK}">
       We need additional information from you to continue working on this ticket.
       Please check the latest response in the support portal and provide the requested details.
-    </p>` : ''}`;
+    </p>${viewTicketButton(ticketNumber, 'Open Ticket')}` : ''}
+    ${newStatus !== 'resolved' && newStatus !== 'waiting_for_customer' ? viewTicketButton(ticketNumber, 'Open Ticket') : ''}`;
 
   return sendEmail(
     email,

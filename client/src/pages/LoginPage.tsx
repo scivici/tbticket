@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { LogIn } from 'lucide-react';
 
@@ -10,6 +10,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -17,7 +18,12 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const user = await login(email, password);
-      navigate(user.role === 'admin' || user.role === 'engineer' ? '/admin' : '/');
+      const redirect = searchParams.get('redirect');
+      if (redirect && redirect.startsWith('/')) {
+        navigate(redirect);
+      } else {
+        navigate(user.role === 'admin' || user.role === 'engineer' ? '/admin' : '/');
+      }
     } catch (err: any) {
       setError(err.message || 'Login failed');
     } finally {

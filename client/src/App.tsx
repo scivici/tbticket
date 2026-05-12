@@ -9,6 +9,7 @@ import CompanyUsers from './pages/CompanyUsers';
 import TicketTracker from './pages/TicketTracker';
 import MyTickets from './pages/MyTickets';
 import CustomerTicketDetail from './pages/CustomerTicketDetail';
+import TicketShortcut from './pages/TicketShortcut';
 import ProfilePage from './pages/ProfilePage';
 import WizardContainer from './pages/TicketWizard/WizardContainer';
 import ReleaseNotes from './pages/ReleaseNotes';
@@ -64,6 +65,7 @@ export default function App() {
         <Route path="/my-tickets" element={<MyTickets />} />
         <Route path="/my-tickets/:id" element={<CustomerTicketDetail />} />
         <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/:ticketNumber" element={<TicketShortcut />} />
       </Route>
 
       {/* Admin Pages — separate layout with sidebar */}
