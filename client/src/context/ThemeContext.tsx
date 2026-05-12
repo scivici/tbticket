@@ -1,34 +1,51 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 
-type Theme = 'light' | 'dark';
+export type ThemeMode = 'light' | 'dark' | 'system';
 
 interface ThemeContextType {
-  theme: Theme;
-  toggleTheme: () => void;
+  mode: ThemeMode;
+  setMode: (mode: ThemeMode) => void;
   isDark: boolean;
 }
 
 const ThemeContext = createContext<ThemeContextType | null>(null);
 
+const STORAGE_KEY = 'tb-theme';
+
+function getSystemPref(): 'light' | 'dark' {
+  if (typeof window === 'undefined' || !window.matchMedia) return 'dark';
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+function readStoredMode(): ThemeMode {
+  const saved = localStorage.getItem(STORAGE_KEY);
+  if (saved === 'light' || saved === 'dark' || saved === 'system') return saved;
+  return 'dark';
+}
+
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>(() => {
-    const saved = localStorage.getItem('tb-theme');
-    return (saved === 'light' || saved === 'dark') ? saved : 'dark';
-  });
+  const [mode, setModeState] = useState<ThemeMode>(readStoredMode);
+  const [systemPref, setSystemPref] = useState<'light' | 'dark'>(getSystemPref);
 
   useEffect(() => {
-    localStorage.setItem('tb-theme', theme);
-    if (theme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [theme]);
+    if (!window.matchMedia) return;
+    const mql = window.matchMedia('(prefers-color-scheme: dark)');
+    const handler = (e: MediaQueryListEvent) => setSystemPref(e.matches ? 'dark' : 'light');
+    mql.addEventListener('change', handler);
+    return () => mql.removeEventListener('change', handler);
+  }, []);
 
-  const toggleTheme = () => setTheme(t => t === 'dark' ? 'light' : 'dark');
+  const isDark = mode === 'system' ? systemPref === 'dark' : mode === 'dark';
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, mode);
+    document.documentElement.classList.toggle('dark', isDark);
+  }, [mode, isDark]);
+
+  const setMode = (next: ThemeMode) => setModeState(next);
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme, isDark: theme === 'dark' }}>
+    <ThemeContext.Provider value={{ mode, setMode, isDark }}>
       {children}
     </ThemeContext.Provider>
   );
