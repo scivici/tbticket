@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Send, Ticket, Shield, Zap } from 'lucide-react';
+import { Send, Ticket, Search, Shield, Zap } from 'lucide-react';
 
 export default function HomePage() {
   return (
