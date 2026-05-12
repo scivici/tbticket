@@ -18,23 +18,27 @@ export async function createProduct(req: Request, res: Response): Promise<void> 
 }
 
 export async function updateProduct(req: Request, res: Response): Promise<void> {
-  const { id } = req.params;
-  const { name, model, description, imageUrl, requiredFields } = req.body;
+  try {
+    const { id } = req.params;
+    const { name, model, description, imageUrl } = req.body;
 
-  const existing = await queryOne<any>('SELECT id FROM products WHERE id = ?', [id]);
-  if (!existing) {
-    res.status(404).json({ error: 'Product not found' });
-    return;
+    const existing = await queryOne<any>('SELECT id FROM products WHERE id = ?', [id]);
+    if (!existing) {
+      res.status(404).json({ error: 'Product not found' });
+      return;
+    }
+
+    await query(`
+      UPDATE products SET name = COALESCE(?, name), model = COALESCE(?, model),
+      description = COALESCE(?, description), image_url = COALESCE(?, image_url)
+      WHERE id = ?
+    `, [name, model, description, imageUrl, id]);
+
+    res.json({ message: 'Product updated' });
+  } catch (error: any) {
+    console.error('[Admin] Update product error:', error.message);
+    res.status(500).json({ error: error.message || 'Failed to update product' });
   }
-
-  await query(`
-    UPDATE products SET name = COALESCE(?, name), model = COALESCE(?, model),
-    description = COALESCE(?, description), image_url = COALESCE(?, image_url),
-    required_fields = COALESCE(?, required_fields)
-    WHERE id = ?
-  `, [name, model, description, imageUrl, requiredFields ? JSON.stringify(requiredFields) : null, id]);
-
-  res.json({ message: 'Product updated' });
 }
 
 export async function deleteProduct(req: Request, res: Response): Promise<void> {
