@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Send, Search, Shield, Zap } from 'lucide-react';
+import { Send, Ticket, Shield, Zap } from 'lucide-react';
 
 export default function HomePage() {
   return (
@@ -20,9 +20,9 @@ export default function HomePage() {
             <Send className="w-5 h-5 mr-2" />
             Submit a Ticket
           </Link>
-          <Link to="/track" className="inline-flex items-center px-6 py-3 bg-white dark:bg-tb-card text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-lg font-medium hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
-            <Search className="w-5 h-5 mr-2" />
-            Track a Ticket
+          <Link to="/my-tickets" className="inline-flex items-center px-6 py-3 bg-white dark:bg-tb-card text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-lg font-medium hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
+            <Ticket className="w-5 h-5 mr-2" />
+            My Tickets
           </Link>
         </div>
       </section>
