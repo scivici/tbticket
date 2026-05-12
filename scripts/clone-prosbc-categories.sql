@@ -1,4 +1,4 @@
--- One-shot: clone categories + questions from ProSBC into Tmedia Gateways and Tsig Gateways.
+-- One-shot: clone categories + questions from ProSBC into the Tmedia/Tsig gateway product.
 --
 -- Safe to re-run: each target is skipped if it already has at least one
 -- non-deleted category, so this won't create duplicates.
@@ -12,7 +12,7 @@
 DO $$
 DECLARE
   source_name CONSTANT TEXT   := 'ProSBC';
-  targets     CONSTANT TEXT[] := ARRAY['Tmedia Gateways', 'Tsig Gateways'];
+  targets     CONSTANT TEXT[] := ARRAY['Tmedia/Tsig Gateways'];
 
   src_id      INT;
   tgt_id      INT;
