@@ -135,7 +135,7 @@ export default function CustomerTicketDetail() {
   if (error || !ticket) return <div className="text-center py-12 text-red-400">{error || 'Ticket not found'}</div>;
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
+    <div className="space-y-6 max-w-7xl mx-auto">
       <Link to="/my-tickets" className="inline-flex items-center gap-2 text-accent-blue hover:underline text-sm">
         <ArrowLeft className="w-4 h-4" />
         Back to My Tickets
@@ -152,8 +152,8 @@ export default function CustomerTicketDetail() {
         </div>
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
+      <div className="grid lg:grid-cols-4 gap-6">
+        <div className="lg:col-span-3 space-y-6">
           <div className="tb-card p-6">
             <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Description</h3>
             <p className="text-gray-600 dark:text-gray-300 whitespace-pre-wrap">{ticket.description}</p>
