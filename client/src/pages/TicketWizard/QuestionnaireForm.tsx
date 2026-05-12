@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { products as productsApi, settings as settingsApi } from '../../api/client';
 import { WizardData } from './WizardContainer';
 import { Key, AlertTriangle, ExternalLink, Loader2, Info } from 'lucide-react';
+import FileUploadSection from './FileUploadSection';
 
 interface Props {
   data: WizardData;
@@ -48,6 +49,7 @@ export default function QuestionnaireForm({ data, onUpdate, onNext, onPrev }: Pr
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [licenseChecking, setLicenseChecking] = useState(false);
   const [licenseError, setLicenseError] = useState<{ message: string; redirectUrl?: string } | null>(null);
+  const [showNoFilesWarning, setShowNoFilesWarning] = useState(false);
 
   const keyConfig = getProductKeyConfig(data.product);
 
@@ -113,6 +115,13 @@ export default function QuestionnaireForm({ data, onUpdate, onNext, onPrev }: Pr
       setLicenseChecking(false);
     }
 
+    // Warn once if no files attached
+    if (data.files.length === 0 && !showNoFilesWarning) {
+      setShowNoFilesWarning(true);
+      onUpdate({ subject, description, productKey, answers, questions });
+      return;
+    }
+
     onUpdate({ subject, description, productKey, answers, questions });
     onNext();
   };
@@ -175,6 +184,31 @@ export default function QuestionnaireForm({ data, onUpdate, onNext, onPrev }: Pr
           {errors[`q_${q.id}`] && <p className="text-red-400 text-xs mt-1">{errors[`q_${q.id}`]}</p>}
         </div>
       ))}
+
+      <hr className="border-gray-200 dark:border-gray-700" />
+
+      {/* File attachments — embedded in this step */}
+      <FileUploadSection
+        files={data.files}
+        onChange={(files) => onUpdate({ files })}
+        productName={data.product?.name || ''}
+      />
+
+      {/* Warning when no files attached */}
+      {showNoFilesWarning && data.files.length === 0 && (
+        <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-700 rounded-lg">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="w-5 h-5 text-yellow-500 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">No files attached</p>
+              <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-1">
+                Attaching log files (tbreport, pcap, screenshots) significantly speeds up issue resolution.
+                Click <strong>Next</strong> again to continue without attaching any files.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* License/Support error */}
       {licenseError && (

@@ -3,14 +3,12 @@ import Stepper from '../../components/Stepper';
 import ProductSelect from './ProductSelect';
 import CategorySelect from './CategorySelect';
 import QuestionnaireForm from './QuestionnaireForm';
-import FileUpload from './FileUpload';
 import ReviewSubmit from './ReviewSubmit';
 
 const steps = [
   { label: 'Product' },
   { label: 'Category' },
   { label: 'Details' },
-  { label: 'Files' },
   { label: 'Review' },
 ];
 
@@ -49,8 +47,7 @@ export default function WizardContainer() {
         {currentStep === 0 && <ProductSelect data={data} onUpdate={update} onNext={next} />}
         {currentStep === 1 && <CategorySelect data={data} onUpdate={update} onNext={next} onPrev={prev} />}
         {currentStep === 2 && <QuestionnaireForm data={data} onUpdate={update} onNext={next} onPrev={prev} />}
-        {currentStep === 3 && <FileUpload data={data} onUpdate={update} onNext={next} onPrev={prev} />}
-        {currentStep === 4 && <ReviewSubmit data={data} onUpdate={update} onPrev={prev} />}
+        {currentStep === 3 && <ReviewSubmit data={data} onUpdate={update} onPrev={prev} />}
       </div>
     </div>
   );
