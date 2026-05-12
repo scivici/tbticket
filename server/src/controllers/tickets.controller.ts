@@ -813,15 +813,43 @@ export async function addResponse(req: AuthenticatedRequest, res: Response): Pro
     // Log activity
     await activityService.logActivity(ticketId, req.user!.userId, authorName, internal ? 'internal_note' : 'response', 'Added response');
 
-    if (authorRole === 'admin' && !internal) {
+    // Fetch CC list once for any email below
+    const ccRows = !internal
+      ? await queryAll<{ email: string }>('SELECT email FROM ticket_cc WHERE ticket_id = ?', [ticketId])
+      : [];
+    const ccEmails = ccRows.map(r => r.email).filter(Boolean);
+
+    if ((authorRole === 'admin' || authorRole === 'engineer') && !internal) {
+      // Admin/engineer replied → notify customer (+ CC)
       await notificationService.createNotification(
         ticket.customerId, ticketId, 'response',
         'New response on your ticket',
         `An engineer responded to ticket ${ticket.ticketNumber}`
       );
+      const customerEmail = ticket.customer.email.toLowerCase();
+      const cc = ccEmails.filter(e => e.toLowerCase() !== customerEmail);
       emailService.sendTicketResponseEmail(
-        ticket.customer.email, ticket.ticketNumber, authorName, message.trim()
+        ticket.customer.email, ticket.ticketNumber, authorName, message.trim(), cc,
       ).catch(() => {});
+    } else if (authorRole === 'customer' && !internal) {
+      // Customer replied → notify assigned engineer (+ CC)
+      const engineerEmail = ticket.assignedEngineer?.email;
+      const customerEmail = ticket.customer.email.toLowerCase();
+      const ccForEngineer = ccEmails.filter(e => {
+        const lower = e.toLowerCase();
+        return lower !== customerEmail && lower !== (engineerEmail || '').toLowerCase();
+      });
+      if (engineerEmail) {
+        emailService.sendTicketResponseEmail(
+          engineerEmail, ticket.ticketNumber, authorName, message.trim(), ccForEngineer,
+        ).catch(() => {});
+      } else if (ccForEngineer.length > 0) {
+        // No engineer assigned yet but CC list exists — send to first CC, rest as cc
+        const [primary, ...rest] = ccForEngineer;
+        emailService.sendTicketResponseEmail(
+          primary, ticket.ticketNumber, authorName, message.trim(), rest,
+        ).catch(() => {});
+      }
     }
 
     // Handle @mentions - notify mentioned engineers/admins

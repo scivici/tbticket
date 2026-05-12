@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { tickets as ticketsApi } from '../api/client';
 import { StatusBadge, PriorityBadge } from '../components/StatusBadge';
 import { useAuth } from '../context/AuthContext';
-import { MessageSquare, Send, Clock, FileText, ArrowLeft, Star, Upload, Paperclip, Trash2, X, Image as ImageIcon } from 'lucide-react';
+import { MessageSquare, Send, Clock, FileText, ArrowLeft, Star, Upload, Paperclip, Trash2, X, Image as ImageIcon, Users, Plus } from 'lucide-react';
 import ChatWidget from '../components/ChatWidget';
 
 export default function CustomerTicketDetail() {
@@ -17,6 +17,40 @@ export default function CustomerTicketDetail() {
   const [error, setError] = useState('');
   const [uploadingFiles, setUploadingFiles] = useState(false);
   const [pastedImages, setPastedImages] = useState<File[]>([]);
+
+  // CC users
+  const [ccUsers, setCcUsers] = useState<any[]>([]);
+  const [newCcEmail, setNewCcEmail] = useState('');
+  const [ccError, setCcError] = useState('');
+
+  const loadCcUsers = (ticketId: number) => {
+    ticketsApi.getCcUsers(ticketId).then(setCcUsers).catch(() => setCcUsers([]));
+  };
+
+  const handleAddCc = async () => {
+    if (!ticket || !newCcEmail.trim()) return;
+    const email = newCcEmail.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setCcError('Please enter a valid email address');
+      return;
+    }
+    setCcError('');
+    try {
+      await ticketsApi.addCcUser(ticket.id, email);
+      setNewCcEmail('');
+      loadCcUsers(ticket.id);
+    } catch (err: any) {
+      setCcError(err?.message || 'Failed to add CC');
+    }
+  };
+
+  const handleRemoveCc = async (email: string) => {
+    if (!ticket) return;
+    try {
+      await ticketsApi.removeCcUser(ticket.id, email);
+      loadCcUsers(ticket.id);
+    } catch (err) { console.error(err); }
+  };
 
   // Satisfaction
   const [satisfaction, setSatisfaction] = useState<any>(null);
@@ -59,6 +93,7 @@ export default function CustomerTicketDetail() {
     getTicket
       .then((t: any) => {
         setTicket(t);
+        loadCcUsers(t.id);
         return ticketsApi.getResponses(t.id);
       })
       .then((r: any) => setResponses(r))
@@ -351,6 +386,51 @@ export default function CustomerTicketDetail() {
                 <div><p className="text-gray-500">Resolved</p><p className="font-medium text-gray-700 dark:text-gray-200">{new Date(ticket.resolvedAt).toLocaleString()}</p></div>
               )}
             </div>
+          </div>
+
+          {/* CC Users Card */}
+          <div className="tb-card p-6">
+            <div className="flex items-center gap-2 mb-2">
+              <Users className="w-4 h-4 text-accent-blue" />
+              <h3 className="font-semibold text-gray-900 dark:text-white">CC</h3>
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+              Add email addresses to receive all replies on this ticket.
+            </p>
+            <div className="space-y-1.5 mb-3">
+              {ccUsers.length === 0 ? (
+                <p className="text-sm text-gray-500 dark:text-gray-400">No CC addresses</p>
+              ) : (
+                ccUsers.map((cc: any) => (
+                  <div key={cc.id} className="flex items-center justify-between text-xs">
+                    <span className="text-gray-700 dark:text-gray-200 truncate" title={cc.email}>{cc.name || cc.email}</span>
+                    <button onClick={() => handleRemoveCc(cc.email)}
+                      className="text-gray-400 hover:text-red-400 ml-1" title="Remove">
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="email"
+                value={newCcEmail}
+                onChange={e => { setNewCcEmail(e.target.value); if (ccError) setCcError(''); }}
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddCc(); } }}
+                placeholder="Add CC email..."
+                className="tb-input flex-1 text-sm"
+              />
+              <button
+                onClick={handleAddCc}
+                disabled={!newCcEmail.trim()}
+                className="p-2 text-accent-blue hover:bg-accent-blue/10 rounded-lg disabled:opacity-50 transition-colors"
+                title="Add CC"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            </div>
+            {ccError && <p className="text-red-400 text-xs mt-1.5">{ccError}</p>}
           </div>
         </div>
       </div>

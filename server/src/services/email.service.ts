@@ -160,15 +160,27 @@ function emailTemplate(title: string, body: string, ticketNumber?: string): stri
 // Public email functions
 // ---------------------------------------------------------------------------
 
-export async function sendEmail(to: string, subject: string, html: string): Promise<boolean> {
+export async function sendEmail(
+  to: string,
+  subject: string,
+  html: string,
+  cc?: string[],
+): Promise<boolean> {
   const t = await getTransporter();
   if (!t) {
     log.info('SMTP not configured, skipping email', { to });
     return false;
   }
   try {
-    await t.sendMail({ from: await getFromAddress(), to, subject, html });
-    log.info('Email sent', { to, subject });
+    const ccList = cc && cc.length ? cc.filter(Boolean) : undefined;
+    await t.sendMail({
+      from: await getFromAddress(),
+      to,
+      cc: ccList,
+      subject,
+      html,
+    });
+    log.info('Email sent', { to, cc: ccList, subject });
     return true;
   } catch (error) {
     log.error('Failed to send email', { to, error: (error as Error).message });
@@ -222,7 +234,13 @@ export function sendTicketCreatedEmail(email: string, ticketNumber: string, subj
   );
 }
 
-export function sendTicketResponseEmail(email: string, ticketNumber: string, authorName: string, message: string) {
+export function sendTicketResponseEmail(
+  email: string,
+  ticketNumber: string,
+  authorName: string,
+  message: string,
+  cc?: string[],
+) {
   const formattedMessage = formatMessageToHtml(message);
 
   const body = `
@@ -245,6 +263,7 @@ export function sendTicketResponseEmail(email: string, ticketNumber: string, aut
     email,
     `[${ticketNumber}] New Response — ${authorName}`,
     emailTemplate('New Response on Your Ticket', body, ticketNumber),
+    cc,
   );
 }
 
