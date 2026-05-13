@@ -1094,53 +1094,69 @@ export default function TicketDetail() {
         {/* Sidebar */}
         <div className="space-y-4">
           <div className="tb-card p-6">
-            <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Details</h3>
-            <div className="space-y-3 text-sm">
-              <div><p className="text-gray-500">Product</p><p className="font-medium text-gray-700 dark:text-gray-200">{ticket.product.name} ({ticket.product.model})</p></div>
-              <div><p className="text-gray-500">Category</p><p className="font-medium text-gray-700 dark:text-gray-200">{ticket.category.name}</p></div>
-              {ticket.customer.company && (
-                <div><p className="text-gray-500">Company</p><p className="font-medium text-gray-700 dark:text-gray-200">{ticket.customer.company}</p></div>
+            <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Actions</h3>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Change Status</label>
+                <select value={ticket.status} onChange={e => handleStatusChange(e.target.value)} disabled={!!actionLoading} className="tb-select w-full">
+                  {['new', 'analyzing', 'assigned', 'in_progress', 'waiting_for_customer', 'escalated_to_jira', 'resolved', 'closed'].map(s => (
+                    <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Change Priority</label>
+                <select value={ticket.priority} onChange={e => handlePriorityChange(e.target.value)} disabled={!!actionLoading} className="tb-select w-full">
+                  {['low', 'medium', 'high', 'critical'].map(p => (
+                    <option key={p} value={p}>{p}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Assign Support Specialist</label>
+                <select value={ticket.assignedEngineerId || ''} onChange={e => handleAssign(parseInt(e.target.value))} disabled={!!actionLoading} className="tb-select w-full">
+                  <option value="">Select support specialist...</option>
+                  {engineers.map((e: any) => <option key={e.id} value={e.id}>{e.name} ({e.currentWorkload}/{e.maxWorkload})</option>)}
+                </select>
+              </div>
+              <button onClick={() => { setAnalyzePrompt(''); setShowAnalyzeModal(true); }} disabled={!!actionLoading}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-purple-500/20 text-purple-300 rounded-lg text-sm font-medium hover:bg-purple-500/30 disabled:opacity-50 transition-colors">
+                <RefreshCw className={`w-4 h-4 ${actionLoading === 'analyze' ? 'animate-spin' : ''}`} />
+                {actionLoading === 'analyze' ? 'AI Analyzing...' : 'Re-analyze with AI'}
+              </button>
+              {ticket.status !== 'escalated_to_jira' && (
+                <button onClick={() => {
+                  setShowJiraModal(true);
+                  setJiraFormNotes('');
+                  setJiraFormLabels([]);
+                  setJiraFormAccount(null);
+                  setJiraFormVersion('');
+                  setJiraLabelSearch('');
+                  setJiraAccountSearch('');
+                  setJiraVersionSearch('');
+                  if (!jiraMetadata) {
+                    setJiraMetaLoading(true);
+                    settingsApi.getJiraMetadata(ticket.assignedEngineerId || undefined)
+                      .then(setJiraMetadata)
+                      .catch(() => toast.error('Failed to load Jira metadata'))
+                      .finally(() => setJiraMetaLoading(false));
+                  }
+                }} disabled={!!actionLoading}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-orange-500/20 text-orange-400 rounded-lg text-sm font-medium hover:bg-orange-500/30 disabled:opacity-50 transition-colors">
+                  <ExternalLink className="w-4 h-4" />
+                  Escalate to Jira
+                </button>
               )}
-              <div><p className="text-gray-500">Contact Person</p><p className="font-medium text-gray-700 dark:text-gray-200">{ticket.customer.name}</p><p className="text-xs text-gray-500">{ticket.customer.email}</p></div>
-              <div><p className="text-gray-500">Assigned Support Specialist</p><p className="font-medium text-gray-700 dark:text-gray-200">{ticket.assignedEngineer?.name || 'Unassigned'}</p></div>
-              <div><p className="text-gray-500">Created</p><p className="font-medium text-gray-700 dark:text-gray-200">{new Date(ticket.createdAt).toLocaleString()}</p></div>
-              {ticket.resolvedAt && (
-                <div><p className="text-gray-500">Resolved</p><p className="font-medium text-gray-700 dark:text-gray-200">{new Date(ticket.resolvedAt).toLocaleString()}</p></div>
-              )}
-              {/* Time since last response */}
-              {responses.length > 0 && (
-                <>
-                  <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
-                    <p className="text-gray-500">Last Response</p>
-                    <p className="font-medium text-gray-700 dark:text-gray-200">
-                      {timeAgo(responses[responses.length - 1].created_at)}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      by {responses[responses.length - 1].author_name} ({responses[responses.length - 1].author_role})
-                    </p>
-                  </div>
-                  {(() => {
-                    const lastCustomerResponse = [...responses].reverse().find((r: any) => r.author_role === 'customer');
-                    const lastAdminResponse = [...responses].reverse().find((r: any) => r.author_role === 'admin' && !r.is_internal);
-                    return (
-                      <>
-                        {lastCustomerResponse && (
-                          <div>
-                            <p className="text-gray-500">Last Customer Reply</p>
-                            <p className="font-medium text-gray-700 dark:text-gray-200">{timeAgo(lastCustomerResponse.created_at)}</p>
-                          </div>
-                        )}
-                        {lastAdminResponse && (
-                          <div>
-                            <p className="text-gray-500">Last Admin Reply</p>
-                            <p className="font-medium text-gray-700 dark:text-gray-200">{timeAgo(lastAdminResponse.created_at)}</p>
-                          </div>
-                        )}
-                      </>
-                    );
-                  })()}
-                </>
-              )}
+              <button onClick={() => { setMergeSourceInput(''); setShowMergeModal(true); }} disabled={!!actionLoading}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-cyan-500/20 text-cyan-400 rounded-lg text-sm font-medium hover:bg-cyan-500/30 disabled:opacity-50 transition-colors">
+                <Merge className="w-4 h-4" />
+                Merge Ticket
+              </button>
+              <button onClick={handleDelete} disabled={!!actionLoading}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-500/20 text-red-500 rounded-lg text-sm font-medium hover:bg-red-500/30 disabled:opacity-50 transition-colors">
+                <Trash2 className="w-4 h-4" />
+                Delete Ticket
+              </button>
             </div>
           </div>
 
@@ -1380,69 +1396,53 @@ export default function TicketDetail() {
           </div>
 
           <div className="tb-card p-6">
-            <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Actions</h3>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Change Status</label>
-                <select value={ticket.status} onChange={e => handleStatusChange(e.target.value)} disabled={!!actionLoading} className="tb-select w-full">
-                  {['new', 'analyzing', 'assigned', 'in_progress', 'waiting_for_customer', 'escalated_to_jira', 'resolved', 'closed'].map(s => (
-                    <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Change Priority</label>
-                <select value={ticket.priority} onChange={e => handlePriorityChange(e.target.value)} disabled={!!actionLoading} className="tb-select w-full">
-                  {['low', 'medium', 'high', 'critical'].map(p => (
-                    <option key={p} value={p}>{p}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Assign Support Specialist</label>
-                <select value={ticket.assignedEngineerId || ''} onChange={e => handleAssign(parseInt(e.target.value))} disabled={!!actionLoading} className="tb-select w-full">
-                  <option value="">Select support specialist...</option>
-                  {engineers.map((e: any) => <option key={e.id} value={e.id}>{e.name} ({e.currentWorkload}/{e.maxWorkload})</option>)}
-                </select>
-              </div>
-              <button onClick={() => { setAnalyzePrompt(''); setShowAnalyzeModal(true); }} disabled={!!actionLoading}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-purple-500/20 text-purple-300 rounded-lg text-sm font-medium hover:bg-purple-500/30 disabled:opacity-50 transition-colors">
-                <RefreshCw className={`w-4 h-4 ${actionLoading === 'analyze' ? 'animate-spin' : ''}`} />
-                {actionLoading === 'analyze' ? 'AI Analyzing...' : 'Re-analyze with AI'}
-              </button>
-              {ticket.status !== 'escalated_to_jira' && (
-                <button onClick={() => {
-                  setShowJiraModal(true);
-                  setJiraFormNotes('');
-                  setJiraFormLabels([]);
-                  setJiraFormAccount(null);
-                  setJiraFormVersion('');
-                  setJiraLabelSearch('');
-                  setJiraAccountSearch('');
-                  setJiraVersionSearch('');
-                  if (!jiraMetadata) {
-                    setJiraMetaLoading(true);
-                    settingsApi.getJiraMetadata(ticket.assignedEngineerId || undefined)
-                      .then(setJiraMetadata)
-                      .catch(() => toast.error('Failed to load Jira metadata'))
-                      .finally(() => setJiraMetaLoading(false));
-                  }
-                }} disabled={!!actionLoading}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-orange-500/20 text-orange-400 rounded-lg text-sm font-medium hover:bg-orange-500/30 disabled:opacity-50 transition-colors">
-                  <ExternalLink className="w-4 h-4" />
-                  Escalate to Jira
-                </button>
+            <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Details</h3>
+            <div className="space-y-3 text-sm">
+              <div><p className="text-gray-500">Product</p><p className="font-medium text-gray-700 dark:text-gray-200">{ticket.product.name} ({ticket.product.model})</p></div>
+              <div><p className="text-gray-500">Category</p><p className="font-medium text-gray-700 dark:text-gray-200">{ticket.category.name}</p></div>
+              {ticket.customer.company && (
+                <div><p className="text-gray-500">Company</p><p className="font-medium text-gray-700 dark:text-gray-200">{ticket.customer.company}</p></div>
               )}
-              <button onClick={() => { setMergeSourceInput(''); setShowMergeModal(true); }} disabled={!!actionLoading}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-cyan-500/20 text-cyan-400 rounded-lg text-sm font-medium hover:bg-cyan-500/30 disabled:opacity-50 transition-colors">
-                <Merge className="w-4 h-4" />
-                Merge Ticket
-              </button>
-              <button onClick={handleDelete} disabled={!!actionLoading}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-500/20 text-red-500 rounded-lg text-sm font-medium hover:bg-red-500/30 disabled:opacity-50 transition-colors">
-                <Trash2 className="w-4 h-4" />
-                Delete Ticket
-              </button>
+              <div><p className="text-gray-500">Contact Person</p><p className="font-medium text-gray-700 dark:text-gray-200">{ticket.customer.name}</p><p className="text-xs text-gray-500">{ticket.customer.email}</p></div>
+              <div><p className="text-gray-500">Assigned Support Specialist</p><p className="font-medium text-gray-700 dark:text-gray-200">{ticket.assignedEngineer?.name || 'Unassigned'}</p></div>
+              <div><p className="text-gray-500">Created</p><p className="font-medium text-gray-700 dark:text-gray-200">{new Date(ticket.createdAt).toLocaleString()}</p></div>
+              {ticket.resolvedAt && (
+                <div><p className="text-gray-500">Resolved</p><p className="font-medium text-gray-700 dark:text-gray-200">{new Date(ticket.resolvedAt).toLocaleString()}</p></div>
+              )}
+              {/* Time since last response */}
+              {responses.length > 0 && (
+                <>
+                  <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+                    <p className="text-gray-500">Last Response</p>
+                    <p className="font-medium text-gray-700 dark:text-gray-200">
+                      {timeAgo(responses[responses.length - 1].created_at)}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      by {responses[responses.length - 1].author_name} ({responses[responses.length - 1].author_role})
+                    </p>
+                  </div>
+                  {(() => {
+                    const lastCustomerResponse = [...responses].reverse().find((r: any) => r.author_role === 'customer');
+                    const lastAdminResponse = [...responses].reverse().find((r: any) => r.author_role === 'admin' && !r.is_internal);
+                    return (
+                      <>
+                        {lastCustomerResponse && (
+                          <div>
+                            <p className="text-gray-500">Last Customer Reply</p>
+                            <p className="font-medium text-gray-700 dark:text-gray-200">{timeAgo(lastCustomerResponse.created_at)}</p>
+                          </div>
+                        )}
+                        {lastAdminResponse && (
+                          <div>
+                            <p className="text-gray-500">Last Admin Reply</p>
+                            <p className="font-medium text-gray-700 dark:text-gray-200">{timeAgo(lastAdminResponse.created_at)}</p>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
+                </>
+              )}
             </div>
           </div>
 
