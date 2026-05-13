@@ -126,6 +126,17 @@ function getSectionTheme(title: string) {
   return DEFAULT_THEME;
 }
 
+// AI markdown often uses single newlines to separate distinct points; markdown
+// collapses those into one paragraph. Force every non-blank newline outside
+// fenced code blocks to be a paragraph break so each point stands alone.
+function preprocessAiMarkdown(md: string): string {
+  if (!md) return md;
+  const parts = md.split(/(```[\s\S]*?```)/);
+  return parts
+    .map((part, i) => (i % 2 === 1 ? part : part.replace(/(?<!\n)\n(?!\n)/g, '\n\n')))
+    .join('');
+}
+
 const reportProseClasses = `prose prose-sm dark:prose-invert max-w-none
   prose-headings:text-gray-900 dark:prose-headings:text-white prose-headings:text-sm prose-headings:mt-4 prose-headings:mb-2
   prose-p:text-gray-700 dark:prose-p:text-gray-300 prose-p:leading-relaxed prose-p:my-3
@@ -148,7 +159,7 @@ function ReportSectionCard({ section }: { section: ReportSection }) {
         <h3 className={`text-sm font-bold uppercase tracking-wider ${theme.titleColor} m-0`}>{section.title}</h3>
       </div>
       <div className={`px-5 py-4 overflow-x-auto ${reportProseClasses}`}>
-        <ReactMarkdown>{section.content}</ReactMarkdown>
+        <ReactMarkdown>{preprocessAiMarkdown(section.content)}</ReactMarkdown>
       </div>
     </div>
   );
@@ -160,7 +171,7 @@ function FullReportCategorized({ report }: { report: string }) {
   if (sections.length === 0) {
     return (
       <div className={`mt-3 p-5 bg-white dark:bg-[#1e1e1e] border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm overflow-x-auto ${reportProseClasses}`}>
-        <ReactMarkdown>{report}</ReactMarkdown>
+        <ReactMarkdown>{preprocessAiMarkdown(report)}</ReactMarkdown>
       </div>
     );
   }
@@ -169,7 +180,7 @@ function FullReportCategorized({ report }: { report: string }) {
     <div className="mt-3 space-y-4">
       {preamble && (
         <div className={`p-5 bg-white dark:bg-[#1e1e1e] border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm overflow-x-auto ${reportProseClasses}`}>
-          <ReactMarkdown>{preamble}</ReactMarkdown>
+          <ReactMarkdown>{preprocessAiMarkdown(preamble)}</ReactMarkdown>
         </div>
       )}
       {sections.map((section, i) => (
@@ -928,7 +939,7 @@ export default function TicketDetail() {
                       {prev.rootCauseHypothesis && (
                         <div>
                           <p className="text-[0.7rem] uppercase tracking-wider text-purple-600 dark:text-purple-400 font-bold mb-1.5">Root Cause</p>
-                          <div className={reportProseClasses}><ReactMarkdown>{prev.rootCauseHypothesis}</ReactMarkdown></div>
+                          <div className={reportProseClasses}><ReactMarkdown>{preprocessAiMarkdown(prev.rootCauseHypothesis)}</ReactMarkdown></div>
                         </div>
                       )}
                       {prev.fullReport && (
