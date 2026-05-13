@@ -565,22 +565,28 @@ export default function TicketDetail() {
               <p className="text-gray-500 dark:text-gray-400 text-sm">No responses yet.</p>
             ) : (
               <div className="space-y-4">
-                {responses.map((r: any) => (
+                {responses.map((r: any) => {
+                  const isAI = r.author_id === 0 || ['Support System', 'System', 'Claude AI'].includes(r.author_name);
+                  return (
                   <div key={r.id} id={`response-${r.id}`} className={`p-4 rounded-lg scroll-mt-20 ${
                     r.is_internal
                       ? 'border-2 border-dashed border-yellow-500/30 bg-yellow-50 dark:bg-yellow-900/10'
-                      : r.author_role === 'admin'
-                        ? 'border-l-4 border-blue-500 bg-blue-50 dark:bg-blue-900/10'
-                        : 'border-l-4 border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50'
+                      : isAI
+                        ? 'border-l-4 border-purple-500 bg-purple-50 dark:bg-purple-900/10'
+                        : r.author_role === 'admin'
+                          ? 'border-l-4 border-blue-500 bg-blue-50 dark:bg-blue-900/10'
+                          : 'border-l-4 border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50'
                   }`}>
                     <div className="flex items-center gap-2 mb-2">
                       <span className="font-medium text-gray-900 dark:text-white text-sm">{r.author_name}</span>
-                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                        r.author_role === 'admin'
-                          ? 'bg-status-role-bg text-white'
-                          : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300'
+                      <span className={`flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${
+                        isAI
+                          ? 'bg-purple-200 dark:bg-purple-900/50 text-purple-800 dark:text-purple-300'
+                          : r.author_role === 'admin'
+                            ? 'bg-status-role-bg text-white'
+                            : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300'
                       }`}>
-                        {r.author_role === 'admin' ? 'Admin' : 'Customer'}
+                        {isAI ? <><Sparkles className="w-3 h-3" /> AI</> : r.author_role === 'admin' ? 'Admin' : 'Customer'}
                       </span>
                       {r.is_internal ? (
                         <span className="flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-yellow-200 dark:bg-yellow-800 text-yellow-800 dark:text-yellow-200">
@@ -600,7 +606,8 @@ export default function TicketDetail() {
                     </div>
                     <p className="text-gray-700 dark:text-gray-300 text-sm whitespace-pre-wrap">{r.message}</p>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 
@@ -862,25 +869,14 @@ export default function TicketDetail() {
                   </span>
                 </div>
 
-                {/* Meta grid */}
-                <div className="px-6 py-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <div className="bg-gray-50 dark:bg-gray-800/40 border border-gray-200 dark:border-gray-700 rounded-xl p-3">
-                    <p className="text-[0.7rem] uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-0.5">Classification</p>
-                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 leading-snug">{aiAnalysis.classification}</p>
+                {/* Recommended Specialist (only field not already shown above) */}
+                {aiAnalysis.recommendedEngineerName && (
+                  <div className="px-6 py-3 flex items-center gap-2 text-sm">
+                    <UserCheck className="w-4 h-4 text-gray-400" />
+                    <span className="text-gray-500 dark:text-gray-400">Recommended Specialist:</span>
+                    <span className="font-semibold text-gray-800 dark:text-gray-200">{aiAnalysis.recommendedEngineerName}</span>
                   </div>
-                  <div className="bg-gray-50 dark:bg-gray-800/40 border border-gray-200 dark:border-gray-700 rounded-xl p-3">
-                    <p className="text-[0.7rem] uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-0.5">Severity</p>
-                    <PriorityBadge priority={aiAnalysis.severity} />
-                  </div>
-                  <div className="bg-gray-50 dark:bg-gray-800/40 border border-gray-200 dark:border-gray-700 rounded-xl p-3">
-                    <p className="text-[0.7rem] uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-0.5">Recommended Specialist</p>
-                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">{aiAnalysis.recommendedEngineerName}</p>
-                  </div>
-                  <div className="bg-gray-50 dark:bg-gray-800/40 border border-gray-200 dark:border-gray-700 rounded-xl p-3">
-                    <p className="text-[0.7rem] uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-0.5">Complexity</p>
-                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 capitalize">{aiAnalysis.estimatedComplexity}</p>
-                  </div>
-                </div>
+                )}
               </div>
 
               {/* ── Full Technical Report (always visible, categorized cards) ── */}
@@ -905,25 +901,38 @@ export default function TicketDetail() {
 
           {/* Previous AI Analyses */}
           {ticket.aiAnalysisHistory?.length > 0 && (
-            <details className="tb-card border-gray-500/20 p-6">
-              <summary className="cursor-pointer flex items-center gap-2 text-sm font-semibold text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
+            <details className="tb-card border-purple-500/20 p-5">
+              <summary className="cursor-pointer flex items-center gap-2 text-sm font-semibold text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300">
                 <Clock className="w-4 h-4" />
                 <span>Previous AI Analyses ({ticket.aiAnalysisHistory.length})</span>
               </summary>
-              <div className="mt-4 space-y-3">
+              <div className="mt-4 space-y-2">
                 {[...ticket.aiAnalysisHistory].reverse().map((prev: any, i: number) => (
-                  <details key={i} className="p-4 bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 rounded-lg">
-                    <summary className="cursor-pointer text-sm text-gray-600 dark:text-gray-300">
-                      <span className="font-medium">{prev.classification || 'Analysis'}</span>
-                      {prev.archivedAt && <span className="text-xs text-gray-400 ml-2">{new Date(prev.archivedAt).toLocaleString()}</span>}
-                      {prev.confidence && <span className="text-xs text-gray-400 ml-2">({(prev.confidence * 100).toFixed(0)}%)</span>}
+                  <details key={i} className="border border-purple-200/40 dark:border-purple-900/30 rounded-lg overflow-hidden">
+                    <summary className="cursor-pointer flex items-center gap-2 px-3 py-2 bg-purple-50/40 dark:bg-purple-900/10 hover:bg-purple-50 dark:hover:bg-purple-900/20 text-sm">
+                      <Sparkles className="w-3.5 h-3.5 text-purple-500" />
+                      <span className="font-medium text-gray-800 dark:text-gray-200 truncate flex-1 min-w-0">{prev.classification || 'Analysis'}</span>
+                      {prev.confidence != null && (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 flex-shrink-0">
+                          {(prev.confidence * 100).toFixed(0)}%
+                        </span>
+                      )}
+                      {prev.archivedAt && (
+                        <span className="text-xs text-gray-400 flex-shrink-0">{timeAgo(prev.archivedAt)}</span>
+                      )}
                     </summary>
-                    <div className="mt-3 space-y-2 text-sm">
+                    <div className="p-4 space-y-3 text-sm bg-white dark:bg-[#1a1a1a] border-t border-purple-200/40 dark:border-purple-900/30">
                       {prev.rootCauseHypothesis && (
-                        <div><p className="text-xs text-gray-500 font-semibold mb-1">Root Cause</p><div className="prose prose-sm dark:prose-invert max-w-none"><ReactMarkdown>{prev.rootCauseHypothesis}</ReactMarkdown></div></div>
+                        <div>
+                          <p className="text-[0.7rem] uppercase tracking-wider text-purple-600 dark:text-purple-400 font-bold mb-1.5">Root Cause</p>
+                          <div className={reportProseClasses}><ReactMarkdown>{prev.rootCauseHypothesis}</ReactMarkdown></div>
+                        </div>
                       )}
                       {prev.fullReport && (
-                        <div><p className="text-xs text-gray-500 font-semibold mb-1">Full Report</p><div className="prose prose-sm dark:prose-invert max-w-none"><ReactMarkdown>{prev.fullReport}</ReactMarkdown></div></div>
+                        <div>
+                          <p className="text-[0.7rem] uppercase tracking-wider text-purple-600 dark:text-purple-400 font-bold mb-1.5">Full Report</p>
+                          <FullReportCategorized report={prev.fullReport} />
+                        </div>
                       )}
                     </div>
                   </details>
