@@ -384,27 +384,27 @@ export default function TicketList() {
       {loading ? (
         <div className="text-center py-12 text-gray-500">Loading...</div>
       ) : (
-        <div className="tb-card overflow-hidden">
+        <div className="tb-card overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead className="bg-black/5 dark:bg-white/5">
               <tr>
-                <th className="px-4 py-3 text-left">
+                <th className="px-3 py-3 text-left">
                   <input type="checkbox"
                     checked={data?.tickets?.length > 0 && selected.size === data.tickets.length}
                     onChange={toggleSelectAll}
                     className="rounded border-gray-300 dark:border-gray-600 text-accent-blue focus:ring-accent-blue"
                   />
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Ticket</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Subject</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Customer</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Product</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Priority</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Support Specialist</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">AI</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Created</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase whitespace-nowrap">Ticket</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase whitespace-nowrap">Subject</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase whitespace-nowrap">Customer</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase whitespace-nowrap">Product</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase whitespace-nowrap">Status</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase whitespace-nowrap">Priority</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase whitespace-nowrap">Support Specialist</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase whitespace-nowrap">AI</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase whitespace-nowrap">Created</th>
+                <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase whitespace-nowrap">Actions</th>
               </tr>
               {/* Per-column filters */}
               <tr className="bg-black/5 dark:bg-white/[0.02]">
@@ -501,22 +501,22 @@ export default function TicketList() {
                 <tr><td colSpan={11} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">No tickets found matching your filters.</td></tr>
               ) : data?.tickets?.map((t: any) => (
                 <tr key={t.id} className={`hover:bg-black/5 dark:hover:bg-white/5 ${selected.has(t.id) ? 'bg-accent-blue/5' : ''}`}>
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-3">
                     <input type="checkbox"
                       checked={selected.has(t.id)}
                       onChange={() => toggleSelect(t.id)}
                       className="rounded border-gray-300 dark:border-gray-600 text-accent-blue focus:ring-accent-blue"
                     />
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-3 whitespace-nowrap">
                     <Link to={`/admin/tickets/${t.id}`} className="text-sm font-mono text-accent-blue hover:underline">{t.ticketNumber}</Link>
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-200 max-w-xs truncate">{t.subject}</td>
-                  <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+                  <td className="px-3 py-3 text-sm text-gray-700 dark:text-gray-200 max-w-[260px] truncate" title={t.subject}>{t.subject}</td>
+                  <td className="px-3 py-3 text-sm text-gray-500 dark:text-gray-400">
                     <div className="truncate max-w-[120px]" title={`${t.customerName} (${t.customerEmail})`}>{t.customerName}</div>
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{t.productName}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-3 text-sm text-gray-500 dark:text-gray-400">{t.productName}</td>
+                  <td className="px-3 py-3">
                     <select
                       value={t.status}
                       onChange={e => handleQuickStatus(t.id, e.target.value)}
@@ -528,29 +528,29 @@ export default function TicketList() {
                       ))}
                     </select>
                   </td>
-                  <td className="px-4 py-3"><PriorityBadge priority={t.priority} /></td>
-                  <td className="px-4 py-3 text-sm">
+                  <td className="px-3 py-3"><PriorityBadge priority={t.priority} /></td>
+                  <td className="px-3 py-3 text-sm">
                     <select
                       value={t.engineerId || ''}
                       onChange={e => handleQuickAssign(t.id, e.target.value)}
                       className="bg-transparent border-0 text-sm text-gray-700 dark:text-gray-200 cursor-pointer hover:text-accent-blue focus:ring-1 focus:ring-accent-blue rounded px-1 py-0.5 max-w-[140px]"
                       title="Click to assign"
                     >
-                      <option value="" className="bg-white text-gray-500">\u2014 Unassigned \u2014</option>
+                      <option value="" className="bg-white text-gray-500">{'\u2014 Unassigned'}</option>
                       {engineers.map((e: any) => (
                         <option key={e.id} value={e.id} className="bg-white text-gray-900">{e.name}</option>
                       ))}
                     </select>
                   </td>
-                  <td className="px-4 py-3 text-sm">
+                  <td className="px-3 py-3 text-sm">
                     {t.aiConfidence != null ? (
                       <span className={`font-medium ${t.aiConfidence >= 0.7 ? 'text-accent-green' : 'text-accent-amber'}`}>
                         {(t.aiConfidence * 100).toFixed(0)}%
                       </span>
                     ) : '\u2014'}
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-500">{new Date(t.createdAt).toLocaleDateString()}</td>
-                  <td className="px-4 py-3 text-right">
+                  <td className="px-3 py-3 text-sm text-gray-500 whitespace-nowrap">{new Date(t.createdAt).toLocaleDateString()}</td>
+                  <td className="px-3 py-3 text-right">
                     <button onClick={() => handleDelete(t.id, t.ticketNumber)} title="Delete ticket"
                       className="p-1.5 text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors">
                       <Trash2 className="w-4 h-4" />
