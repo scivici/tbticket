@@ -127,12 +127,15 @@ function getSectionTheme(title: string) {
 }
 
 const reportProseClasses = `prose prose-sm dark:prose-invert max-w-none
-  prose-headings:text-gray-900 dark:prose-headings:text-white prose-headings:text-sm prose-headings:mt-3 prose-headings:mb-1
-  prose-p:text-gray-700 dark:prose-p:text-gray-300 prose-p:leading-relaxed
+  prose-headings:text-gray-900 dark:prose-headings:text-white prose-headings:text-sm prose-headings:mt-4 prose-headings:mb-2
+  prose-p:text-gray-700 dark:prose-p:text-gray-300 prose-p:leading-relaxed prose-p:my-3
   prose-strong:text-gray-800 dark:prose-strong:text-gray-200
-  prose-code:bg-gray-200 dark:prose-code:bg-gray-700 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-xs prose-code:font-mono
+  prose-code:bg-purple-50 dark:prose-code:bg-purple-950/40 prose-code:text-purple-700 dark:prose-code:text-purple-300
+  prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:font-mono prose-code:text-[0.85em] prose-code:font-normal prose-code:break-words
+  prose-code:before:content-none prose-code:after:content-none
   prose-pre:bg-[#0f172a] prose-pre:text-gray-100 prose-pre:rounded-xl prose-pre:p-4
-  prose-li:text-gray-700 dark:prose-li:text-gray-300 prose-li:leading-relaxed
+  prose-li:text-gray-700 dark:prose-li:text-gray-300 prose-li:leading-relaxed prose-li:my-1
+  prose-ul:my-3 prose-ol:my-3
   prose-table:border-collapse prose-th:border prose-th:border-gray-300 dark:prose-th:border-gray-600 prose-th:px-3 prose-th:py-1.5 prose-th:bg-gray-100 dark:prose-th:bg-gray-800 prose-th:text-left prose-th:text-xs prose-th:uppercase prose-th:tracking-wide
   prose-td:border prose-td:border-gray-300 dark:prose-td:border-gray-600 prose-td:px-3 prose-td:py-1.5`;
 
