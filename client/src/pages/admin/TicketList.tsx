@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { tickets as ticketsApi, engineers as engineersApi, products as productsApi, admin } from '../../api/client';
-import { StatusBadge, PriorityBadge } from '../../components/StatusBadge';
+import { PriorityBadge, statusColors } from '../../components/StatusBadge';
 import { RefreshCw, Download, Trash2, CheckSquare, Search, Filter, X } from 'lucide-react';
 import Pagination from '../../components/Pagination';
 
@@ -108,6 +108,21 @@ export default function TicketList() {
       load();
     } catch (err) { console.error(err); }
     setActionLoading(false);
+  };
+
+  const handleQuickStatus = async (id: number, status: string) => {
+    try {
+      await ticketsApi.updateStatus(id, status);
+      load();
+    } catch (err) { console.error(err); }
+  };
+
+  const handleQuickAssign = async (id: number, engineerId: string) => {
+    if (!engineerId) return;
+    try {
+      await ticketsApi.assign(id, parseInt(engineerId));
+      load();
+    } catch (err) { console.error(err); }
   };
 
   const handleDelete = async (id: number, ticketNumber: string) => {
@@ -391,6 +406,95 @@ export default function TicketList() {
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Created</th>
                 <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
               </tr>
+              {/* Per-column filters */}
+              <tr className="bg-black/5 dark:bg-white/[0.02]">
+                <th className="px-2 py-2"></th>
+                <th className="px-2 py-2">
+                  <input
+                    type="text"
+                    value={searchText}
+                    onChange={e => setSearchText(e.target.value)}
+                    placeholder="#"
+                    className="tb-input w-full text-xs py-1 px-2"
+                    title="Searches ticket #, subject, description, AI, responses"
+                  />
+                </th>
+                <th className="px-2 py-2">
+                  <input
+                    type="text"
+                    value={searchText}
+                    onChange={e => setSearchText(e.target.value)}
+                    placeholder="Subject..."
+                    className="tb-input w-full text-xs py-1 px-2"
+                  />
+                </th>
+                <th className="px-2 py-2">
+                  <input
+                    type="text"
+                    value={customerSearch}
+                    onChange={e => setCustomerSearch(e.target.value)}
+                    placeholder="Customer..."
+                    className="tb-input w-full text-xs py-1 px-2"
+                  />
+                </th>
+                <th className="px-2 py-2">
+                  <select
+                    value={filters.productId || ''}
+                    onChange={e => setFilters(f => ({ ...f, productId: e.target.value }))}
+                    className="tb-select w-full text-xs py-1 px-1"
+                  >
+                    <option value="">All</option>
+                    {productsList.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                </th>
+                <th className="px-2 py-2">
+                  <select
+                    value={filters.status || ''}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setFilters(f => {
+                        const { status, excludeStatus, ...rest } = f;
+                        return val ? { ...rest, status: val } : rest;
+                      });
+                    }}
+                    className="tb-select w-full text-xs py-1 px-1"
+                  >
+                    <option value="">All</option>
+                    {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>)}
+                  </select>
+                </th>
+                <th className="px-2 py-2">
+                  <select
+                    value={filters.priority || ''}
+                    onChange={e => setFilters(f => ({ ...f, priority: e.target.value }))}
+                    className="tb-select w-full text-xs py-1 px-1"
+                  >
+                    <option value="">All</option>
+                    {['low', 'medium', 'high', 'critical'].map(p => <option key={p} value={p}>{p}</option>)}
+                  </select>
+                </th>
+                <th className="px-2 py-2">
+                  <select
+                    value={filters.engineerId || ''}
+                    onChange={e => setFilters(f => ({ ...f, engineerId: e.target.value }))}
+                    className="tb-select w-full text-xs py-1 px-1"
+                  >
+                    <option value="">All</option>
+                    {engineers.map((e: any) => <option key={e.id} value={e.id}>{e.name}</option>)}
+                  </select>
+                </th>
+                <th className="px-2 py-2"></th>
+                <th className="px-2 py-2">
+                  <input
+                    type="date"
+                    value={filters.fromDate || ''}
+                    onChange={e => setFilters(f => ({ ...f, fromDate: e.target.value }))}
+                    className="tb-input w-full text-xs py-1 px-1"
+                    title="From date"
+                  />
+                </th>
+                <th className="px-2 py-2"></th>
+              </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
               {data?.tickets?.length === 0 ? (
@@ -412,9 +516,32 @@ export default function TicketList() {
                     <div className="truncate max-w-[120px]" title={`${t.customerName} (${t.customerEmail})`}>{t.customerName}</div>
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{t.productName}</td>
-                  <td className="px-4 py-3"><StatusBadge status={t.status} /></td>
+                  <td className="px-4 py-3">
+                    <select
+                      value={t.status}
+                      onChange={e => handleQuickStatus(t.id, e.target.value)}
+                      className={`text-xs font-medium px-2 py-0.5 rounded-full border-0 cursor-pointer focus:ring-2 focus:ring-accent-blue ${statusColors[t.status] || 'bg-gray-200 text-gray-700'}`}
+                      title="Click to change status"
+                    >
+                      {STATUS_OPTIONS.map(s => (
+                        <option key={s} value={s} className="bg-white text-gray-900">{s.replace(/_/g, ' ')}</option>
+                      ))}
+                    </select>
+                  </td>
                   <td className="px-4 py-3"><PriorityBadge priority={t.priority} /></td>
-                  <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{t.engineerName || '\u2014'}</td>
+                  <td className="px-4 py-3 text-sm">
+                    <select
+                      value={t.engineerId || ''}
+                      onChange={e => handleQuickAssign(t.id, e.target.value)}
+                      className="bg-transparent border-0 text-sm text-gray-700 dark:text-gray-200 cursor-pointer hover:text-accent-blue focus:ring-1 focus:ring-accent-blue rounded px-1 py-0.5 max-w-[140px]"
+                      title="Click to assign"
+                    >
+                      <option value="" className="bg-white text-gray-500">\u2014 Unassigned \u2014</option>
+                      {engineers.map((e: any) => (
+                        <option key={e.id} value={e.id} className="bg-white text-gray-900">{e.name}</option>
+                      ))}
+                    </select>
+                  </td>
                   <td className="px-4 py-3 text-sm">
                     {t.aiConfidence != null ? (
                       <span className={`font-medium ${t.aiConfidence >= 0.7 ? 'text-accent-green' : 'text-accent-amber'}`}>

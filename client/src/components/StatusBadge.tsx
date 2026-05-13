@@ -1,6 +1,6 @@
 import React from 'react';
 
-const statusColors: Record<string, string> = {
+export const statusColors: Record<string, string> = {
   new: 'bg-status-info-bg text-status-info-text',
   analyzing: 'bg-purple-200 text-purple-800',
   assigned: 'bg-status-warn-bg text-status-warn-text',
@@ -11,7 +11,7 @@ const statusColors: Record<string, string> = {
   closed: 'bg-gray-300 text-gray-600',
 };
 
-const priorityColors: Record<string, string> = {
+export const priorityColors: Record<string, string> = {
   low: 'bg-gray-200 text-gray-700',
   medium: 'bg-status-info-bg text-status-info-text',
   high: 'bg-status-warn-bg text-status-warn-text',

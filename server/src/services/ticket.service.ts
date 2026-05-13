@@ -248,6 +248,7 @@ export async function listTickets(filters: {
       priority: t.priority,
       productName: t.product_name,
       categoryName: t.category_name,
+      engineerId: t.assigned_engineer_id,
       engineerName: t.engineer_name,
       customerEmail: t.customer_email,
       customerName: t.customer_name,
